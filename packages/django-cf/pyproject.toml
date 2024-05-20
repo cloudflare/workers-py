@@ -1,0 +1,28 @@
+[project]
+name = "django-d1db"
+version = "0.0.3"
+authors = [
+  { name="Gabriel Massadas" },
+]
+description = "Django backend for Cloudflare D1"
+readme = "README.md"
+requires-python = ">=3.10"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Framework :: Django",
+    "Framework :: Django :: 5.0",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12"
+]
+
+[project.urls]
+"Bug Reports" = "https://github.com/G4brym/django-d1/issues"
+"Source" = "https://github.com/G4brym/django-d1"
+
+[tool.setuptools]
+packages = ["django_d1"]
