@@ -16,5 +16,19 @@ class DatabaseFeatures(SQLiteDatabaseFeatures):
     order_by_nulls_first = True
     create_test_procedure_without_params_sql = None
     create_test_procedure_with_int_param_sql = None
+    supports_aggregate_filter_clause = True
+    can_defer_constraint_checks = False
+    supports_pragma_foreign_key_check = False
+    can_alter_table_rename_column = False
+    can_clone_databases = False
+    can_rollback_ddl = False
+    supports_atomic_references_rename = False
+    supports_forward_references = False
+    supports_transactions = False
+    has_bulk_insert = True
+    #supports_select_union = False
+    #supports_select_intersection = False
+    #supports_select_difference = False
+    can_return_columns_from_insert = True
 
-    minimum_database_version = (1,)
+    minimum_database_version = (4,)

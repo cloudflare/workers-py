@@ -99,8 +99,7 @@ class D1Database:
     def rollback(self):
         return  # No commits allowed
 
-    def get_query(self):
-        query = self.query
+    def process_query(self, query):
         query = query.replace('%s', '?')
 
         if self._defer_foreign_keys:
@@ -115,12 +114,14 @@ class D1Database:
         return query
 
     @retry(times=3, exceptions=(InternalError,))
-    def run_query(self):
+    def run_query(self, query, params=None):
+        proc_query = self.process_query(query)
+
         conn = http.client.HTTPSConnection("api.cloudflare.com", timeout=20.0)
 
         payload = {
-            "params": self.params,
-            "sql": self.get_query()
+            "params": params,
+            "sql": proc_query
         }
 
         headers = {
@@ -163,10 +164,7 @@ class D1Database:
     params = None
 
     def execute(self, query, params=None):
-        self.query = query
-        self.params = params
-
-        self.results = self.run_query()
+        self.results = self.run_query(query, params)
 
         return self
 

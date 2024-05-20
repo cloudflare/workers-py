@@ -23,10 +23,10 @@ class DatabaseWrapper(SQLiteDatabaseWrapper):
     introspection_class = DatabaseIntrospection
     ops_class = DatabaseOperations
 
-    transaction_modes = frozenset(["IMMEDIATE"])
+    transaction_modes = frozenset([])
 
     def get_database_version(self):
-        return (1,)
+        return (4,)
 
     def get_connection_params(self):
         settings_dict = self.settings_dict
