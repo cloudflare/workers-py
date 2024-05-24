@@ -1,4 +1,3 @@
-from urllib import request
 import json
 import http.client
 
@@ -33,6 +32,7 @@ def retry(times, exceptions):
 
 class D1Result:
     lastrowid = None
+    rowcount = -1
 
     def __init__(self, data):
         self.data = data
@@ -42,6 +42,9 @@ class D1Result:
 
     def set_lastrowid(self, value):
         self.lastrowid = value
+
+    def set_rowcount(self, value):
+        self.rowcount = value
 
     @staticmethod
     def from_dict(data):
@@ -79,10 +82,17 @@ class D1Database:
     Error = Error
 
     lastrowid = None
+
     def set_lastrowid(self, value):
         self.lastrowid = value
 
+    rowcount = None
+
+    def set_rowcount(self, value):
+        self.rowcount = value
+
     _defer_foreign_keys = False
+
     def defer_foreign_keys(self, state):
         _defer_foreign_keys = state
 
@@ -154,9 +164,15 @@ class D1Database:
 
         result = D1Result.from_dict(query_result["results"])
 
-        if query_result["meta"] and query_result["meta"]["last_row_id"]:
-            result.set_lastrowid = query_result["meta"]["last_row_id"]
-            self.set_lastrowid = query_result["meta"]["last_row_id"]
+        meta = query_result.get("meta")
+        if query_result["meta"]:
+            if meta["last_row_id"]:
+                result.set_lastrowid(meta["last_row_id"])
+                self.set_lastrowid(meta["last_row_id"])
+
+            if meta["rows_read"] or meta["rows_written"]:
+                result.set_rowcount(meta.get("rows_read", 0) + meta.get("rows_read", 0))
+                self.set_rowcount(meta.get("rows_read", 0) + meta.get("rows_read", 0))
 
         return result
 
