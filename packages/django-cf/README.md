@@ -25,6 +25,8 @@ DATABASES = {
 
 The Cloudflare token requires D1 Edit permissions.
 
+A simple tutorial is [available here](https://massadas.com/posts/django-meets-cloudflare-d1/) for you to read.
+
 
 ## Limitations
 
