@@ -180,6 +180,18 @@ class D1Database:
     params = None
 
     def execute(self, query, params=None):
+        if params:
+            newParams = []
+            for v in list(params):
+                if v is True:
+                    v = 1
+                elif v is False:
+                    v = 0
+
+                newParams.append(v)
+
+            params = tuple(newParams)
+
         self.results = self.run_query(query, params)
 
         return self
