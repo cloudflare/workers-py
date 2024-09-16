@@ -1,8 +1,11 @@
 [project]
 name = "django-d1db"
-version = "0.0.7"
+version = "0.0.8"
 authors = [
   { name="Gabriel Massadas" },
+]
+dependencies = [
+  'websocket-client',
 ]
 description = "Django backend for Cloudflare D1"
 readme = "README.md"
@@ -25,4 +28,4 @@ classifiers = [
 "Source" = "https://github.com/G4brym/django-d1"
 
 [tool.setuptools]
-packages = ["django_d1"]
+packages = ["django_d1", "django_dbms"]
