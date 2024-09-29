@@ -1,18 +1,19 @@
 import datetime
-
-from django.db import IntegrityError, DatabaseError
-from django.db.backends.sqlite3.base import DatabaseWrapper as SQLiteDatabaseWrapper
-from django.db.backends.sqlite3.features import DatabaseFeatures as SQLiteDatabaseFeatures
-from django.db.backends.sqlite3.operations import DatabaseOperations as SQLiteDatabaseOperations
-from django.db.backends.sqlite3.schema import DatabaseSchemaEditor as SQLiteDatabaseSchemaEditor
-from django.db.backends.sqlite3.client import DatabaseClient as SQLiteDatabaseClient
-from django.db.backends.sqlite3.creation import DatabaseCreation as SQLiteDatabaseCreation
-from django.db.backends.sqlite3.introspection import DatabaseIntrospection as SQLiteDatabaseIntrospection
-
-import websocket  # Using websocket-client library for synchronous operations
 import json
 
+import sqlparse
+import websocket  # Using websocket-client library for synchronous operations
+from django.db import IntegrityError, DatabaseError
+from django.db.backends.sqlite3.base import DatabaseWrapper as SQLiteDatabaseWrapper
+from django.db.backends.sqlite3.client import DatabaseClient as SQLiteDatabaseClient
+from django.db.backends.sqlite3.creation import DatabaseCreation as SQLiteDatabaseCreation
+from django.db.backends.sqlite3.features import DatabaseFeatures as SQLiteDatabaseFeatures
+from django.db.backends.sqlite3.introspection import DatabaseIntrospection as SQLiteDatabaseIntrospection
+from django.db.backends.sqlite3.operations import DatabaseOperations as SQLiteDatabaseOperations
+from django.db.backends.sqlite3.schema import DatabaseSchemaEditor as SQLiteDatabaseSchemaEditor
 from django.utils import timezone
+from sqlparse.sql import IdentifierList, Identifier
+from sqlparse.tokens import DML
 
 
 class DatabaseFeatures(SQLiteDatabaseFeatures):
@@ -27,32 +28,62 @@ class DatabaseOperations(SQLiteDatabaseOperations):
         """
         Ensure column names are properly quoted and aliased to avoid collisions.
         """
-        # Split the SQL to find the SELECT and FROM clauses
-        select_start = sql.lower().find('select')
-        from_start = sql.lower().find('from')
+        parsed = sqlparse.parse(sql)
+        if not parsed:
+            return sql  # Unable to parse, return original SQL
 
-        if select_start == -1 or from_start == -1:
-            return sql  # Not a SELECT query, skip processing
+        stmt = parsed[0]
+        new_tokens = []
+        select_seen = False
 
-        # Extract the columns between SELECT and FROM
-        columns_section = sql[select_start + len('select'):from_start].strip()
-        columns = columns_section.split(',')
-
-        # Quote and alias columns
-        aliased_columns = []
-        for column in columns:
-            column = column.strip()
-
-            if '.' in column:  # It's a "table.column" format
-                table, col = column.split('.')
-                aliased_columns.append((f'{self.quote_name(table)}.{self.quote_name(col)} AS {table}_{col}').replace('"', ''))
+        for token in stmt.tokens:
+            if token.ttype is DML and token.value.upper() == 'SELECT':
+                select_seen = True
+                new_tokens.append(token)
+            elif select_seen:
+                if isinstance(token, IdentifierList):
+                    # Process each identifier in the SELECT clause
+                    new_identifiers = []
+                    for identifier in token.get_identifiers():
+                        new_identifiers.append(self._process_identifier(identifier))
+                    # Rebuild the IdentifierList
+                    new_token = IdentifierList(new_identifiers)
+                    new_tokens.append(new_token)
+                elif isinstance(token, Identifier):
+                    # Single column without commas
+                    new_token = self._process_identifier(token)
+                    new_tokens.append(new_token)
+                else:
+                    new_tokens.append(token)
+                select_seen = False  # Assuming SELECT clause is only once
             else:
-                aliased_columns.append(column)
+                new_tokens.append(token)
 
-        # Rebuild the SQL with quoted and aliased columns
-        new_columns_section = ', '.join(aliased_columns)
-        new_sql = f'SELECT {new_columns_section} {sql[from_start:]}'
+        # Reconstruct the SQL statement
+        new_sql = ''.join(str(token) for token in new_tokens)
         return new_sql
+
+    def _process_identifier(self, identifier):
+        # Get the real name and alias if present
+        real_name = identifier.get_real_name()
+        alias = identifier.get_alias()
+        parent_name = identifier.get_parent_name()
+
+        if real_name:
+            if parent_name:
+                # Format: table.column
+                table = self.quote_name(parent_name)
+                column = self.quote_name(real_name)
+                new_alias = f"{parent_name}_{real_name}"
+                return f"{table}.{column} AS {new_alias}"
+            else:
+                # Simple column
+                column = self.quote_name(real_name)
+                new_alias = real_name
+                return f"{column} AS {new_alias}"
+        else:
+            # Complex expression (e.g., functions), return as is
+            return str(identifier)
 
     def _format_params(self, sql, params):
         def quote_param(param):
@@ -94,7 +125,6 @@ class DatabaseOperations(SQLiteDatabaseOperations):
                 continue  # Try the next format if parsing fails
 
         return value  # If it's not a datetime string, return the original value
-
 
     def _convert_results(self, results):
         """
@@ -244,7 +274,6 @@ class DatabaseOperations(SQLiteDatabaseOperations):
         return "VALUES " + values_sql
 
 
-
 class DatabaseWrapper(SQLiteDatabaseWrapper):
     vendor = 'websocket'
 
@@ -281,7 +310,8 @@ class DatabaseWrapper(SQLiteDatabaseWrapper):
                 header=headers
             )
         except Exception as e:
-            raise ValueError("Unable to connect to websocket, please check your credentials and make sure you have websockets enabled in your domain")
+            raise ValueError(
+                "Unable to connect to websocket, please check your credentials and make sure you have websockets enabled in your domain")
 
         return self._websocket
 

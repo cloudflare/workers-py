@@ -1,13 +1,14 @@
 [project]
-name = "django-d1db"
-version = "0.0.10"
+name = "django-cf"
+version = "0.0.11"
 authors = [
   { name="Gabriel Massadas" },
 ]
 dependencies = [
   'websocket-client',
+  'sqlparse',
 ]
-description = "Django backend for Cloudflare D1"
+description = "Django backend for Cloudflare D1 and Durable Objects"
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
@@ -24,8 +25,8 @@ classifiers = [
 ]
 
 [project.urls]
-"Bug Reports" = "https://github.com/G4brym/django-d1/issues"
-"Source" = "https://github.com/G4brym/django-d1"
+"Bug Reports" = "https://github.com/G4brym/django-cf/issues"
+"Source" = "https://github.com/G4brym/django-cf"
 
 [tool.setuptools]
 packages = ["django_d1", "django_dbms"]
