@@ -16,7 +16,7 @@ from django.utils import timezone
 
 
 class DatabaseFeatures(SQLiteDatabaseFeatures):
-    supports_transactions = False
+    supports_transactions = True
     supports_savepoints = False
 
 
@@ -275,10 +275,14 @@ class DatabaseWrapper(SQLiteDatabaseWrapper):
                 f"CF-Access-Client-Secret: {conn_params['access_secret']}"
             ]
 
-        self._websocket = websocket.create_connection(
-            url=conn_params['endpoint_url'],
-            header=headers
-        )
+        try:
+            self._websocket = websocket.create_connection(
+                url=conn_params['endpoint_url'],
+                header=headers
+            )
+        except Exception as e:
+            raise ValueError("Unable to connect to websocket, please check your credentials and make sure you have websockets enabled in your domain")
+
         return self._websocket
 
     def init_connection_state(self):
@@ -298,13 +302,23 @@ class DatabaseWrapper(SQLiteDatabaseWrapper):
     def _savepoint_allowed(self):
         return False
 
-    def _set_autocommit(self, commit):
-        return
+    # def _set_autocommit(self, commit):
+    #     return
+    #
+    # def set_autocommit(
+    #         self, autocommit, force_begin_transaction_with_broken_autocommit=False
+    # ):
+    #     return
 
-    def set_autocommit(
-            self, autocommit, force_begin_transaction_with_broken_autocommit=False
-    ):
-        return
+    def _commit(self):
+        if self.connection is not None:
+            with self.wrap_database_errors:
+                self.ops.raw_query(self._websocket, "commit")
+
+    def _rollback(self):
+        if self.connection is not None:
+            with self.wrap_database_errors:
+                self.ops.raw_query(self._websocket, "rollback")
 
 
 class WebSocketCursor:
