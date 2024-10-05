@@ -374,10 +374,15 @@ class WebSocketCursor:
 
         self.results = result
 
+        # Update rowcount based on the operation type
         if meta:
-            self.rowcount = (meta.get("rows_written", 0) + meta.get("rows_read", 0))
-            # self.rowcount = (meta.get("rows_read", 0))
-            # self.rowcount = 0
+            if "INSERT" in sql.upper():
+                self.rowcount = meta.get("rows_written", 0)
+                # self.connection.ops.last_insert_id = meta.get("last_insert_id")  # TODO: implement last insert id
+            elif "UPDATE" in sql.upper() or "DELETE" in sql.upper():
+                self.rowcount = meta.get("rows_written", 0)
+            else:
+                self.rowcount = meta.get("rows_read", 0)
 
         return self
 
