@@ -92,7 +92,7 @@ class DatabaseOperations(SQLiteDatabaseOperations):
             if isinstance(param, datetime.datetime):
                 return f'{param.strftime("%Y-%m-%d %H:%M:%S")}'
             elif param is None:
-                return 'NULL'
+                return None
             elif param is True:
                 return 1
             elif param is False:
@@ -177,12 +177,17 @@ class DatabaseOperations(SQLiteDatabaseOperations):
                 }
             }
         }))
-        # print(sql)
-        # print(params)
+
+        if self.connection.debug is True:
+            print(sql)
+            print(params)
+
         response = websocket.recv()
         parsed_response = json.loads(response)
-        # print(parsed_response)
-        # print('---')
+
+        if self.connection.debug is True:
+            print(parsed_response)
+            print('---')
 
         if parsed_response["type"] == "response_error":
             if "unique constraint failed" in parsed_response["error"].lower():
@@ -276,6 +281,7 @@ class DatabaseOperations(SQLiteDatabaseOperations):
 
 class DatabaseWrapper(SQLiteDatabaseWrapper):
     vendor = 'websocket'
+    debug = False
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -294,10 +300,14 @@ class DatabaseWrapper(SQLiteDatabaseWrapper):
             'endpoint_url': settings_dict['WORKERS_DBMS_ENDPOINT'],
             'access_id': settings_dict.get('WORKERS_DBMS_ACCESS_ID'),
             'access_secret': settings_dict.get('WORKERS_DBMS_ACCESS_SECRET'),
+            'debug': settings_dict.get('WORKERS_DBMS_DEBUG'),
         }
 
     def get_new_connection(self, conn_params):
         headers = []
+        if conn_params['debug']:
+            self.debug = conn_params['debug'] is True
+
         if conn_params['access_id'] and conn_params['access_secret']:
             headers = [
                 f"CF-Access-Client-Id: {conn_params['access_id']}",
@@ -332,23 +342,20 @@ class DatabaseWrapper(SQLiteDatabaseWrapper):
     def _savepoint_allowed(self):
         return False
 
-    # def _set_autocommit(self, commit):
-    #     return
-    #
-    # def set_autocommit(
-    #         self, autocommit, force_begin_transaction_with_broken_autocommit=False
-    # ):
-    #     return
+    def _start_transaction_under_autocommit(self):
+        if self.connection is not None:
+            with self.wrap_database_errors:
+                self.ops.raw_query(self._websocket, "begin;")
 
     def _commit(self):
         if self.connection is not None:
             with self.wrap_database_errors:
-                self.ops.raw_query(self._websocket, "commit")
+                self.ops.raw_query(self._websocket, "commit;")
 
     def _rollback(self):
         if self.connection is not None:
             with self.wrap_database_errors:
-                self.ops.raw_query(self._websocket, "rollback")
+                self.ops.raw_query(self._websocket, "rollback;")
 
 
 class WebSocketCursor:
