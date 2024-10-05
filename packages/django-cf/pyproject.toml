@@ -1,6 +1,6 @@
 [project]
 name = "django-cf"
-version = "0.0.12"
+version = "0.0.13"
 authors = [
   { name="Gabriel Massadas" },
 ]
