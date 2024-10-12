@@ -20,6 +20,7 @@ class DatabaseFeatures(SQLiteDatabaseFeatures):
     can_defer_constraint_checks = False
     supports_pragma_foreign_key_check = False
     can_alter_table_rename_column = False
+    max_query_params = 100
     can_clone_databases = False
     can_rollback_ddl = False
     supports_atomic_references_rename = False
