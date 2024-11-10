@@ -27,11 +27,20 @@ class DatabaseFeatures(SQLiteDatabaseFeatures):
 
 class DatabaseOperations(SQLiteDatabaseOperations):
     pragma_foreign_keys = None
+    cast_data_types = {
+        "DateField": "TEXT",
+        "DateTimeField": "TEXT",
+        "PositiveIntegerField": "INTEGER",
+    }
 
     def _quote_columns(self, sql):
         """
         Ensure column names are properly quoted and aliased to avoid collisions.
+        Also handles CAST statements properly for NULL values.
         """
+        # First, fix any problematic CAST statements with None
+        sql = sql.replace('None(', '(')
+
         parsed = sqlparse.parse(sql)
         if not parsed:
             return sql  # Unable to parse, return original SQL
