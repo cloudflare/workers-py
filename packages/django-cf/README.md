@@ -17,6 +17,8 @@ Cloudflare D1 doesn't support transactions, meaning all execute queries are fina
 
 A simple tutorial is [available here](https://massadas.com/posts/django-meets-cloudflare-d1/) for you to read.
 
+**The D1 backend is very limited, a lot of features don't work, Django Admin is also very limited**, but works fine for
+simple apps, as you can make full use of Django ORM inside you views.
 
 ### D1 Binding
 
