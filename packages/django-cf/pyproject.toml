@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools >= 77.0.3"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "django-cf"
 version = "0.1.0"
@@ -7,14 +11,14 @@ authors = [
 dependencies = [
   'sqlparse',
 ]
-description = "Django backend for Cloudflare D1"
+description = "django-cf is a package that integrates Django with Cloudflare products"
 readme = "README.md"
+license = "MIT"
 requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Framework :: Django",
     "Framework :: Django :: 5.0",
-    "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
@@ -24,6 +28,7 @@ classifiers = [
 ]
 
 [project.urls]
+"Homepage" = "https://github.com/G4brym/django-cf"
 "Bug Reports" = "https://github.com/G4brym/django-cf/issues"
 "Source" = "https://github.com/G4brym/django-cf"
 
