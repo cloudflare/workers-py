@@ -45,10 +45,8 @@ class D1Result:
 
 
 class D1Database:
-    def __init__(self, database_id, account_id, token):
-        self.database_id = database_id
-        self.account_id = account_id
-        self.token = token
+    def __init__(self, binding):
+        self.binding = binding
 
     DataError = DataError
 
@@ -81,8 +79,8 @@ class D1Database:
         _defer_foreign_keys = state
 
     @staticmethod
-    def connect(database_id, account_id, token):
-        return D1Database(database_id, account_id, token)
+    def connect(binding):
+        return D1Database(binding)
 
     def cursor(self):
         return self
@@ -121,12 +119,12 @@ class D1Database:
     def run_query(self, query, params=None):
         proc_query, params = self.process_query(query, params)
 
-        print(query)
-        print(params)
+        # print(query)
+        # print(params)
 
         cf_workers = import_from_javascript("cloudflare:workers")
-        # print(dir(cf_workers))
-        db = cf_workers.env.DB
+        # print(dir(cf_workers.env))
+        db = getattr(cf_workers.env, self.binding)
 
         if params:
             stmt = db.prepare(proc_query).bind(*params);
@@ -156,8 +154,8 @@ class D1Database:
         """
         Convert any datetime strings in the result set to actual timezone-aware datetime objects.
         """
-        print('before')
-        print(data)
+        # print('before')
+        # print(data)
         result = []
 
         for row in data:
@@ -169,8 +167,8 @@ class D1Database:
 
             result.append(row_items)
 
-        print('after')
-        print(result)
+        # print('after')
+        # print(result)
         return result
 
     query = None
