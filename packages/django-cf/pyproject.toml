@@ -5,10 +5,9 @@ authors = [
   { name="Gabriel Massadas" },
 ]
 dependencies = [
-  'websocket-client',
   'sqlparse',
 ]
-description = "Django backend for Cloudflare D1 and Durable Objects"
+description = "Django backend for Cloudflare D1"
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
@@ -29,4 +28,4 @@ classifiers = [
 "Source" = "https://github.com/G4brym/django-cf"
 
 [tool.setuptools]
-packages = ["django_d1", "django_dbms"]
+packages = ["django_cf"]

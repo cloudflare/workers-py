@@ -26,29 +26,17 @@ class DatabaseWrapper(SQLiteDatabaseWrapper):
     transaction_modes = frozenset([])
 
     def get_database_version(self):
-        return (4,)
+        return 3, 40, 1
 
     def get_connection_params(self):
         settings_dict = self.settings_dict
-        if not settings_dict["CLOUDFLARE_DATABASE_ID"]:
+        if not settings_dict["BINDING"]:
             raise ImproperlyConfigured(
                 "settings.DATABASES is improperly configured. "
-                "Please supply the CLOUDFLARE_DATABASE_ID value."
-            )
-        if not settings_dict["CLOUDFLARE_ACCOUNT_ID"]:
-            raise ImproperlyConfigured(
-                "settings.DATABASES is improperly configured. "
-                "Please supply the CLOUDFLARE_ACCOUNT_ID value."
-            )
-        if not settings_dict["CLOUDFLARE_TOKEN"]:
-            raise ImproperlyConfigured(
-                "settings.DATABASES is improperly configured. "
-                "Please supply the CLOUDFLARE_TOKEN value."
+                "Please supply the BINDING value."
             )
         kwargs = {
-            "database_id": settings_dict["CLOUDFLARE_DATABASE_ID"],
-            "account_id": settings_dict["CLOUDFLARE_ACCOUNT_ID"],
-            "token": settings_dict["CLOUDFLARE_TOKEN"],
+            "binding": settings_dict["BINDING"],
         }
         return kwargs
 
