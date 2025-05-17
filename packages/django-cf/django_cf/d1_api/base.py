@@ -26,7 +26,7 @@ class DatabaseWrapper(SQLiteDatabaseWrapper):
     transaction_modes = frozenset([])
 
     def get_database_version(self):
-        return 3, 40, 1
+        return (4, )
 
     def get_connection_params(self):
         settings_dict = self.settings_dict
