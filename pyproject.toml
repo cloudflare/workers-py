@@ -1,7 +1,25 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "workers-py"
 version = "0.1.0"
-description = "Add your description here"
+description = "A set of libraries and tools for Python Workers"
 readme = "README.md"
-requires-python = ">=3.12"
-dependencies = []
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "typer>=0.9.0,<1.0.0"
+]
+
+[project.scripts]
+pywrangler = "pywrangler.cli:app"
+
+[project.urls]
+"Homepage" = "https://github.com/cloudflare/workers-py"
+"Bug Tracker" = "https://github.com/cloudflare/workers-py/issues"
