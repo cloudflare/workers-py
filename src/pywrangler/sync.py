@@ -1,7 +1,7 @@
 import logging
 from pathlib import Path
 import os
-from pywrangler.utils import run_command
+from pywrangler.utils import run_command, get_vendor_path_from_wrangler_config
 
 import click
 
@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 PROJECT_ROOT = Path.cwd()  # Assumes script is run from project root
 VENV_WORKERS_PATH = PROJECT_ROOT / ".venv-workers"
 PYODIDE_VENV_PATH = VENV_WORKERS_PATH / "pyodide-venv"
-VENDOR_PATH = PROJECT_ROOT / "src" / "vendor"
 PYPROJECT_TOML_PATH = PROJECT_ROOT / "pyproject.toml"
 GENERATED_REQUIREMENTS_PATH = PYODIDE_VENV_PATH / "temp-requirements.txt"
 
@@ -114,34 +113,45 @@ def generate_requirements():
 
 
 def install_requirements():
+    # Get the vendor path dynamically from wrangler config
+    try:
+        vendor_path_relative = get_vendor_path_from_wrangler_config(PROJECT_ROOT)
+    except Exception as e:
+        logger.error(f"Error getting vendor path: {str(e)}")
+        raise click.exceptions.Exit(code=1)
+
+    # Make vendor_path absolute by joining with PROJECT_ROOT
+    vendor_path = PROJECT_ROOT / vendor_path_relative
+    logger.info(f"Using vendor path: {vendor_path} (determined from wrangler config)")
+
     if (
         not GENERATED_REQUIREMENTS_PATH.is_file()
         or GENERATED_REQUIREMENTS_PATH.stat().st_size == 0
     ):
         logger.warning(
-            f"{GENERATED_REQUIREMENTS_PATH} is empty or was not created. This might mean no dependencies were found. Nothing to install in src/vendor."
+            f"{GENERATED_REQUIREMENTS_PATH} is empty or was not created. This might mean no dependencies were found. Nothing to install in {vendor_path}."
         )
     else:
-        VENDOR_PATH.mkdir(parents=True, exist_ok=True)
+        vendor_path.mkdir(parents=True, exist_ok=True)
         pyodide_venv_pip_path = (
             PYODIDE_VENV_PATH
             / ("Scripts" if os.name == "nt" else "bin")
             / ("pip.exe" if os.name == "nt" else "pip")
         )
         logger.info(
-            f"Installing packages into {VENDOR_PATH} using Pyodide pip ({pyodide_venv_pip_path})..."
+            f"Installing packages into {vendor_path} using Pyodide pip ({pyodide_venv_pip_path})..."
         )
         run_command(
             [
                 str(pyodide_venv_pip_path),
                 "install",
                 "-t",
-                str(VENDOR_PATH),
+                str(vendor_path),
                 "-r",
                 str(GENERATED_REQUIREMENTS_PATH),
             ]
         )
-        logger.info(f"Packages installed in {VENDOR_PATH}.")
+        logger.info(f"Packages installed in {vendor_path}.")
 
     if GENERATED_REQUIREMENTS_PATH.exists():
         GENERATED_REQUIREMENTS_PATH.unlink()
