@@ -14,6 +14,8 @@ from pywrangler.cli import app, sync_command
 # Define test fixtures and constants
 TEST_DIR = Path(__file__).parent / "test_workspace"
 TEST_PYPROJECT = TEST_DIR / "pyproject.toml"
+TEST_WRANGLER_JSONC = TEST_DIR / "wrangler.jsonc"
+TEST_WRANGLER_TOML = TEST_DIR / "wrangler.toml"
 
 @pytest.fixture
 def clean_test_dir():
@@ -49,6 +51,38 @@ dependencies = [
     TEST_PYPROJECT.write_text(content)
     return dependencies
 
+
+def create_test_wrangler_jsonc(main_path="src/worker.py"):
+    """Create a test wrangler.jsonc file with the given main path."""
+    content = f"""
+{{
+    // Name of the worker
+    "name": "test-worker",
+    
+    // Main script to run
+    "main": "{main_path}",
+    
+    // Compatibility date
+    "compatibility_date": "2023-10-30"
+}}
+"""
+    TEST_WRANGLER_JSONC.write_text(content)
+    
+
+def create_test_wrangler_toml(main_path="dist/worker.js"):
+    """Create a test wrangler.toml file with the given main path."""
+    content = f"""
+# Name of the worker
+name = "test-worker-toml"
+
+# Main script to run
+main = "{main_path}"
+
+# Compatibility date
+compatibility_date = "2023-10-30"
+"""
+    TEST_WRANGLER_TOML.write_text(content)
+
 @pytest.mark.parametrize("dependencies", [
     ["click"],  # Simple single dependency
     ["fastapi", "numpy"],
@@ -58,6 +92,9 @@ def test_sync_command_integration(dependencies, clean_test_dir):
     """Test the sync command with real commands running on the system."""
     # Create a test pyproject.toml with dependencies
     test_deps = create_test_pyproject(dependencies)
+    
+    # Create a test wrangler.jsonc file
+    create_test_wrangler_jsonc("src/worker.py")
     
     # Save the current directory
     original_dir = os.getcwd()
@@ -114,6 +151,9 @@ def test_sync_command_handles_missing_pyproject(clean_test_dir, caplog):
     """Test that the sync command correctly handles a missing pyproject.toml file."""
     # Don't create the pyproject.toml file
     assert not TEST_PYPROJECT.exists()
+    
+    # Create a wrangler.jsonc file so we don't fail due to missing wrangler config
+    create_test_wrangler_jsonc()
 
     # Use the Click test runner to invoke the command
     runner = CliRunner()
@@ -125,3 +165,53 @@ def test_sync_command_handles_missing_pyproject(clean_test_dir, caplog):
     # Check that the error was logged
     expected_log_message = f"{TEST_PYPROJECT} not found"
     assert expected_log_message in caplog.text
+
+
+@patch.object(pywrangler.sync, "PROJECT_ROOT", TEST_DIR)
+@patch.object(pywrangler.sync, "PYPROJECT_TOML_PATH", TEST_PYPROJECT)
+def test_sync_command_handles_missing_wrangler_config(clean_test_dir, caplog):
+    """Test that the sync command correctly handles missing wrangler configuration files."""
+    # Create a pyproject.toml file but don't create wrangler config files
+    create_test_pyproject()
+    assert TEST_PYPROJECT.exists()
+    assert not TEST_WRANGLER_JSONC.exists()
+    assert not (TEST_DIR / "wrangler.toml").exists()
+
+    # Use the Click test runner to invoke the command
+    runner = CliRunner()
+    result = runner.invoke(app, ["sync"])
+
+    # Check that the command failed with the expected error
+    assert result.exit_code != 0
+    
+    # Check that the error was logged - looking for messages about missing wrangler config
+    assert "wrangler.jsonc" in caplog.text
+    assert "not found" in caplog.text
+
+
+@patch.object(pywrangler.sync, "PROJECT_ROOT", TEST_DIR)
+@patch.object(pywrangler.sync, "PYPROJECT_TOML_PATH", TEST_PYPROJECT)
+def test_sync_command_with_wrangler_toml(clean_test_dir, caplog):
+    """Test that the sync command correctly processes wrangler.toml files."""
+    # Create the necessary files
+    create_test_pyproject(["click"])
+    create_test_wrangler_toml("dist/worker.js")
+    
+    # Verify files exist
+    assert TEST_PYPROJECT.exists()
+    assert TEST_WRANGLER_TOML.exists()
+    assert not TEST_WRANGLER_JSONC.exists()  # Ensure JSONC doesn't exist
+
+    # Use the Click test runner to invoke the command
+    runner = CliRunner()
+    result = runner.invoke(app, ["sync"])
+    
+    # Check the command output and logs
+    assert result.exit_code == 0, f"Command failed: {result.stdout}\n{result.stderr}"
+    
+    # Check that the path contains dist/vendor (but as an absolute path)
+    assert f"{TEST_DIR}/dist/vendor" in caplog.text
+    
+    # Verify vendor directory was created in the correct location
+    vendor_path = TEST_DIR / "dist" / "vendor"
+    assert vendor_path.exists(), f"Vendor directory was not created at {vendor_path}"
