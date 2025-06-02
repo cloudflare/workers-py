@@ -17,6 +17,30 @@ TEST_PYPROJECT = TEST_DIR / "pyproject.toml"
 TEST_WRANGLER_JSONC = TEST_DIR / "wrangler.jsonc"
 TEST_WRANGLER_TOML = TEST_DIR / "wrangler.toml"
 
+# Helper function to check if a package is installed in a site-packages directory
+def is_package_installed(site_packages_path, package_name):
+    """Check if a package is installed in the given site-packages directory.
+    
+    Args:
+        site_packages_path: Path to the site-packages directory
+        package_name: Name of the package to check for
+        
+    Returns:
+        bool: True if the package is found, False otherwise
+    """
+    # Normalize package name (lowercase, remove dashes)
+    package_name_normalized = package_name.lower().replace('-', '_')
+
+    matches = list(site_packages_path.glob(f"*{package_name_normalized}*"))
+    if matches:
+        print(f"Found {package_name} as: {matches}")
+        return True
+
+    # If we get here, nothing was found
+    print(f"Could not find {package_name} in {site_packages_path}")
+    print(f"Contents of site-packages: {[p.name for p in site_packages_path.iterdir()]}")
+    return False
+
 @pytest.fixture
 def clean_test_dir():
     """Create a clean test directory for each test."""
@@ -127,16 +151,8 @@ def test_sync_command_integration(dependencies, clean_test_dir):
     if test_deps:
         assert TEST_SRC_VENDOR.exists(), f"Vendor directory was not created at {TEST_SRC_VENDOR}"
         
-        # Check that each dependency was "installed"
-        expected_packages = dependencies
-        installed_packages = [d.name for d in TEST_SRC_VENDOR.iterdir() if d.is_dir()]
-        
-        print(f"Expected packages: {expected_packages}")
-        print(f"Installed packages: {installed_packages}")
-        
-        for pkg in expected_packages:
-            assert any(pkg.lower() in p.lower() for p in installed_packages), \
-                f"Package {pkg} was not installed in {TEST_SRC_VENDOR}"
+        for pkg in dependencies:
+            assert is_package_installed(TEST_SRC_VENDOR, pkg), f"Package {pkg} was not installed in {TEST_SRC_VENDOR}"
             
     else:
         # If no dependencies, vendor dir might still be created but should be empty
@@ -144,6 +160,24 @@ def test_sync_command_integration(dependencies, clean_test_dir):
             # Allow for empty directories like __pycache__ that might be created
             assert all(d.name.startswith('__') for d in TEST_SRC_VENDOR.iterdir() if d.is_dir()), \
                 f"Vendor directory should be empty of packages but contains: {list(TEST_SRC_VENDOR.iterdir())}"
+    
+    # Check .venv-workers directory exists and has the expected packages
+    TEST_VENV_WORKERS = TEST_DIR / ".venv-workers"
+    assert TEST_VENV_WORKERS.exists(), f".venv-workers directory was not created at {TEST_VENV_WORKERS}"
+    
+    # Check that packages were installed in .venv-workers
+    if os.name == "nt":
+        site_packages_path = TEST_VENV_WORKERS / "Lib" / "site-packages"
+    else:
+        site_packages_path = TEST_VENV_WORKERS / "lib" / "python3.12" / "site-packages"
+    assert site_packages_path.exists(), "site-packages directory does not exist in .venv-workers"
+    
+    # Check that webtypy is installed (should always be installed)
+    assert is_package_installed(site_packages_path, "webtypy"), "webtypy package was not installed in .venv-workers"
+    
+    # Check that all dependencies from pyproject.toml are installed
+    for dep in dependencies:
+        assert is_package_installed(site_packages_path, dep), f"Package {dep} was not installed in .venv-workers"
 
 @patch.object(pywrangler.sync, "PROJECT_ROOT", TEST_DIR)
 @patch.object(pywrangler.sync, "PYPROJECT_TOML_PATH", TEST_PYPROJECT)
