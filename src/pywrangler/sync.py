@@ -18,6 +18,7 @@ VENV_WORKERS_PATH = PROJECT_ROOT / ".venv-workers"
 PYODIDE_VENV_PATH = VENV_WORKERS_PATH / "pyodide-venv"
 PYPROJECT_TOML_PATH = PROJECT_ROOT / "pyproject.toml"
 GENERATED_REQUIREMENTS_PATH = PYODIDE_VENV_PATH / "temp-requirements.txt"
+VENV_REQUIREMENTS_PATH = VENV_WORKERS_PATH / "temp-venv-requirements.txt"
 
 
 def check_pyproject_toml():
@@ -124,14 +125,11 @@ def install_requirements():
     vendor_path = PROJECT_ROOT / vendor_path_relative
     logger.info(f"Using vendor path: {vendor_path} (determined from wrangler config)")
 
+    # Install packages into vendor directory
     if (
-        not GENERATED_REQUIREMENTS_PATH.is_file()
-        or GENERATED_REQUIREMENTS_PATH.stat().st_size == 0
+        GENERATED_REQUIREMENTS_PATH.is_file()
+        and GENERATED_REQUIREMENTS_PATH.stat().st_size > 0
     ):
-        logger.warning(
-            f"{GENERATED_REQUIREMENTS_PATH} is empty or was not created. This might mean no dependencies were found. Nothing to install in {vendor_path}."
-        )
-    else:
         vendor_path.mkdir(parents=True, exist_ok=True)
         pyodide_venv_pip_path = (
             PYODIDE_VENV_PATH
@@ -152,7 +150,66 @@ def install_requirements():
             ]
         )
         logger.info(f"Packages installed in {vendor_path}.")
+    else:
+        logger.warning(
+            f"{GENERATED_REQUIREMENTS_PATH} is empty or was not created. No dependencies to install in {vendor_path}."
+        )
 
+    # Create a requirements file for .venv-workers that includes webtypy
+    VENV_REQUIREMENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+    # Start with existing requirements (if any)
+    if (
+        GENERATED_REQUIREMENTS_PATH.is_file()
+        and GENERATED_REQUIREMENTS_PATH.stat().st_size > 0
+    ):
+        with open(GENERATED_REQUIREMENTS_PATH, "r") as src, open(
+            VENV_REQUIREMENTS_PATH, "w"
+        ) as dest:
+            dest.write(src.read())
+    else:
+        # Create a new empty requirements file
+        with open(VENV_REQUIREMENTS_PATH, "w") as f:
+            pass
+
+    # Add webtypy to the venv requirements file for type hints
+    with open(VENV_REQUIREMENTS_PATH, "r") as f:
+        current_content = f.read()
+
+    with open(VENV_REQUIREMENTS_PATH, "a") as f:
+        if current_content and not current_content.endswith("\n"):
+            f.write("\n")
+        f.write("webtypy\n")
+
+    # Install packages into .venv-workers so that user's IDE can see the packages.
+    venv_bin_path = VENV_WORKERS_PATH / ("Scripts" if os.name == "nt" else "bin")
+    venv_python_executable = venv_bin_path / (
+        "python.exe" if os.name == "nt" else "python"
+    )
+
+    if venv_python_executable.is_file():
+        logger.info(f"Installing packages into {VENV_WORKERS_PATH} using uv pip...")
+        run_command(
+            [
+                "uv",
+                "pip",
+                "install",
+                "-p",
+                str(venv_python_executable),
+                "-r",
+                str(VENV_REQUIREMENTS_PATH),
+            ]
+        )
+        logger.info(f"Packages installed in {VENV_WORKERS_PATH}.")
+    else:
+        logger.warning(
+            f"Python executable not found at {venv_python_executable}. Skipping installation in {VENV_WORKERS_PATH}."
+        )
+
+    # Clean up temporary files
     if GENERATED_REQUIREMENTS_PATH.exists():
         GENERATED_REQUIREMENTS_PATH.unlink()
         logger.info(f"Cleaned up {GENERATED_REQUIREMENTS_PATH}.")
+    if VENV_REQUIREMENTS_PATH.exists():
+        VENV_REQUIREMENTS_PATH.unlink()
+        logger.info(f"Cleaned up {VENV_REQUIREMENTS_PATH}.")
