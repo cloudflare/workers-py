@@ -213,3 +213,43 @@ def install_requirements():
     if VENV_REQUIREMENTS_PATH.exists():
         VENV_REQUIREMENTS_PATH.unlink()
         logger.info(f"Cleaned up {VENV_REQUIREMENTS_PATH}.")
+
+
+def check_timestamps():
+    """
+    Checks if pyproject.toml has been modified since the last sync.
+
+    Returns:
+        bool: True if sync is needed, False otherwise
+    """
+
+    if not PYPROJECT_TOML_PATH.is_file():
+        # If pyproject.toml doesn't exist, we need to abort anyway
+        return True
+
+    pyproject_mtime = PYPROJECT_TOML_PATH.stat().st_mtime
+
+    # Check if .venv-workers exists and get its timestamp
+    venv_needs_update = True
+    if VENV_WORKERS_PATH.is_dir():
+        venv_mtime = VENV_WORKERS_PATH.stat().st_mtime
+        venv_needs_update = pyproject_mtime > venv_mtime
+
+    # Check if vendor directory exists and get its timestamp
+    vendor_needs_update = True
+    vendor_path = None
+    try:
+        vendor_path_relative = get_vendor_path_from_wrangler_config(PROJECT_ROOT)
+        vendor_path = PROJECT_ROOT / vendor_path_relative
+
+        if vendor_path.is_dir():
+            vendor_mtime = vendor_path.stat().st_mtime
+            vendor_needs_update = pyproject_mtime > vendor_mtime
+    except Exception as e:
+        # If we can't determine the vendor path, default to requiring an update
+        vendor_needs_update = True
+
+    # If either directory needs an update, return True
+    sync_needed = venv_needs_update or vendor_needs_update
+
+    return sync_needed

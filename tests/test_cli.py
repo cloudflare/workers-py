@@ -1,7 +1,6 @@
 import os
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 import pytest
 from click.testing import CliRunner
@@ -199,6 +198,88 @@ def test_sync_command_handles_missing_pyproject(clean_test_dir, caplog):
     # Check that the error was logged
     expected_log_message = f"{TEST_PYPROJECT} not found"
     assert expected_log_message in caplog.text
+
+
+@patch("pywrangler.cli.check_timestamps")
+@patch("pywrangler.cli.install_requirements")
+def test_sync_command_with_unchanged_timestamps(mock_install_requirements, 
+                                             mock_check_timestamps,
+                                             clean_test_dir, caplog):
+    """Test that the sync command skips sync when timestamps indicate no change."""
+    
+    # Create the pyproject.toml file
+    create_test_pyproject()
+    
+    # Create a wrangler.jsonc file
+    create_test_wrangler_jsonc()
+    
+    # Mock check_timestamps to return False (no sync needed)
+    mock_check_timestamps.return_value = False
+
+    # Use the Click test runner to invoke the command
+    runner = CliRunner()
+    result = runner.invoke(app, ["sync"])
+
+    # Check that the command succeeded
+    assert result.exit_code == 0
+    
+    # Verify that none of the sync functions were called
+    mock_install_requirements.assert_not_called()
+
+
+@patch("pywrangler.cli.check_timestamps")
+@patch("pywrangler.cli.install_requirements")
+def test_sync_command_with_changed_timestamps(
+                                           mock_install_requirements,
+                                           mock_check_timestamps,
+                                           clean_test_dir, caplog):
+    """Test that the sync command runs when timestamps indicate changes."""
+    # Create the pyproject.toml file
+    create_test_pyproject()
+    
+    # Create a wrangler.jsonc file
+    create_test_wrangler_jsonc()
+    
+    # Mock check_timestamps to return True (sync needed)
+    mock_check_timestamps.return_value = True
+
+    # Use the Click test runner to invoke the command
+    runner = CliRunner()
+    result = runner.invoke(app, ["sync"])
+
+    # Check that the command succeeded
+    assert result.exit_code == 0
+    
+    # Verify that all the sync functions were called
+    mock_install_requirements.assert_called_once()
+
+
+@patch("pywrangler.cli.check_timestamps")
+@patch("pywrangler.cli.install_requirements")
+def test_sync_command_with_force_flag(
+                                     mock_install_requirements,
+                                     mock_check_timestamps,
+                                     clean_test_dir, caplog):
+    """Test that the sync command runs when the --force flag is used, regardless of timestamps."""
+    # Create the pyproject.toml file
+    create_test_pyproject()
+    
+    # Create a wrangler.jsonc file
+    create_test_wrangler_jsonc()
+    
+    # Mock check_timestamps to return False (no sync needed)
+    # This should be ignored due to the --force flag
+    mock_check_timestamps.return_value = False
+
+    # Use the Click test runner to invoke the command with --force
+    runner = CliRunner()
+    result = runner.invoke(app, ["sync", "--force"])
+
+    # Check that the command succeeded
+    assert result.exit_code == 0
+    
+    # Verify that all the sync functions were called despite the timestamp check
+    mock_install_requirements.assert_called_once()
 
 
 @patch.object(pywrangler.sync, "PROJECT_ROOT", TEST_DIR)
