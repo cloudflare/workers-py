@@ -10,6 +10,7 @@ from pywrangler.sync import (
     create_pyodide_venv,
     generate_requirements,
     check_pyproject_toml,
+    check_timestamps,
 )
 
 
@@ -37,7 +38,8 @@ def app(ctx):
 
 
 @app.command("sync")
-def sync_command():
+@click.option("--force", is_flag=True, help="Force sync even if no changes detected")
+def sync_command(force=False):
     """
     Installs Python packages from pyproject.toml into src/vendor.
 
@@ -47,6 +49,14 @@ def sync_command():
 
     # Check if pyproject.toml exists
     check_pyproject_toml()
+
+    # Check if sync is needed based on file timestamps
+    sync_needed = force or check_timestamps()
+    if not sync_needed:
+        logger.warning(
+            "pyproject.toml hasn't changed since last sync, use --force to ignore timestamp check"
+        )
+        return
 
     # Create .venv-workers if it doesn't exist
     create_workers_venv()
