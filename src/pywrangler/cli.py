@@ -93,6 +93,7 @@ def _proxy_to_wrangler(command_name, args_list):
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
 @click.pass_context
 def dev_command(ctx, args):
+    ctx.invoke(sync_command, force=False)
     _proxy_to_wrangler("dev", list(args))
 
 
@@ -104,6 +105,7 @@ def dev_command(ctx, args):
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
 @click.pass_context
 def publish_command(ctx, args):
+    ctx.invoke(sync_command, force=False)
     _proxy_to_wrangler("publish", list(args))
 
 
@@ -115,6 +117,7 @@ def publish_command(ctx, args):
 @click.argument("args", nargs=-1, type=click.UNPROCESSED)
 @click.pass_context
 def deploy_command(ctx, args):
+    ctx.invoke(sync_command, force=False)
     _proxy_to_wrangler("deploy", list(args))
 
 
