@@ -82,7 +82,7 @@ def create_pyodide_venv():
         )
 
 
-def generate_requirements():
+def generate_requirements() -> bool:
     logger.info(
         f"Reading dependencies from {PYPROJECT_TOML_PATH} and generating {GENERATED_REQUIREMENTS_PATH}..."
     )
@@ -94,23 +94,22 @@ def generate_requirements():
         dependencies = pyproject_data.get("project", {}).get("dependencies", [])
 
         if not dependencies:
-            logger.warning(
-                "No dependencies found in [project.dependencies] section of pyproject.toml."
-            )
-        else:
-            # Write dependencies to requirements.txt
-            GENERATED_REQUIREMENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
-            with open(GENERATED_REQUIREMENTS_PATH, "w") as req_file:
-                for dep in dependencies:
-                    req_file.write(f"{dep}\n")
+            return False
 
-            logger.info(
-                f"Found {len(dependencies)} dependencies and wrote them to {GENERATED_REQUIREMENTS_PATH}."
-            )
+        # Write dependencies to requirements.txt
+        GENERATED_REQUIREMENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(GENERATED_REQUIREMENTS_PATH, "w") as req_file:
+            for dep in dependencies:
+                req_file.write(f"{dep}\n")
 
+        logger.info(
+            f"Found {len(dependencies)} dependencies and wrote them to {GENERATED_REQUIREMENTS_PATH}."
+        )
     except Exception as e:
         logger.error(f"Error parsing {PYPROJECT_TOML_PATH}: {str(e)}")
         raise click.exceptions.Exit(code=1)
+
+    return True
 
 
 def install_requirements():
