@@ -26,6 +26,7 @@ def app(ctx, debug=False):
     Use 'sync' command for Python package setup.
     Other commands (dev, publish, deploy) are proxied to 'wrangler'.
     """
+
     # Set the logging level to DEBUG if the debug flag is provided
     if debug:
         logger.setLevel(logging.DEBUG)
