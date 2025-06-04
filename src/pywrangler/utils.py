@@ -3,6 +3,8 @@ import logging
 from pathlib import Path
 import subprocess
 
+from rich.logging import RichHandler, Console
+from rich.theme import Theme
 import click
 import commentjson
 
@@ -13,6 +15,38 @@ except ImportError:
 
 logger = logging.getLogger(__name__)
 
+SUCCESS_LEVEL = 100
+RUNNING_LEVEL = 15
+OUTPUT_LEVEL = 16
+
+
+def setup_logging():
+    console = Console(
+        theme=Theme(
+            {
+                "logging.level.success": "bold green",
+                "logging.level.debug": "magenta",
+                "logging.level.running": "cyan",
+                "logging.level.output": "cyan",
+            }
+        )
+    )
+
+    # Configure Rich logger
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(message)s",
+        force=True,  # Ensure this configuration is applied
+        handlers=[RichHandler(rich_tracebacks=True, show_time=False, console=console)],
+    )
+    logging.addLevelName(SUCCESS_LEVEL, "SUCCESS")
+    logging.addLevelName(RUNNING_LEVEL, "RUNNING")
+    logging.addLevelName(OUTPUT_LEVEL, "OUTPUT")
+
+
+def write_success(msg):
+    logging.log(SUCCESS_LEVEL, msg)
+
 
 def run_command(
     command: list[str],
@@ -20,15 +54,19 @@ def run_command(
     env: dict | None = None,
     check: bool = True,
 ):
-    logger.info(f"Running: {' '.join(command)}")
+    logger.log(RUNNING_LEVEL, f"{' '.join(command)}")
     try:
         process = subprocess.run(
-            command, cwd=cwd, env=env, check=check, capture_output=True, text=True
+            command,
+            cwd=cwd,
+            env=env,
+            check=check,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
         )
         if process.stdout:
-            logger.info(f"Output:\n{process.stdout.strip()}")
-        if process.stderr:
-            logger.warning(f"Errors/Warnings:\n{process.stderr.strip()}")
+            logger.log(OUTPUT_LEVEL, f"{process.stdout.strip()}")
         return process
     except subprocess.CalledProcessError as e:
         logger.error(
