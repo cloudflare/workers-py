@@ -37,7 +37,11 @@ def setup_logging():
         level=logging.INFO,
         format="%(message)s",
         force=True,  # Ensure this configuration is applied
-        handlers=[RichHandler(rich_tracebacks=True, show_time=False, console=console)],
+        handlers=[
+            RichHandler(
+                rich_tracebacks=True, show_time=False, console=console, show_path=False
+            )
+        ],
     )
     logging.addLevelName(SUCCESS_LEVEL, "SUCCESS")
     logging.addLevelName(RUNNING_LEVEL, "RUNNING")
