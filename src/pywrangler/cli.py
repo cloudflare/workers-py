@@ -66,7 +66,12 @@ def sync_command(force=False):
     create_pyodide_venv()
 
     # Generate requirements.txt from pyproject.toml by directly parsing the TOML file then install into vendor folder.
-    generate_requirements()
+    has_requirements = generate_requirements()
+    if not has_requirements:
+        logger.warning(
+            "No dependencies found in [project.dependencies] section of pyproject.toml."
+        )
+        return
     install_requirements()
 
     logger.info("Sync process completed successfully.")
