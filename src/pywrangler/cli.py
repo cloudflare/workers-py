@@ -1,7 +1,6 @@
 import logging
 import click
 import subprocess
-from rich.logging import RichHandler
 
 from pywrangler.sync import (
     create_workers_venv,
@@ -12,29 +11,24 @@ from pywrangler.sync import (
     check_pyproject_toml,
     check_timestamps,
 )
+from pywrangler.utils import write_success, setup_logging
 
-
-# Configure Rich logger
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-    force=True,  # Ensure this configuration is applied
-    handlers=[RichHandler(rich_tracebacks=True, show_time=False, console=None)],
-)
+setup_logging()
 logger = logging.getLogger("pywrangler")
 
 
 @click.group()
+@click.option("--debug", is_flag=True, help="Enable debug logging")
 @click.pass_context
-def app(ctx):
+def app(ctx, debug=False):
     """
     A CLI tool for Cloudflare Workers.
     Use 'sync' command for Python package setup.
     Other commands (dev, publish, deploy) are proxied to 'wrangler'.
     """
-    # This function now primarily serves as a group for subcommands.
-    # ctx.obj can be used to pass data to subcommands if needed.
-    pass
+    # Set the logging level to DEBUG if the debug flag is provided
+    if debug:
+        logger.setLevel(logging.DEBUG)
 
 
 @app.command("sync")
@@ -45,8 +39,6 @@ def sync_command(force=False):
 
     Also creates a virtual env for Workers that you can use for testing.
     """
-    logger.info("Starting sync process...")
-
     # Check if pyproject.toml exists
     check_pyproject_toml()
 
@@ -71,10 +63,9 @@ def sync_command(force=False):
         logger.warning(
             "No dependencies found in [project.dependencies] section of pyproject.toml."
         )
-        return
     install_requirements()
 
-    logger.info("Sync process completed successfully.")
+    write_success("Sync process completed successfully.")
 
 
 def _proxy_to_wrangler(command_name, args_list):

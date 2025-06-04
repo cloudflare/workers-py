@@ -1,6 +1,7 @@
 import os
 import shutil
 import subprocess
+import logging
 from pathlib import Path
 import pytest
 from click.testing import CliRunner
@@ -8,7 +9,7 @@ from unittest.mock import patch
 
 # Import the full module so we can patch constants
 import pywrangler.cli
-from pywrangler.cli import app, sync_command
+from pywrangler.cli import app
 
 # Define test fixtures and constants
 TEST_DIR = Path(__file__).parent / "test_workspace"
@@ -171,7 +172,7 @@ def test_sync_command_integration(dependencies, clean_test_dir):
         site_packages_path = TEST_VENV_WORKERS / "lib" / "python3.12" / "site-packages"
     assert site_packages_path.exists(), "site-packages directory does not exist in .venv-workers"
     
-    # Check that webtypy is installed (should always be installed)
+    # Check that webtypy is installed (should always be installed, even if no deps are specified)
     assert is_package_installed(site_packages_path, "webtypy"), "webtypy package was not installed in .venv-workers"
     
     # Check that all dependencies from pyproject.toml are installed
@@ -305,6 +306,7 @@ def test_sync_command_handles_missing_wrangler_config(clean_test_dir, caplog):
 
 
 @patch.object(pywrangler.sync, "PROJECT_ROOT", TEST_DIR)
+@patch.object(pywrangler.sync, "VENV_WORKERS_PATH", TEST_DIR / ".venv-workers")
 @patch.object(pywrangler.sync, "PYPROJECT_TOML_PATH", TEST_PYPROJECT)
 def test_sync_command_with_wrangler_toml(clean_test_dir, caplog):
     """Test that the sync command correctly processes wrangler.toml files."""
@@ -325,8 +327,22 @@ def test_sync_command_with_wrangler_toml(clean_test_dir, caplog):
     assert result.exit_code == 0, f"Command failed: {result.stdout}\n{result.stderr}"
     
     # Check that the path contains dist/vendor (but as an absolute path)
-    assert f"{TEST_DIR}/dist/vendor" in caplog.text
+    assert f"dist/vendor" in caplog.text
     
     # Verify vendor directory was created in the correct location
     vendor_path = TEST_DIR / "dist" / "vendor"
     assert vendor_path.exists(), f"Vendor directory was not created at {vendor_path}"
+
+
+def test_debug_flag(caplog):
+    """Test that the --debug flag enables debug output."""
+    
+    # Run the command with --debug flag
+    runner = CliRunner()
+    runner.invoke(app, ["--debug", "sync"])
+    
+    # Check that debug logs were generated
+    debug_logs = [record for record in caplog.records if record.levelno == logging.DEBUG]
+    
+    # Verify that debug logs are present
+    assert len(debug_logs) > 0, "No debug logs were produced when using --debug flag"

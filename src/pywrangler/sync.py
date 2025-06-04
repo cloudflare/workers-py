@@ -32,10 +32,10 @@ def create_workers_venv():
     Creates a virtual environment at `VENV_WORKERS_PATH` if it doesn't exist.
     """
     if not VENV_WORKERS_PATH.is_dir():  # Check if it's a directory
-        logger.info(f"Creating virtual environment at {VENV_WORKERS_PATH}...")
+        logger.debug(f"Creating virtual environment at {VENV_WORKERS_PATH}...")
         run_command(["uv", "venv", str(VENV_WORKERS_PATH), "--python", "python3.12"])
     else:
-        logger.info(f"Virtual environment at {VENV_WORKERS_PATH} already exists.")
+        logger.debug(f"Virtual environment at {VENV_WORKERS_PATH} already exists.")
 
 
 def _get_pyodide_cli_path():
@@ -48,7 +48,7 @@ def install_pyodide_build():
     pyodide_cli_path = _get_pyodide_cli_path()
 
     if not pyodide_cli_path.is_file():
-        logger.info(
+        logger.debug(
             f"Installing pyodide-build in {VENV_WORKERS_PATH} using 'uv pip install'..."
         )
         venv_bin_path = pyodide_cli_path.parent
@@ -65,25 +65,26 @@ def install_pyodide_build():
             ["uv", "pip", "install", "-p", str(venv_python_executable), "pyodide-build"]
         )
     else:
-        logger.info(
+        logger.debug(
             f"pyodide-build CLI already found at {pyodide_cli_path} (skipping install.)"
         )
 
 
 def create_pyodide_venv():
     pyodide_cli_path = _get_pyodide_cli_path()
-    if not PYODIDE_VENV_PATH.is_dir():
-        logger.info(f"Creating Pyodide virtual environment at {PYODIDE_VENV_PATH}...")
-        PYODIDE_VENV_PATH.parent.mkdir(parents=True, exist_ok=True)
-        run_command([str(pyodide_cli_path), "venv", str(PYODIDE_VENV_PATH)])
-    else:
-        logger.info(
+    if PYODIDE_VENV_PATH.is_dir():
+        logger.debug(
             f"Pyodide virtual environment at {PYODIDE_VENV_PATH} already exists."
         )
+        return
+
+    logger.debug(f"Creating Pyodide virtual environment at {PYODIDE_VENV_PATH}...")
+    PYODIDE_VENV_PATH.parent.mkdir(parents=True, exist_ok=True)
+    run_command([str(pyodide_cli_path), "venv", str(PYODIDE_VENV_PATH)])
 
 
 def generate_requirements() -> bool:
-    logger.info(
+    logger.debug(
         f"Reading dependencies from {PYPROJECT_TOML_PATH} and generating {GENERATED_REQUIREMENTS_PATH}..."
     )
     try:
@@ -102,9 +103,7 @@ def generate_requirements() -> bool:
             for dep in dependencies:
                 req_file.write(f"{dep}\n")
 
-        logger.info(
-            f"Found {len(dependencies)} dependencies and wrote them to {GENERATED_REQUIREMENTS_PATH}."
-        )
+        logger.info(f"Found {len(dependencies)} dependencies.")
     except Exception as e:
         logger.error(f"Error parsing {PYPROJECT_TOML_PATH}: {str(e)}")
         raise click.exceptions.Exit(code=1)
@@ -122,7 +121,7 @@ def install_requirements():
 
     # Make vendor_path absolute by joining with PROJECT_ROOT
     vendor_path = PROJECT_ROOT / vendor_path_relative
-    logger.info(f"Using vendor path: {vendor_path} (determined from wrangler config)")
+    logger.debug(f"Using vendor path: {vendor_path} (determined from wrangler config)")
 
     # Install packages into vendor directory
     if (
@@ -136,7 +135,8 @@ def install_requirements():
             / ("pip.exe" if os.name == "nt" else "pip")
         )
         logger.info(
-            f"Installing packages into {vendor_path} using Pyodide pip ({pyodide_venv_pip_path})..."
+            f"Installing packages into [bold]{vendor_path_relative}[/bold] using Pyodide pip...",
+            extra={"markup": True},
         )
         run_command(
             [
@@ -148,7 +148,10 @@ def install_requirements():
                 str(GENERATED_REQUIREMENTS_PATH),
             ]
         )
-        logger.info(f"Packages installed in {vendor_path}.")
+        logger.info(
+            f"Packages installed in [bold]{vendor_path_relative}[/bold].",
+            extra={"markup": True},
+        )
     else:
         logger.warning(
             f"{GENERATED_REQUIREMENTS_PATH} is empty or was not created. No dependencies to install in {vendor_path}."
@@ -186,8 +189,13 @@ def install_requirements():
         "python.exe" if os.name == "nt" else "python"
     )
 
+    # For nicer logs, output the relative path.
+    relative_venv_workers_path = VENV_WORKERS_PATH.relative_to(PROJECT_ROOT)
     if venv_python_executable.is_file():
-        logger.info(f"Installing packages into {VENV_WORKERS_PATH} using uv pip...")
+        logger.info(
+            f"Installing packages into [bold]{relative_venv_workers_path}[/bold] using uv pip...",
+            extra={"markup": True},
+        )
         run_command(
             [
                 "uv",
@@ -199,19 +207,23 @@ def install_requirements():
                 str(VENV_REQUIREMENTS_PATH),
             ]
         )
-        logger.info(f"Packages installed in {VENV_WORKERS_PATH}.")
+        logger.info(
+            f"Packages installed in [bold]{relative_venv_workers_path}[/bold].",
+            extra={"markup": True},
+        )
     else:
         logger.warning(
-            f"Python executable not found at {venv_python_executable}. Skipping installation in {VENV_WORKERS_PATH}."
+            f"Python executable not found at {venv_python_executable}. Skipping installation in [bold]{relative_venv_workers_path}[/bold].",
+            extra={"markup": True},
         )
 
     # Clean up temporary files
     if GENERATED_REQUIREMENTS_PATH.exists():
         GENERATED_REQUIREMENTS_PATH.unlink()
-        logger.info(f"Cleaned up {GENERATED_REQUIREMENTS_PATH}.")
+        logger.debug(f"Cleaned up {GENERATED_REQUIREMENTS_PATH}.")
     if VENV_REQUIREMENTS_PATH.exists():
         VENV_REQUIREMENTS_PATH.unlink()
-        logger.info(f"Cleaned up {VENV_REQUIREMENTS_PATH}.")
+        logger.debug(f"Cleaned up {VENV_REQUIREMENTS_PATH}.")
 
 
 def check_timestamps():
