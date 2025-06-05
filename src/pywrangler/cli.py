@@ -117,7 +117,3 @@ def publish_command(ctx, args):
 def deploy_command(ctx, args):
     ctx.invoke(sync_command, force=False)
     _proxy_to_wrangler("deploy", list(args))
-
-
-if __name__ == "__main__":
-    app()
