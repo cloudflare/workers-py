@@ -1,12 +1,12 @@
 import json
 import logging
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
-from rich.logging import RichHandler, Console
-from rich.theme import Theme
 import click
 import commentjson
+from rich.logging import Console, RichHandler
+from rich.theme import Theme
 
 try:
     import tomllib  # Standard in Python 3.11+
@@ -74,7 +74,7 @@ def run_command(
         return process
     except subprocess.CalledProcessError as e:
         logger.error(
-            f"Error running command: {' '.join(command)}\nExit code: {e.returncode}\nStderr:\n{e.stderr.strip()}"
+            f"Error running command: {' '.join(command)}\nExit code: {e.returncode}\nOutput:\n{e.stdout.strip()}"
         )
         raise click.exceptions.Exit(code=e.returncode)
     except FileNotFoundError:

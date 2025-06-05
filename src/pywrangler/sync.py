@@ -1,9 +1,10 @@
 import logging
-from pathlib import Path
 import os
-from pywrangler.utils import run_command, get_vendor_path_from_wrangler_config
+from pathlib import Path
 
 import click
+
+from pywrangler.utils import get_vendor_path_from_wrangler_config, run_command
 
 try:
     import tomllib  # Standard in Python 3.11+
@@ -256,7 +257,7 @@ def check_timestamps():
         if vendor_path.is_dir():
             vendor_mtime = vendor_path.stat().st_mtime
             vendor_needs_update = pyproject_mtime > vendor_mtime
-    except Exception as e:
+    except Exception:
         # If we can't determine the vendor path, default to requiring an update
         vendor_needs_update = True
 

@@ -1,17 +1,18 @@
 import logging
-import click
 import subprocess
 
+import click
+
 from pywrangler.sync import (
-    create_workers_venv,
-    install_requirements,
-    install_pyodide_build,
-    create_pyodide_venv,
-    generate_requirements,
     check_pyproject_toml,
     check_timestamps,
+    create_pyodide_venv,
+    create_workers_venv,
+    generate_requirements,
+    install_pyodide_build,
+    install_requirements,
 )
-from pywrangler.utils import write_success, setup_logging
+from pywrangler.utils import setup_logging, write_success
 
 setup_logging()
 logger = logging.getLogger("pywrangler")
