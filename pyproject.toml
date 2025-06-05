@@ -7,7 +7,7 @@ name = "workers-py"
 version = "0.1.0"
 description = "A set of libraries and tools for Python Workers"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.10"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -16,12 +16,17 @@ classifiers = [
 dependencies = [
     "click>=8.0.0,<9.0.0",
     "rich>=13.0.0",
-    "commentjson>=0.9.0"
+    "commentjson>=0.9.0",
+    "pyodide-cli",
 ]
 
 [dependency-groups]
 dev = [
-  "pytest>=7.0.0", "click>=8.0.0"
+  "pytest>=7.0.0",
+  "click>=8.0.0",
+  "black>=23.0.0",
+  "ruff>=0.1.0",
+  "mypy>=1.0.0"
 ]
 
 [project.scripts]
@@ -30,3 +35,25 @@ pywrangler = "pywrangler.cli:app"
 [project.urls]
 "Homepage" = "https://github.com/cloudflare/workers-py"
 "Bug Tracker" = "https://github.com/cloudflare/workers-py/issues"
+
+[tool.ruff]
+target-version = "py38"
+src = ["src", "tests"]
+lint.select = ["E", "F"]
+lint.ignore = ["E501"] # Line too long
+
+[tool.mypy]
+python_version = "3.8"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+disallow_untyped_decorators = false
+check_untyped_defs = true
+disallow_any_generics = false
+no_implicit_optional = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
