@@ -53,12 +53,12 @@ def write_success(msg):
 
 
 def run_command(
-    command: list[str],
+    command: list[str | Path],
     cwd: Path | None = None,
     env: dict | None = None,
     check: bool = True,
 ):
-    logger.log(RUNNING_LEVEL, f"{' '.join(command)}")
+    logger.log(RUNNING_LEVEL, f"{' '.join(str(arg) for arg in command)}")
     try:
         process = subprocess.run(
             command,
@@ -74,7 +74,7 @@ def run_command(
         return process
     except subprocess.CalledProcessError as e:
         logger.error(
-            f"Error running command: {' '.join(command)}\nExit code: {e.returncode}\nOutput:\n{e.stdout.strip()}"
+            f"Error running command: {' '.join(str(arg) for arg in command)}\nExit code: {e.returncode}\nOutput:\n{e.stdout.strip()}"
         )
         raise click.exceptions.Exit(code=e.returncode)
     except FileNotFoundError:

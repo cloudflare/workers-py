@@ -10,7 +10,7 @@ A CLI tool for managing vendored packages in a Python Workers project.
 
 ### Installation
 
-You may be able to install the tool globally by running:
+On Linux, you may be able to install the tool globally by running:
 
 ```
 uv pip install --system workers-py
@@ -19,18 +19,17 @@ uv pip install --system workers-py
 Alternatively, you can add `workers-py` to your pyproject.toml:
 
 ```
-[project]
-dependencies = [
-    "workers-py",
-    ...
-]
+[dependency-groups]
+dev = ["workers-py"]
 ```
+
+Then run via `uv run pywrangler`.
 
 ### Usage
 
 ```bash
-uvx pywrangler --help
-uvx pywrangler sync
+uv run pywrangler --help
+uv run pywrangler sync
 ```
 
 ### Development
@@ -41,11 +40,23 @@ To run the CLI tool while developing it, use:
 uv run --project $REPO_ROOT $REPO_ROOT/src/pywrangler --help
 ```
 
-To install it globally, you may also be able to run:
+On Linux, to install it globally, you may also be able to run:
 
 ```
 uv pip install --system -e .
 ```
+
+Alternatively, you can add `workers-py` to your pyproject.toml:
+
+```
+[dependency-groups]
+dev = ["workers-py"]
+
+[tool.uv.sources]
+workers-py = { path = "../workers-py" }
+```
+
+Then run via `uv run pywrangler`.
 
 ## Tests
 

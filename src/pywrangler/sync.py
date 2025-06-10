@@ -32,11 +32,12 @@ def create_workers_venv():
     """
     Creates a virtual environment at `VENV_WORKERS_PATH` if it doesn't exist.
     """
-    if not VENV_WORKERS_PATH.is_dir():  # Check if it's a directory
-        logger.debug(f"Creating virtual environment at {VENV_WORKERS_PATH}...")
-        run_command(["uv", "venv", str(VENV_WORKERS_PATH), "--python", "python3.12"])
-    else:
+    if VENV_WORKERS_PATH.is_dir():
         logger.debug(f"Virtual environment at {VENV_WORKERS_PATH} already exists.")
+        return
+
+    logger.debug(f"Creating virtual environment at {VENV_WORKERS_PATH}...")
+    run_command(["uv", "venv", str(VENV_WORKERS_PATH), "--python", "python3.12"])
 
 
 def _get_pyodide_cli_path():
@@ -48,29 +49,30 @@ def _get_pyodide_cli_path():
 def install_pyodide_build():
     pyodide_cli_path = _get_pyodide_cli_path()
 
-    if not pyodide_cli_path.is_file():
-        logger.debug(
-            f"Installing pyodide-build in {VENV_WORKERS_PATH} using 'uv pip install'..."
-        )
-        venv_bin_path = pyodide_cli_path.parent
-
-        # Ensure the python executable path is correct for the venv
-        venv_python_executable = venv_bin_path / (
-            "python.exe" if os.name == "nt" else "python"
-        )
-        if not venv_python_executable.is_file():
-            logger.error(f"Python executable not found at {venv_python_executable}")
-            raise click.exceptions.Exit(code=1)
-
-        run_command(["uv", "pip", "install", "-p", str(venv_python_executable), "pip"])
-
-        run_command(
-            ["uv", "pip", "install", "-p", str(venv_python_executable), "pyodide-build"]
-        )
-    else:
+    if pyodide_cli_path.is_file():
         logger.debug(
             f"pyodide-build CLI already found at {pyodide_cli_path} (skipping install.)"
         )
+        return
+
+    logger.debug(
+        f"Installing pyodide-build in {VENV_WORKERS_PATH} using 'uv pip install'..."
+    )
+    venv_bin_path = pyodide_cli_path.parent
+
+    # Ensure the python executable path is correct for the venv
+    venv_python_executable = venv_bin_path / (
+        "python.exe" if os.name == "nt" else "python"
+    )
+    if not venv_python_executable.is_file():
+        logger.error(f"Python executable not found at {venv_python_executable}")
+        raise click.exceptions.Exit(code=1)
+
+    run_command(["uv", "pip", "install", "-p", str(venv_python_executable), "pip"])
+
+    run_command(
+        ["uv", "pip", "install", "-p", str(venv_python_executable), "pyodide-build"]
+    )
 
 
 def create_pyodide_venv():
@@ -91,7 +93,7 @@ def generate_requirements() -> bool:
         f"Reading dependencies from {PYPROJECT_TOML_PATH} and generating {GENERATED_REQUIREMENTS_PATH}..."
     )
     try:
-        with open(PYPROJECT_TOML_PATH, "rb") as f:  # Use binary mode for tomllib
+        with open(PYPROJECT_TOML_PATH, "rb") as f:
             pyproject_data = tomllib.load(f)
 
         # Extract dependencies from [project.dependencies]
@@ -102,12 +104,10 @@ def generate_requirements() -> bool:
 
         # Write dependencies to requirements.txt
         GENERATED_REQUIREMENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        with open(GENERATED_REQUIREMENTS_PATH, "w") as req_file:
-            for dep in dependencies:
-                req_file.write(f"{dep}\n")
+        GENERATED_REQUIREMENTS_PATH.write_text("\n".join(dependencies))
 
         logger.info(f"Found {len(dependencies)} dependencies.")
-    except Exception as e:
+    except tomllib.TOMLDecodeError as e:
         logger.error(f"Error parsing {PYPROJECT_TOML_PATH}: {str(e)}")
         raise click.exceptions.Exit(code=1)
 
@@ -118,7 +118,7 @@ def install_requirements():
     # Get the vendor path dynamically from wrangler config
     try:
         vendor_path_relative = get_vendor_path_from_wrangler_config(PROJECT_ROOT)
-    except Exception as e:
+    except (ValueError, FileNotFoundError) as e:
         logger.error(f"Error getting vendor path: {str(e)}")
         raise click.exceptions.Exit(code=1)
 
@@ -185,6 +185,7 @@ def install_requirements():
         if current_content and not current_content.endswith("\n"):
             f.write("\n")
         f.write("webtypy\n")
+        f.write("pyodide-py\n")
 
     # Install packages into .venv-workers so that user's IDE can see the packages.
     venv_bin_path = VENV_WORKERS_PATH / ("Scripts" if os.name == "nt" else "bin")
@@ -205,9 +206,9 @@ def install_requirements():
                 "pip",
                 "install",
                 "-p",
-                str(venv_python_executable),
+                venv_python_executable,
                 "-r",
-                str(VENV_REQUIREMENTS_PATH),
+                VENV_REQUIREMENTS_PATH,
             ]
         )
         logger.info(
@@ -229,7 +230,7 @@ def install_requirements():
         logger.debug(f"Cleaned up {VENV_REQUIREMENTS_PATH}.")
 
 
-def check_timestamps():
+def is_sync_needed():
     """
     Checks if pyproject.toml has been modified since the last sync.
 
@@ -244,26 +245,25 @@ def check_timestamps():
     pyproject_mtime = PYPROJECT_TOML_PATH.stat().st_mtime
 
     # Check if .venv-workers exists and get its timestamp
-    venv_needs_update = True
-    if VENV_WORKERS_PATH.is_dir():
-        venv_mtime = VENV_WORKERS_PATH.stat().st_mtime
-        venv_needs_update = pyproject_mtime > venv_mtime
+    if not VENV_WORKERS_PATH.is_dir():
+        return True
+
+    venv_mtime = VENV_WORKERS_PATH.stat().st_mtime
+    venv_needs_update = pyproject_mtime > venv_mtime
+    if venv_needs_update:
+        return True
 
     # Check if vendor directory exists and get its timestamp
-    vendor_needs_update = True
-    vendor_path = None
     try:
         vendor_path_relative = get_vendor_path_from_wrangler_config(PROJECT_ROOT)
-        vendor_path = PROJECT_ROOT / vendor_path_relative
-
-        if vendor_path.is_dir():
-            vendor_mtime = vendor_path.stat().st_mtime
-            vendor_needs_update = pyproject_mtime > vendor_mtime
-    except Exception:
+    except (ValueError, FileNotFoundError):
         # If we can't determine the vendor path, default to requiring an update
-        vendor_needs_update = True
+        return True
 
-    # If either directory needs an update, return True
-    sync_needed = venv_needs_update or vendor_needs_update
+    vendor_path = PROJECT_ROOT / vendor_path_relative
+    if not vendor_path.is_dir():
+        return True
 
-    return sync_needed
+    vendor_mtime = vendor_path.stat().st_mtime
+    vendor_needs_update = pyproject_mtime > vendor_mtime
+    return vendor_needs_update
