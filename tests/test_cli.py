@@ -374,3 +374,55 @@ def test_debug_flag(caplog):
 
     # Verify that debug logs are present
     assert len(debug_logs) > 0, "No debug logs were produced when using --debug flag"
+
+
+@patch("pywrangler.cli._proxy_to_wrangler")
+@patch("sys.argv", ["pywrangler", "unknown_command", "--some-flag", "value"])
+def test_proxy_to_wrangler_unknown_command(mock_proxy_to_wrangler):
+    """Test that unknown commands are proxied to wrangler."""
+    runner = CliRunner()
+    result = runner.invoke(app, ["unknown_command", "--some-flag", "value"])
+
+    # Should exit with 0 (from mocked process)
+    assert result.exit_code == 0
+
+    # Verify _proxy_to_wrangler was called with correct arguments
+    mock_proxy_to_wrangler.assert_called_once_with(
+        "unknown_command", ["--some-flag", "value"]
+    )
+
+
+@patch("pywrangler.cli._proxy_to_wrangler")
+@patch("pywrangler.cli.sync_command")
+@patch("sys.argv", ["pywrangler", "dev", "--local"])
+def test_proxy_auto_sync_commands(mock_sync_command, mock_proxy_to_wrangler):
+    """Test that dev, publish, and deploy commands automatically run sync first."""
+    runner = CliRunner()
+
+    # Test dev command
+    result = runner.invoke(app, ["dev", "--local"])
+    assert result.exit_code == 0
+
+    # Verify sync was called
+    mock_sync_command.assert_called_once()
+
+    # Verify _proxy_to_wrangler was called with correct arguments
+    mock_proxy_to_wrangler.assert_called_once_with("dev", ["--local"])
+
+
+@patch("pywrangler.cli.subprocess.run")
+def test_proxy_to_wrangler_handles_subprocess_error(mock_subprocess_run):
+    """Test that subprocess errors are handled gracefully."""
+    # Mock subprocess.run to raise FileNotFoundError
+    mock_subprocess_run.side_effect = FileNotFoundError()
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["unknown_command"])
+
+    # Should exit with 1 (error code)
+    assert result.exit_code == 1
+
+    # Verify the error was attempted to be called
+    mock_subprocess_run.assert_called_once_with(
+        ["npx", "wrangler", "unknown_command"], check=False, cwd="."
+    )
