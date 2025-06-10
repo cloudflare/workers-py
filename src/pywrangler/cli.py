@@ -1,5 +1,6 @@
 import logging
 import subprocess
+import sys
 
 import click
 
@@ -17,15 +18,82 @@ from pywrangler.utils import setup_logging, write_success
 setup_logging()
 logger = logging.getLogger("pywrangler")
 
+WRANGLER_COMMAND = ["npx", "wrangler"]
 
-@click.group()
+
+class ProxyToWranglerGroup(click.Group):
+    def get_help(self, ctx):
+        """Override to add custom help content."""
+        # Get the default help text
+        help_text = super().get_help(ctx)
+
+        # Get wrangler help and append it
+        try:
+            result = subprocess.run(
+                WRANGLER_COMMAND + ["--help"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if result.returncode == 0:
+                wrangler_help = result.stdout
+                # Replace 'wrangler' with 'pywrangler' in the help text
+                wrangler_help = wrangler_help.replace("wrangler ", "pywrangler ")
+                # Indent each line of the wrangler help
+                indented_help = "\n".join(
+                    "  " + line for line in wrangler_help.split("\n")
+                )
+                help_text += "\n\nWrangler Commands (proxied):\n"
+                help_text += indented_help
+        except (
+            subprocess.TimeoutExpired,
+            FileNotFoundError,
+            subprocess.SubprocessError,
+        ):
+            # Fallback if wrangler is not available
+            help_text += f"\n\nNote: Run '{' '.join(WRANGLER_COMMAND)} --help' for additional wrangler commands."
+
+        return help_text
+
+    def get_command(self, ctx, cmd_name):
+        command = super().get_command(ctx, cmd_name)
+
+        if command is None:
+            try:
+                cmd_index = sys.argv.index(cmd_name)
+                remaining_args = sys.argv[cmd_index + 1 :]
+            except ValueError:
+                remaining_args = []
+
+            if cmd_name in ["dev", "publish", "deploy"]:
+                ctx.invoke(sync_command, force=False)
+
+            _proxy_to_wrangler(cmd_name, remaining_args)
+            sys.exit(0)
+
+        return command
+
+
+def get_version():
+    """Get the version of pywrangler."""
+    try:
+        from importlib.metadata import version
+
+        return version("pywrangler")
+    except Exception:
+        return "unknown"
+
+
+@click.group(cls=ProxyToWranglerGroup)
 @click.option("--debug", is_flag=True, help="Enable debug logging")
+@click.version_option(version=get_version(), prog_name="pywrangler")
 @click.pass_context
 def app(ctx, debug=False):
     """
     A CLI tool for Cloudflare Workers.
     Use 'sync' command for Python package setup.
-    Other commands (dev, publish, deploy) are proxied to 'wrangler'.
+    All other commands are proxied to 'wrangler', with `dev` and `deploy`
+    automatically running `sync` first before proxying.
     """
 
     # Set the logging level to DEBUG if the debug flag is provided
@@ -71,7 +139,7 @@ def sync_command(force=False):
 
 
 def _proxy_to_wrangler(command_name, args_list):
-    command_to_run = ["npx", "wrangler", command_name] + args_list
+    command_to_run = WRANGLER_COMMAND + [command_name] + args_list
     logger.info(f"Passing command to npx wrangler: {' '.join(command_to_run)}")
     try:
         process = subprocess.run(command_to_run, check=False, cwd=".")
@@ -81,39 +149,3 @@ def _proxy_to_wrangler(command_name, args_list):
             "'npx' or 'wrangler' not found. Ensure Node.js and Wrangler are installed and in your PATH."
         )
         click.get_current_context().exit(1)
-
-
-@app.command(
-    "dev",
-    help="Proxies the 'dev' command to wrangler. Args are passed through.",
-    context_settings=dict(ignore_unknown_options=True, allow_extra_args=True),
-)
-@click.argument("args", nargs=-1, type=click.UNPROCESSED)
-@click.pass_context
-def dev_command(ctx, args):
-    ctx.invoke(sync_command, force=False)
-    _proxy_to_wrangler("dev", list(args))
-
-
-@app.command(
-    "publish",
-    help="Proxies the 'publish' command to wrangler. Args are passed through.",
-    context_settings=dict(ignore_unknown_options=True, allow_extra_args=True),
-)
-@click.argument("args", nargs=-1, type=click.UNPROCESSED)
-@click.pass_context
-def publish_command(ctx, args):
-    ctx.invoke(sync_command, force=False)
-    _proxy_to_wrangler("publish", list(args))
-
-
-@app.command(
-    "deploy",
-    help="Proxies the 'deploy' command to wrangler. Args are passed through.",
-    context_settings=dict(ignore_unknown_options=True, allow_extra_args=True),
-)
-@click.argument("args", nargs=-1, type=click.UNPROCESSED)
-@click.pass_context
-def deploy_command(ctx, args):
-    ctx.invoke(sync_command, force=False)
-    _proxy_to_wrangler("deploy", list(args))
