@@ -4,6 +4,7 @@ import shutil
 import subprocess
 from pathlib import Path
 from unittest.mock import patch
+from textwrap import dedent
 
 import pytest
 from click.testing import CliRunner
@@ -64,53 +65,52 @@ def create_test_pyproject(dependencies=None):
     if dependencies is None:
         dependencies = ["requests==2.28.1", "pydantic>=1.9.0,<2.0.0"]
 
-    content = f"""
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
+    content = dedent(f"""
+        [build-system]
+        requires = ["setuptools>=61.0"]
+        build-backend = "setuptools.build_meta"
 
-[project]
-name = "test-project"
-version = "0.1.0"
-description = "Test Project"
-requires-python = ">=3.8"
-dependencies = [
-    {",".join([f'"{dep}"' for dep in dependencies])}
-]
-"""
+        [project]
+        name = "test-project"
+        version = "0.1.0"
+        description = "Test Project"
+        requires-python = ">=3.8"
+        dependencies = [
+            {",".join([f'"{dep}"' for dep in dependencies])}
+        ]
+    """)
     TEST_PYPROJECT.write_text(content)
     return dependencies
 
 
 def create_test_wrangler_jsonc(main_path="src/worker.py"):
     """Create a test wrangler.jsonc file with the given main path."""
-    content = f"""
-{{
-    // Name of the worker
-    "name": "test-worker",
-    
-    // Main script to run
-    "main": "{main_path}",
-    
-    // Compatibility date
-    "compatibility_date": "2023-10-30"
-}}
-"""
+    content = f"""{{
+        // Name of the worker
+        "name": "test-worker",
+
+        // Main script to run
+        "main": "{main_path}",
+
+        // Compatibility date
+        "compatibility_date": "2023-10-30"
+    }}
+    """
     TEST_WRANGLER_JSONC.write_text(content)
 
 
 def create_test_wrangler_toml(main_path="dist/worker.js"):
     """Create a test wrangler.toml file with the given main path."""
-    content = f"""
-# Name of the worker
-name = "test-worker-toml"
+    content = dedent(f"""
+        # Name of the worker
+        name = "test-worker-toml"
 
-# Main script to run
-main = "{main_path}"
+        # Main script to run
+        main = "{main_path}"
 
-# Compatibility date
-compatibility_date = "2023-10-30"
-"""
+        # Compatibility date
+        compatibility_date = "2023-10-30"
+    """)
     TEST_WRANGLER_TOML.write_text(content)
 
 
@@ -229,10 +229,10 @@ def test_sync_command_handles_missing_pyproject(clean_test_dir, caplog):
     assert expected_log_message in caplog.text
 
 
-@patch("pywrangler.cli.check_timestamps")
+@patch("pywrangler.cli.is_sync_needed")
 @patch("pywrangler.cli.install_requirements")
 def test_sync_command_with_unchanged_timestamps(
-    mock_install_requirements, mock_check_timestamps, clean_test_dir, caplog
+    mock_install_requirements, mock_is_sync_needed, clean_test_dir, caplog
 ):
     """Test that the sync command skips sync when timestamps indicate no change."""
 
@@ -242,8 +242,8 @@ def test_sync_command_with_unchanged_timestamps(
     # Create a wrangler.jsonc file
     create_test_wrangler_jsonc()
 
-    # Mock check_timestamps to return False (no sync needed)
-    mock_check_timestamps.return_value = False
+    # Mock is_sync_needed to return False (no sync needed)
+    mock_is_sync_needed.return_value = False
 
     # Use the Click test runner to invoke the command
     runner = CliRunner()
@@ -256,10 +256,10 @@ def test_sync_command_with_unchanged_timestamps(
     mock_install_requirements.assert_not_called()
 
 
-@patch("pywrangler.cli.check_timestamps")
+@patch("pywrangler.cli.is_sync_needed")
 @patch("pywrangler.cli.install_requirements")
 def test_sync_command_with_changed_timestamps(
-    mock_install_requirements, mock_check_timestamps, clean_test_dir, caplog
+    mock_install_requirements, mock_is_sync_needed, clean_test_dir, caplog
 ):
     """Test that the sync command runs when timestamps indicate changes."""
     # Create the pyproject.toml file
@@ -268,8 +268,8 @@ def test_sync_command_with_changed_timestamps(
     # Create a wrangler.jsonc file
     create_test_wrangler_jsonc()
 
-    # Mock check_timestamps to return True (sync needed)
-    mock_check_timestamps.return_value = True
+    # Mock is_sync_needed to return True (sync needed)
+    mock_is_sync_needed.return_value = True
 
     # Use the Click test runner to invoke the command
     runner = CliRunner()
@@ -282,10 +282,10 @@ def test_sync_command_with_changed_timestamps(
     mock_install_requirements.assert_called_once()
 
 
-@patch("pywrangler.cli.check_timestamps")
+@patch("pywrangler.cli.is_sync_needed")
 @patch("pywrangler.cli.install_requirements")
 def test_sync_command_with_force_flag(
-    mock_install_requirements, mock_check_timestamps, clean_test_dir, caplog
+    mock_install_requirements, mock_is_sync_needed, clean_test_dir, caplog
 ):
     """Test that the sync command runs when the --force flag is used, regardless of timestamps."""
     # Create the pyproject.toml file
@@ -294,9 +294,9 @@ def test_sync_command_with_force_flag(
     # Create a wrangler.jsonc file
     create_test_wrangler_jsonc()
 
-    # Mock check_timestamps to return False (no sync needed)
+    # Mock is_sync_needed to return False (no sync needed)
     # This should be ignored due to the --force flag
-    mock_check_timestamps.return_value = False
+    mock_is_sync_needed.return_value = False
 
     # Use the Click test runner to invoke the command with --force
     runner = CliRunner()

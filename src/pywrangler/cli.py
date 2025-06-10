@@ -6,7 +6,7 @@ import click
 
 from pywrangler.sync import (
     check_pyproject_toml,
-    check_timestamps,
+    is_sync_needed,
     create_pyodide_venv,
     create_workers_venv,
     generate_requirements,
@@ -113,7 +113,7 @@ def sync_command(force=False):
     check_pyproject_toml()
 
     # Check if sync is needed based on file timestamps
-    sync_needed = force or check_timestamps()
+    sync_needed = force or is_sync_needed()
     if not sync_needed:
         logger.warning(
             "pyproject.toml hasn't changed since last sync, use --force to ignore timestamp check"
@@ -144,8 +144,8 @@ def _proxy_to_wrangler(command_name, args_list):
     try:
         process = subprocess.run(command_to_run, check=False, cwd=".")
         click.get_current_context().exit(process.returncode)
-    except FileNotFoundError:
+    except FileNotFoundError as e:
         logger.error(
-            "'npx' or 'wrangler' not found. Ensure Node.js and Wrangler are installed and in your PATH."
+            f"Wrangler not found. Ensure Node.js and Wrangler are installed and in your PATH. Error was: {str(e)}"
         )
         click.get_current_context().exit(1)
