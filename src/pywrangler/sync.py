@@ -55,7 +55,9 @@ def install_pyodide_build():
         venv_bin_path = pyodide_cli_path.parent
 
         # Ensure the python executable path is correct for the venv
-        venv_python_executable = venv_bin_path / "python"
+        venv_python_executable = venv_bin_path / (
+            "python.exe" if os.name == "nt" else "python"
+        )
         if not venv_python_executable.is_file():
             logger.error(f"Python executable not found at {venv_python_executable}")
             raise click.exceptions.Exit(code=1)
