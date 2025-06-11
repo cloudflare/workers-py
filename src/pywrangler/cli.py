@@ -1,7 +1,7 @@
 import logging
 import subprocess
 import sys
-
+import textwrap
 import click
 
 from pywrangler.sync import (
@@ -9,7 +9,7 @@ from pywrangler.sync import (
     is_sync_needed,
     create_pyodide_venv,
     create_workers_venv,
-    generate_requirements,
+    parse_requirements,
     install_pyodide_build,
     install_requirements,
 )
@@ -40,9 +40,7 @@ class ProxyToWranglerGroup(click.Group):
                 # Replace 'wrangler' with 'pywrangler' in the help text
                 wrangler_help = wrangler_help.replace("wrangler ", "pywrangler ")
                 # Indent each line of the wrangler help
-                indented_help = "\n".join(
-                    "  " + line for line in wrangler_help.split("\n")
-                )
+                indented_help = textwrap.indent(wrangler_help, "  ")
                 help_text += "\n\nWrangler Commands (proxied):\n"
                 help_text += indented_help
         except (
@@ -128,12 +126,12 @@ def sync_command(force=False):
     create_pyodide_venv()
 
     # Generate requirements.txt from pyproject.toml by directly parsing the TOML file then install into vendor folder.
-    has_requirements = generate_requirements()
-    if not has_requirements:
+    requirements = parse_requirements()
+    if not requirements:
         logger.warning(
             "No dependencies found in [project.dependencies] section of pyproject.toml."
         )
-    install_requirements()
+    install_requirements(requirements)
 
     write_success("Sync process completed successfully.")
 
