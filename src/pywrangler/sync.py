@@ -1,6 +1,7 @@
 import logging
 import os
 from pathlib import Path
+import tempfile
 
 import click
 
@@ -18,7 +19,6 @@ PROJECT_ROOT = Path.cwd()  # Assumes script is run from project root
 VENV_WORKERS_PATH = PROJECT_ROOT / ".venv-workers"
 PYODIDE_VENV_PATH = VENV_WORKERS_PATH / "pyodide-venv"
 PYPROJECT_TOML_PATH = PROJECT_ROOT / "pyproject.toml"
-GENERATED_REQUIREMENTS_PATH = PYODIDE_VENV_PATH / "temp-requirements.txt"
 VENV_REQUIREMENTS_PATH = VENV_WORKERS_PATH / "temp-venv-requirements.txt"
 
 
@@ -88,10 +88,8 @@ def create_pyodide_venv():
     run_command([str(pyodide_cli_path), "venv", str(PYODIDE_VENV_PATH)])
 
 
-def generate_requirements() -> bool:
-    logger.debug(
-        f"Reading dependencies from {PYPROJECT_TOML_PATH} and generating {GENERATED_REQUIREMENTS_PATH}..."
-    )
+def parse_requirements() -> list[str]:
+    logger.debug(f"Reading dependencies from {PYPROJECT_TOML_PATH}...")
     try:
         with open(PYPROJECT_TOML_PATH, "rb") as f:
             pyproject_data = tomllib.load(f)
@@ -99,22 +97,14 @@ def generate_requirements() -> bool:
         # Extract dependencies from [project.dependencies]
         dependencies = pyproject_data.get("project", {}).get("dependencies", [])
 
-        if not dependencies:
-            return False
-
-        # Write dependencies to requirements.txt
-        GENERATED_REQUIREMENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
-        GENERATED_REQUIREMENTS_PATH.write_text("\n".join(dependencies))
-
         logger.info(f"Found {len(dependencies)} dependencies.")
+        return dependencies
     except tomllib.TOMLDecodeError as e:
         logger.error(f"Error parsing {PYPROJECT_TOML_PATH}: {str(e)}")
         raise click.exceptions.Exit(code=1)
 
-    return True
 
-
-def install_requirements():
+def _install_requirements_to_vendor(requirements: list[str]):
     # Get the vendor path dynamically from wrangler config
     try:
         vendor_path_relative = get_vendor_path_from_wrangler_config(PROJECT_ROOT)
@@ -126,11 +116,21 @@ def install_requirements():
     vendor_path = PROJECT_ROOT / vendor_path_relative
     logger.debug(f"Using vendor path: {vendor_path} (determined from wrangler config)")
 
-    # Install packages into vendor directory
-    if (
-        GENERATED_REQUIREMENTS_PATH.is_file()
-        and GENERATED_REQUIREMENTS_PATH.stat().st_size > 0
-    ):
+    if len(requirements) == 0:
+        logger.warning(
+            f"Requirements list is empty. No dependencies to install in {vendor_path}."
+        )
+        return
+
+    # Write dependencies to a requirements.txt-style temp file.
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".txt", dir=PYODIDE_VENV_PATH
+    ) as temp_file:
+        temp_file.write("\n".join(requirements))
+        temp_file.flush()
+        temp_file_path = Path(temp_file.name)
+
+        # Install packages into vendor directory
         vendor_path.mkdir(parents=True, exist_ok=True)
         pyodide_venv_pip_path = (
             PYODIDE_VENV_PATH
@@ -148,86 +148,69 @@ def install_requirements():
                 "-t",
                 str(vendor_path),
                 "-r",
-                str(GENERATED_REQUIREMENTS_PATH),
+                str(temp_file_path),
             ]
         )
         logger.info(
             f"Packages installed in [bold]{vendor_path_relative}[/bold].",
             extra={"markup": True},
         )
-    else:
-        logger.warning(
-            f"{GENERATED_REQUIREMENTS_PATH} is empty or was not created. No dependencies to install in {vendor_path}."
-        )
 
-    # Create a requirements file for .venv-workers that includes webtypy
+
+def _install_requirements_to_venv(requirements: list[str]):
+    # Create a requirements file for .venv-workers that includes webtypy and pyodide-py
     VENV_REQUIREMENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
 
-    # Start with existing requirements (if any)
-    if (
-        GENERATED_REQUIREMENTS_PATH.is_file()
-        and GENERATED_REQUIREMENTS_PATH.stat().st_size > 0
-    ):
-        with open(GENERATED_REQUIREMENTS_PATH, "r") as src, open(
-            VENV_REQUIREMENTS_PATH, "w"
-        ) as dest:
-            dest.write(src.read())
-    else:
-        # Create a new empty requirements file
-        with open(VENV_REQUIREMENTS_PATH, "w") as f:
-            pass
+    requirements = requirements.copy()
+    requirements.append("webtypy")
+    requirements.append("pyodide-py")
 
-    # Add webtypy to the venv requirements file for type hints
-    with open(VENV_REQUIREMENTS_PATH, "r") as f:
-        current_content = f.read()
+    # Write dependencies to a requirements.txt-style temp file.
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".txt", dir=VENV_REQUIREMENTS_PATH.parent
+    ) as temp_file:
+        temp_file.write("\n".join(requirements))
+        temp_file.flush()
+        temp_file_path = Path(temp_file.name)
 
-    with open(VENV_REQUIREMENTS_PATH, "a") as f:
-        if current_content and not current_content.endswith("\n"):
-            f.write("\n")
-        f.write("webtypy\n")
-        f.write("pyodide-py\n")
-
-    # Install packages into .venv-workers so that user's IDE can see the packages.
-    venv_bin_path = VENV_WORKERS_PATH / ("Scripts" if os.name == "nt" else "bin")
-    venv_python_executable = venv_bin_path / (
-        "python.exe" if os.name == "nt" else "python"
-    )
-
-    # For nicer logs, output the relative path.
-    relative_venv_workers_path = VENV_WORKERS_PATH.relative_to(PROJECT_ROOT)
-    if venv_python_executable.is_file():
-        logger.info(
-            f"Installing packages into [bold]{relative_venv_workers_path}[/bold] using uv pip...",
-            extra={"markup": True},
-        )
-        run_command(
-            [
-                "uv",
-                "pip",
-                "install",
-                "-p",
-                venv_python_executable,
-                "-r",
-                VENV_REQUIREMENTS_PATH,
-            ]
-        )
-        logger.info(
-            f"Packages installed in [bold]{relative_venv_workers_path}[/bold].",
-            extra={"markup": True},
-        )
-    else:
-        logger.warning(
-            f"Python executable not found at {venv_python_executable}. Skipping installation in [bold]{relative_venv_workers_path}[/bold].",
-            extra={"markup": True},
+        # Install packages into .venv-workers so that user's IDE can see the packages.
+        venv_bin_path = VENV_WORKERS_PATH / ("Scripts" if os.name == "nt" else "bin")
+        venv_python_executable = venv_bin_path / (
+            "python.exe" if os.name == "nt" else "python"
         )
 
-    # Clean up temporary files
-    if GENERATED_REQUIREMENTS_PATH.exists():
-        GENERATED_REQUIREMENTS_PATH.unlink()
-        logger.debug(f"Cleaned up {GENERATED_REQUIREMENTS_PATH}.")
-    if VENV_REQUIREMENTS_PATH.exists():
-        VENV_REQUIREMENTS_PATH.unlink()
-        logger.debug(f"Cleaned up {VENV_REQUIREMENTS_PATH}.")
+        # For nicer logs, output the relative path.
+        relative_venv_workers_path = VENV_WORKERS_PATH.relative_to(PROJECT_ROOT)
+        if venv_python_executable.is_file():
+            logger.info(
+                f"Installing packages into [bold]{relative_venv_workers_path}[/bold] using uv pip...",
+                extra={"markup": True},
+            )
+            run_command(
+                [
+                    "uv",
+                    "pip",
+                    "install",
+                    "-p",
+                    venv_python_executable,
+                    "-r",
+                    str(temp_file_path),
+                ]
+            )
+            logger.info(
+                f"Packages installed in [bold]{relative_venv_workers_path}[/bold].",
+                extra={"markup": True},
+            )
+        else:
+            logger.warning(
+                f"Python executable not found at {venv_python_executable}. Skipping installation in [bold]{relative_venv_workers_path}[/bold].",
+                extra={"markup": True},
+            )
+
+
+def install_requirements(requirements: list[str]):
+    _install_requirements_to_vendor(requirements)
+    _install_requirements_to_venv(requirements)
 
 
 def is_sync_needed():
