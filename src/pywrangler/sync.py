@@ -28,6 +28,26 @@ def check_pyproject_toml():
         raise click.exceptions.Exit(code=1)
 
 
+def check_requirements_txt():
+    old_requirements_txt = PROJECT_ROOT / "requirements.txt"
+    if old_requirements_txt.is_file():
+        with open(old_requirements_txt, "r") as f:
+            requirements = f.read().splitlines()
+            logger.warning(
+                "Specifying Python Packages in requirements.txt is no longer supported, please use pyproject.toml instead.\n"
+                + "Put the following in your pyproject.toml to vendor the packages currently in your requirements.txt:"
+            )
+            pyproject_text = "dependencies = [\n"
+            pyproject_text += ",\n".join([f'  "{x}"' for x in requirements])
+            pyproject_text += "\n]"
+            logger.warning(pyproject_text)
+
+        logger.error(
+            f"{old_requirements_txt} exists. Delete the file to continue. Exiting."
+        )
+        raise click.exceptions.Exit(code=1)
+
+
 def create_workers_venv():
     """
     Creates a virtual environment at `VENV_WORKERS_PATH` if it doesn't exist.
