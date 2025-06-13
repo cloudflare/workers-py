@@ -153,3 +153,26 @@ def get_vendor_path_from_wrangler_config(project_path: Path) -> Path:
     vendor_path_relative_to_project = base_dir_relative_to_project / "vendor"
 
     return vendor_path_relative_to_project
+
+
+def find_pyproject_toml() -> Path:
+    """
+    Search for pyproject.toml starting from current working directory and going up the directory tree.
+
+    Returns:
+        Path to pyproject.toml if found.
+
+    Raises:
+        click.exceptions.Exit: If pyproject.toml is not found in the directory tree.
+    """
+
+    parent_dirs = (Path.cwd().resolve() / "dummy").parents
+    for current_dir in parent_dirs:
+        pyproject_path = current_dir / "pyproject.toml"
+        if pyproject_path.is_file():
+            return pyproject_path
+
+    logger.error(
+        f"pyproject.toml not found in {Path.cwd().resolve()} or any parent directories"
+    )
+    raise click.exceptions.Exit(code=1)
