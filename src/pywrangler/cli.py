@@ -5,7 +5,6 @@ import textwrap
 import click
 
 from pywrangler.sync import (
-    check_pyproject_toml,
     check_requirements_txt,
     is_sync_needed,
     create_pyodide_venv,
@@ -108,8 +107,7 @@ def sync_command(force=False):
 
     Also creates a virtual env for Workers that you can use for testing.
     """
-    # Check if pyproject.toml exists and requirements.txt does not
-    check_pyproject_toml()
+    # Check if requirements.txt does not exist.
     check_requirements_txt()
 
     # Check if sync is needed based on file timestamps

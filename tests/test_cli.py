@@ -210,26 +210,40 @@ def test_sync_command_integration(dependencies, clean_test_dir):
         )
 
 
-@patch.object(pywrangler.sync, "PROJECT_ROOT", TEST_DIR)
-@patch.object(pywrangler.sync, "PYPROJECT_TOML_PATH", TEST_PYPROJECT)
-def test_sync_command_handles_missing_pyproject(clean_test_dir, caplog):
+def test_sync_command_handles_missing_pyproject():
     """Test that the sync command correctly handles a missing pyproject.toml file."""
-    # Don't create the pyproject.toml file
-    assert not TEST_PYPROJECT.exists()
+    import tempfile
 
-    # Create a wrangler.jsonc file so we don't fail due to missing wrangler config
-    create_test_wrangler_jsonc()
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_path = Path(temp_dir)
 
-    # Use the Click test runner to invoke the command
-    runner = CliRunner()
-    result = runner.invoke(app, ["sync"])
+        # Don't create pyproject.toml file
+        assert not (temp_path / "pyproject.toml").exists()
 
-    # Check that the command failed with the expected error
-    assert result.exit_code != 0
+        # Save original directory
+        original_dir = os.getcwd()
 
-    # Check that the error was logged
-    expected_log_message = f"{TEST_PYPROJECT} not found"
-    assert expected_log_message in caplog.text
+        try:
+            # Change to temp directory
+            os.chdir(temp_path)
+
+            # Get the absolute path to the package root
+            project_root = Path(original_dir)
+
+            # Run pywrangler sync from the temp directory (should fail)
+            sync_cmd = ["uvx", "--from", str(project_root), "pywrangler", "sync"]
+
+            result = subprocess.run(sync_cmd, capture_output=True, text=True)
+
+        finally:
+            # Change back to original directory
+            os.chdir(original_dir)
+
+        # Check that the command failed with the expected error
+        assert result.returncode != 0
+
+        # Check that the error was logged
+        assert "pyproject.toml not found" in result.stderr
 
 
 @patch("pywrangler.cli.is_sync_needed")
@@ -428,4 +442,54 @@ def test_proxy_to_wrangler_handles_subprocess_error(mock_subprocess_run):
     # Verify the error was attempted to be called
     mock_subprocess_run.assert_called_once_with(
         ["npx", "wrangler", "unknown_command"], check=False, cwd="."
+    )
+
+
+def test_sync_command_finds_pyproject_in_parent_directory(clean_test_dir):
+    """Test that the sync command can find pyproject.toml in a parent directory."""
+    # Create pyproject.toml in the test directory (parent)
+    create_test_pyproject(["click"])
+    create_test_wrangler_jsonc("src/worker.py")
+
+    # Create a subdirectory and change to it
+    subdir = TEST_DIR / "subproject"
+    subdir.mkdir()
+
+    # Save the original directory
+    original_dir = os.getcwd()
+
+    try:
+        # Change to the subdirectory
+        os.chdir(subdir)
+
+        # Get the absolute path to the package root
+        project_root = Path(original_dir)
+
+        # Run the pywrangler CLI from the subdirectory
+        sync_cmd = ["uvx", "--from", str(project_root), "pywrangler", "sync"]
+
+        result = subprocess.run(sync_cmd, capture_output=True, text=True)
+        print(f"\nCommand output:\n{result.stdout}")
+        if result.stderr:
+            print(f"Command errors:\n{result.stderr}")
+
+    finally:
+        # Change back to the original directory
+        os.chdir(original_dir)
+
+    # Check that the command succeeded
+    assert result.returncode == 0, (
+        f"Script failed with output: {result.stdout}\nErrors: {result.stderr}"
+    )
+
+    # Verify the vendor directory was created in the parent directory (where pyproject.toml is)
+    TEST_SRC_VENDOR = TEST_DIR / "src" / "vendor"
+    assert TEST_SRC_VENDOR.exists(), (
+        f"Vendor directory was not created at {TEST_SRC_VENDOR}"
+    )
+
+    # Verify the .venv-workers directory was created in the parent directory
+    TEST_VENV_WORKERS = TEST_DIR / ".venv-workers"
+    assert TEST_VENV_WORKERS.exists(), (
+        f".venv-workers directory was not created at {TEST_VENV_WORKERS}"
     )

@@ -5,7 +5,11 @@ import tempfile
 
 import click
 
-from pywrangler.utils import get_vendor_path_from_wrangler_config, run_command
+from pywrangler.utils import (
+    get_vendor_path_from_wrangler_config,
+    run_command,
+    find_pyproject_toml,
+)
 
 try:
     import tomllib  # Standard in Python 3.11+
@@ -15,17 +19,11 @@ except ImportError:
 logger = logging.getLogger(__name__)
 
 # Define paths
-PROJECT_ROOT = Path.cwd()  # Assumes script is run from project root
+PYPROJECT_TOML_PATH = find_pyproject_toml()
+PROJECT_ROOT = PYPROJECT_TOML_PATH.parent
 VENV_WORKERS_PATH = PROJECT_ROOT / ".venv-workers"
 PYODIDE_VENV_PATH = VENV_WORKERS_PATH / "pyodide-venv"
-PYPROJECT_TOML_PATH = PROJECT_ROOT / "pyproject.toml"
 VENV_REQUIREMENTS_PATH = VENV_WORKERS_PATH / "temp-venv-requirements.txt"
-
-
-def check_pyproject_toml():
-    if not PYPROJECT_TOML_PATH.is_file():
-        logger.error(f"{PYPROJECT_TOML_PATH} not found.")
-        raise click.exceptions.Exit(code=1)
 
 
 def check_requirements_txt():
