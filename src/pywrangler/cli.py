@@ -64,7 +64,7 @@ class ProxyToWranglerGroup(click.Group):
             except ValueError:
                 remaining_args = []
 
-            if cmd_name in ["dev", "publish", "deploy"]:
+            if cmd_name in ["dev", "publish", "deploy", "versions"]:
                 ctx.invoke(sync_command, force=False)
 
             _proxy_to_wrangler(cmd_name, remaining_args)
