@@ -31,7 +31,8 @@ jobs:
       - name: Setup | Checkout Repository on Release Branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ github.ref_name }}
+          token: ${{ secrets.DEVPROD_PAT }}
+          ref: main
           fetch-depth: 0
 
       - name: Setup | Force release branch to be at workflow sha
