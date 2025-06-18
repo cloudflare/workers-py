@@ -10,8 +10,9 @@ import pytest
 from click.testing import CliRunner
 
 # Import the full module so we can patch constants
-import pywrangler.cli
 from pywrangler.cli import app
+import pywrangler.sync as pywrangler_sync
+
 
 # Define test fixtures and constants
 TEST_DIR = Path(__file__).parent / "test_workspace"
@@ -243,11 +244,11 @@ def test_sync_command_handles_missing_pyproject():
         assert result.returncode != 0
 
         # Check that the error was logged
-        assert "pyproject.toml not found" in result.stderr
+        assert "pyproject.toml not found" in result.stdout
 
 
-@patch("pywrangler.cli.is_sync_needed")
-@patch("pywrangler.cli.install_requirements")
+@patch.object(pywrangler_sync, "is_sync_needed")
+@patch.object(pywrangler_sync, "install_requirements")
 def test_sync_command_with_unchanged_timestamps(
     mock_install_requirements, mock_is_sync_needed, clean_test_dir, caplog
 ):
@@ -273,8 +274,8 @@ def test_sync_command_with_unchanged_timestamps(
     mock_install_requirements.assert_not_called()
 
 
-@patch("pywrangler.cli.is_sync_needed")
-@patch("pywrangler.cli.install_requirements")
+@patch.object(pywrangler_sync, "is_sync_needed")
+@patch.object(pywrangler_sync, "install_requirements")
 def test_sync_command_with_changed_timestamps(
     mock_install_requirements, mock_is_sync_needed, clean_test_dir, caplog
 ):
@@ -299,8 +300,8 @@ def test_sync_command_with_changed_timestamps(
     mock_install_requirements.assert_called_once()
 
 
-@patch("pywrangler.cli.is_sync_needed")
-@patch("pywrangler.cli.install_requirements")
+@patch.object(pywrangler_sync, "is_sync_needed")
+@patch.object(pywrangler_sync, "install_requirements")
 def test_sync_command_with_force_flag(
     mock_install_requirements, mock_is_sync_needed, clean_test_dir, caplog
 ):
@@ -326,8 +327,8 @@ def test_sync_command_with_force_flag(
     mock_install_requirements.assert_called_once()
 
 
-@patch.object(pywrangler.sync, "PROJECT_ROOT", TEST_DIR)
-@patch.object(pywrangler.sync, "PYPROJECT_TOML_PATH", TEST_PYPROJECT)
+@patch.object(pywrangler_sync, "PROJECT_ROOT", TEST_DIR)
+@patch.object(pywrangler_sync, "PYPROJECT_TOML_PATH", TEST_PYPROJECT)
 def test_sync_command_handles_missing_wrangler_config(clean_test_dir, caplog):
     """Test that the sync command correctly handles missing wrangler configuration files."""
     # Create a pyproject.toml file but don't create wrangler config files
@@ -348,9 +349,9 @@ def test_sync_command_handles_missing_wrangler_config(clean_test_dir, caplog):
     assert "not found" in caplog.text
 
 
-@patch.object(pywrangler.sync, "PROJECT_ROOT", TEST_DIR)
-@patch.object(pywrangler.sync, "VENV_WORKERS_PATH", TEST_DIR / ".venv-workers")
-@patch.object(pywrangler.sync, "PYPROJECT_TOML_PATH", TEST_PYPROJECT)
+@patch.object(pywrangler_sync, "PROJECT_ROOT", TEST_DIR)
+@patch.object(pywrangler_sync, "VENV_WORKERS_PATH", TEST_DIR / ".venv-workers")
+@patch.object(pywrangler_sync, "PYPROJECT_TOML_PATH", TEST_PYPROJECT)
 def test_sync_command_with_wrangler_toml(clean_test_dir, caplog):
     """Test that the sync command correctly processes wrangler.toml files."""
     # Create the necessary files
