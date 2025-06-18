@@ -4,15 +4,6 @@ import sys
 import textwrap
 import click
 
-from pywrangler.sync import (
-    check_requirements_txt,
-    is_sync_needed,
-    create_pyodide_venv,
-    create_workers_venv,
-    parse_requirements,
-    install_pyodide_build,
-    install_requirements,
-)
 from pywrangler.utils import setup_logging, write_success
 
 setup_logging()
@@ -107,6 +98,17 @@ def sync_command(force=False):
 
     Also creates a virtual env for Workers that you can use for testing.
     """
+    # This module is imported locally because it searches for pyproject.toml at the top-level.
+    from pywrangler.sync import (
+        check_requirements_txt,
+        is_sync_needed,
+        create_pyodide_venv,
+        create_workers_venv,
+        parse_requirements,
+        install_pyodide_build,
+        install_requirements,
+    )
+
     # Check if requirements.txt does not exist.
     check_requirements_txt()
 
