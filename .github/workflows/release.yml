@@ -18,6 +18,9 @@ jobs:
       group: ${{ github.workflow }}-release-${{ github.ref_name }}
       cancel-in-progress: false
 
+    outputs:
+      released: ${{ steps.release.outputs.released }}
+
     permissions:
       contents: write
 
