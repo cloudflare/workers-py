@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.3 (2025-06-20)
+
+### Bug Fixes
+
+- Only look for pyproject.toml on `sync` command
+  ([`fd2eb1d`](https://github.com/cloudflare/workers-py/commit/fd2eb1db64c81f04334fc09634326e4287972b6a))
+
+
 ## v1.0.2 (2025-06-18)
 
 ### Bug Fixes
