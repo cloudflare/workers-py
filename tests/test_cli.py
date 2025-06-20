@@ -86,7 +86,12 @@ def create_test_pyproject(dependencies=None):
 
 def create_test_wrangler_jsonc(main_path="src/worker.py"):
     """Create a test wrangler.jsonc file with the given main path."""
-    content = f"""{{
+    content = f"""
+    /**
+     * For more details on how to configure Wrangler, refer to:
+     * https://developers.cloudflare.com/workers/wrangler/configuration/
+     */
+    {{
         // Name of the worker
         "name": "test-worker",
 
