@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.0.4 (2025-06-20)
+
+### Bug Fixes
+
+- Use jsonc-parser for jsonc parsing to support multi-line comments
+  ([`229062d`](https://github.com/cloudflare/workers-py/commit/229062d717091b46010791f71df82e43a6323a5b))
+
+
 ## v1.0.3 (2025-06-20)
 
 ### Bug Fixes
