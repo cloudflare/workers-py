@@ -4,7 +4,7 @@ import subprocess
 from pathlib import Path
 
 import click
-import commentjson
+import pyjson5
 from rich.logging import Console, RichHandler
 from rich.theme import Theme
 
@@ -124,7 +124,7 @@ def get_vendor_path_from_wrangler_config(project_path: Path) -> Path:
         config_file_path = wrangler_jsonc_path
         try:
             with open(config_file_path, "r", encoding="utf-8") as f:
-                config_data = commentjson.load(f)
+                config_data = pyjson5.decode(f.read())
         except (json.JSONDecodeError, ValueError) as e:
             raise ValueError(f"Invalid JSONC in {config_file_path}: {e}") from e
         except Exception as e:
