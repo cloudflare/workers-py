@@ -1,0 +1,42 @@
+{
+    "name": "django-on-workers",
+    "main": "src/worker.py",
+    "compatibility_flags": [
+        "python_workers"
+    ],
+    "compatibility_date": "2025-04-10",
+    "assets": {
+      "directory": "./staticfiles/"
+    },
+    "rules": [
+        {
+            "globs": [
+                "vendor/**/*.txt.gz",
+                "vendor/**/*.py",
+                "vendor/**/*.mo",
+                "vendor/tzdata/**/"
+            ],
+            "type": "Data",
+            "fallthrough": true
+        }
+    ],
+    "durable_objects": {
+        "bindings": [
+            {
+                "name": "ns",
+                "class_name": "DOClass"
+            }
+        ]
+    },
+    "migrations": [
+        {
+            "tag": "v1",
+            "new_sqlite_classes": [
+                "DOClass"
+            ]
+        }
+    ],
+    "observability": {
+        "enabled": true
+    }
+}
