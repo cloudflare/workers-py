@@ -1,6 +1,7 @@
 import os
 from io import BytesIO
 
+
 class DjangoCFAdapter:
     def __init__(self, app):
         self.app = app
@@ -83,7 +84,7 @@ class DjangoCFDurableObject:
         from django_cf.do_binding.storage import set_storage
         set_storage(self.ctx.storage.sql)
 
-    async def on_fetch(self, request):
-        adapter = DjangoCFAdapter(self.get_app())
+        self.adapter = DjangoCFAdapter(self.get_app())
 
-        return await adapter.handle_request(request._js_request)
+    async def on_fetch(self, request):
+        return await self.adapter.handle_request(request._js_request)
