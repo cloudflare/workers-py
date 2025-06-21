@@ -70,3 +70,20 @@ class DjangoCFAdapter:
             final_response.headers.set('Set-Cookie', value.replace('Set-Cookie: ', '', 1));
 
         return final_response
+
+
+class DjangoCFDurableObject:
+    def get_app(self):
+        raise NotImplementedError("Please implement get_app function in your Durable Object Class")
+
+    def __init__(self, ctx, env):
+        self.ctx = ctx
+        self.env = env
+
+        from django_cf.do_binding.storage import set_storage
+        set_storage(self.ctx.storage.sql)
+
+    async def on_fetch(self, request):
+        adapter = DjangoCFAdapter(self.get_app())
+
+        return await adapter.handle_request(request._js_request)
