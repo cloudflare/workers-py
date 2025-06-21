@@ -79,19 +79,17 @@ root
     [build]
     command = "python src/manage.py collectstatic --noinput"
     ```
-    *Note: If using `wrangler.jsonc`, adapt the TOML structure to JSON.*
 
 4.  **`src/worker.py` (Worker Entrypoint):**
     Use `DjangoCFAdapter` to handle requests.
     ```python
     from django_cf import DjangoCFAdapter
-    # Ensure your Django project's WSGI application is importable
-    # For example, if your project is 'myproject' inside 'src':
-    from myproject.wsgi import application
 
     async def on_fetch(request, env):
-        # Optionally, pass 'env' if your Django app needs access to bindings
-        adapter = DjangoCFAdapter(application, env_vars=env)
+        # Ensure your Django project's WSGI application is importable
+        # For example, if your project is 'myproject' inside 'src':
+        from myproject.wsgi import application # Import application inside on_fetch
+        adapter = DjangoCFAdapter(application)
         return await adapter.handle_request(request)
     ```
 
@@ -140,6 +138,7 @@ root
     from django.http import JsonResponse
     from django.core.management import call_command
     from django.contrib.auth.decorators import user_passes_test # Example for security
+    from django.contrib.auth import get_user_model # For create_admin_view
 
     def is_superuser(user):
         return user.is_superuser
@@ -152,12 +151,27 @@ root
         except Exception as e:
             return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
+    @user_passes_test(is_superuser) # Protect this endpoint!
+    def create_admin_view(request):
+        User = get_user_model()
+        username = 'admin' # Or get from request, config, etc.
+        email = 'admin@example.com' # Or get from request, config, etc.
+        password = 'yoursecurepassword' # Ideally, generate or get from a secure source
+
+        if not User.objects.filter(username=username).exists():
+            User.objects.create_superuser(username, email, password)
+            return JsonResponse({"status": "success", "message": f"Admin user '{username}' created."})
+        else:
+            return JsonResponse({"status": "info", "message": f"Admin user '{username}' already exists."})
+
     urlpatterns = [
         # ... your other urls
         path('__run_migrations__/', run_migrations_view, name='run_migrations'),
+        path('__create_admin__/', create_admin_view, name='create_admin'), # Add this
     ]
     ```
-    Access `https://your-worker-url.com/__run_migrations__/` to trigger.
+    Access `https://your-worker-url.com/__run_migrations__/` to trigger migrations.
+    Access `https://your-worker-url.com/__create_admin__/` to trigger admin creation.
 
 ### 2. Cloudflare D1 Integration
 
@@ -256,14 +270,10 @@ Utilize Durable Objects for stateful data persistence directly within your Cloud
     DATABASES = {
         'default': {
             'ENGINE': 'django_cf.do_binding',
-            # 'CLOUDFLARE_BINDING' should match the 'name' of your DO binding in wrangler.toml
-            'CLOUDFLARE_BINDING': 'DO_STORAGE',
-            # 'CLOUDFLARE_INSTANCE_NAME' is optional, defaults to "singleton_instance"
-            # It's the name used with idFromName() if not dynamically determined.
-            # 'CLOUDFLARE_INSTANCE_NAME': 'my_default_do_instance',
         }
     }
     ```
+    The `django_cf.do_binding` engine will automatically use the Durable Object binding specified in your `wrangler.toml` that is associated with the `DjangoCFDurableObject` class. Ensure your `wrangler.toml` correctly binds a name to your `DjangoCFDurableObject` subclass.
 
 ## Limitations
 
@@ -280,7 +290,7 @@ See [DEVELOPMENT.md](DEVELOPMENT.md) for details on setting up a development env
 
 ## License
 
-This project is licensed under the [LICENSE](LICENSE) file.
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
 ---
 
 *For a more detailed example of a Django project structured for Cloudflare Workers with D1, check out relevant community projects or the `django-cf` examples if available.*
