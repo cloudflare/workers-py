@@ -35,9 +35,9 @@ template-root/
 ## Setup and Deployment
 
 1.  **Install Dependencies:**
-    *   **Node.js & Wrangler:** Ensure you have Node.js and npm installed. Then install Wrangler CLI:
+    *   **Node.js & Wrangler:** Ensure you have Node.js and npm installed. Then install dependencies with this command:
         ```bash
-        npm install -g wrangler
+        npm install
         ```
     *   **Python Dependencies (Vendoring):**
         List your Python dependencies (including `django` and `django-cf`) in `vendor.txt`.
@@ -52,6 +52,18 @@ template-root/
         ```bash
         pip install -t src/vendor -r vendor.txt
         ```
+        
+    *   **Python Dependencies (Local Development):**
+        List your Python dev dependencies (including `django` and `django-cf`) in `requirements-dev.txt`.
+        ```txt
+        # requirements-dev.txt
+        django==5.1.2
+        django-cf
+        ```
+        Install them:
+        ```bash
+        pip install -r requirements-dev.txt
+        ```
 
 2.  **Configure `wrangler.jsonc`:**
     Review and update `wrangler.jsonc` for your project. Key sections:
@@ -65,27 +77,6 @@ template-root/
         *   `bucket`: Points to `./staticfiles` for serving static assets.
     *   `build`: (To be added if not present)
         *   `command`: `"python src/manage.py collectstatic --noinput"` to automatically collect static files during deployment.
-    *   `rules`: For including vendored packages.
-
-    Example snippet for Durable Object binding in `wrangler.jsonc`:
-    ```jsonc
-    // ... other wrangler.jsonc content
-    "durable_objects": {
-      "bindings": [
-        { "name": "DO_STORAGE", "class_name": "DjangoDO" }
-      ]
-    },
-    "migrations": [
-      { "tag": "v1", "new_classes": ["DjangoDO"] }
-    ],
-    "site": {
-      "bucket": "./staticfiles"
-    },
-    "build": {
-      "command": "python src/manage.py collectstatic --noinput"
-    }
-    // ...
-    ```
 
 3.  **Django Settings (`src/app/settings.py`):**
     The template is pre-configured to use Durable Objects:
@@ -94,8 +85,6 @@ template-root/
     DATABASES = {
         'default': {
             'ENGINE': 'django_cf.do_binding',
-            # CLOUDFLARE_BINDING is implicitly handled by DjangoCFDurableObject
-            # when it matches the class_name used in worker.py and wrangler.jsonc
         }
     }
 
@@ -112,13 +101,12 @@ template-root/
     This file contains your Durable Object class (`DjangoDO`) and the main `on_fetch` handler.
     ```python
     from django_cf import DjangoCFDurableObject
-    from PythonWorker import DurableObject # Standard Cloudflare DurableObject base
-
-    # Your Django project's WSGI application (ensure 'app' matches your project name)
-    from app.wsgi import application
+    from workers import DurableObject # Standard Cloudflare DurableObject base
 
     class DjangoDO(DjangoCFDurableObject, DurableObject):
         def get_app(self):
+            # Your Django project's WSGI application (ensure 'app' matches your project name)
+            from app.wsgi import application
             return application
         # You can add custom methods to your Durable Object here
 

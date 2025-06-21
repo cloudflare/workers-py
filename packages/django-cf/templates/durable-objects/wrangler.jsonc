@@ -1,12 +1,12 @@
 {
-    "name": "django-on-workers",
+    "name": "django-on-workers-with-durable-objects",
     "main": "src/worker.py",
     "compatibility_flags": [
         "python_workers"
     ],
     "compatibility_date": "2025-04-10",
-    "site": {
-      "bucket": "./staticfiles"
+    "assets": {
+      "directory": "./staticfiles"
     },
     "build": {
       "command": "python src/manage.py collectstatic --noinput"
@@ -34,7 +34,7 @@
     "migrations": [
         {
             "tag": "v1",
-            "new_classes": [
+            "new_sqlite_classes": [
                 "DjangoDO"
             ]
         }
