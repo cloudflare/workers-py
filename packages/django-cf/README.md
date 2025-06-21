@@ -104,12 +104,11 @@ To use the Durable Objects backend, you need to configure your Django `settings.
 DATABASES = {
     'default': {
         'ENGINE': 'django_cf.do_binding',
-        # 'NAME': 'your_do_namespace_binding', # This should match the 'name' in wrangler.jsonc durable_objects.bindings
         # No other credentials are typically needed as communication happens via the binding.
     }
 }
 ```
-Make sure that the `ENGINE` points to `django_cf.do_binding`. The `NAME` parameter in the `DATABASES` setting is not strictly required for the Durable Object binding itself (as the binding is resolved by Cloudflare Workers environment based on `wrangler.jsonc`), but it's good practice to include it for clarity or if your setup requires it for other Django management commands or local development simulations.
+Make sure that the `ENGINE` points to `django_cf.do_binding`.
 
 ## Cloudflare D1
 
