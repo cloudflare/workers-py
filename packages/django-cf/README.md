@@ -61,12 +61,12 @@ root
     compatibility_flags = [ "python_workers" ]
 
     # Configuration for serving static assets
-    [site]
-    bucket = "./staticfiles"
+    [assets]
+    directory = "./staticfiles"
 
     # Rules for including vendored Python packages
     [[rules]]
-    globs = ["vendor/**/*.py", "vendor/**/*.mo", "vendor/tzdata/**/"]
+    globs = ["vendor/**/*.py", "vendor/**/*.mo", "vendor/tzdata/**/", "vendor/**/*.txt.gz"]
     type = "Data"
     fallthrough = true
 
@@ -101,7 +101,7 @@ root
         BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
         STATIC_URL = '/static/'
-        # STATIC_ROOT should point to the 'bucket' directory in wrangler.toml,
+        # STATIC_ROOT should point to the 'assets' directory in wrangler.toml,
         # often one level above the 'src' directory.
         STATIC_ROOT = os.path.join(os.path.dirname(BASE_DIR), 'staticfiles', 'static')
         ```
