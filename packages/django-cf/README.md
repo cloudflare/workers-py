@@ -11,6 +11,106 @@ Integrations:
 pip install django-cf
 ```
 
+## Cloudflare Durable Objects
+
+This backend allows you to run Django applications within Cloudflare Workers, utilizing Durable Objects for data persistence. This is particularly useful for applications requiring a stateful backend while leveraging the serverless architecture of Cloudflare Workers.
+
+**Note:** Durable Objects provide a way to store data directly within your worker instances, offering low-latency access. However, it's important to understand the implications of this model, especially concerning data consistency and scalability.
+
+### Configuration
+
+Here's a basic setup for using Django with Durable Objects on Cloudflare Workers:
+
+**`wrangler.jsonc`**
+
+This file configures your Cloudflare Worker, including Durable Object bindings.
+
+```jsonc
+{
+    "name": "django-on-workers",
+    "main": "src/worker.py",
+    "compatibility_flags": [
+        "python_workers"
+    ],
+    "compatibility_date": "2025-04-10",
+    "assets": {
+      "directory": "./staticfiles/"
+    },
+    "rules": [
+        {
+            "globs": [
+                "vendor/**/*.txt.gz",
+                "vendor/**/*.py",
+                "vendor/**/*.mo",
+                "vendor/tzdata/**/"
+            ],
+            "type": "Data",
+            "fallthrough": true
+        }
+    ],
+    "durable_objects": {
+        "bindings": [
+            {
+                "name": "ns",
+                "class_name": "DOClass"
+            }
+        ]
+    },
+    "migrations": [
+        {
+            "tag": "v1",
+            "new_sqlite_classes": [
+                "DOClass"
+            ]
+        }
+    ],
+    "observability": {
+        "enabled": true
+    }
+}
+```
+
+**`src/worker.py`**
+
+This is the entrypoint for your Cloudflare Worker.
+
+```python
+from django_cf import DjangoCFDurableObject
+from workers import DurableObject
+
+
+class DOClass(DjangoCFDurableObject, DurableObject):
+    def get_app(self):
+        from app.wsgi import application  # Update according to your project structure
+        return application
+
+
+async def on_fetch(request, env):
+    # The idFromName("A") call ensures that all requests are routed to the same Durable Object instance,
+    # effectively creating a singleton. You can change "A" to a dynamic value (e.g., based on the request,
+    # user authentication, etc.) to route different users or tenants to different Durable Object instances,
+    # enabling a multitenant application architecture.
+    id = env.ns.idFromName("A")
+
+    obj = env.ns.get(id)
+    return await obj.fetch(request)
+```
+
+### Django Settings
+
+To use the Durable Objects backend, you need to configure your Django `settings.py` file. Here’s an example of how to set up the `DATABASES` setting:
+
+```python
+DATABASES = {
+    'default': {
+        'ENGINE': 'django_cf.do_binding',
+        # 'NAME': 'your_do_namespace_binding', # This should match the 'name' in wrangler.jsonc durable_objects.bindings
+        # No other credentials are typically needed as communication happens via the binding.
+    }
+}
+```
+Make sure that the `ENGINE` points to `django_cf.do_binding`. The `NAME` parameter in the `DATABASES` setting is not strictly required for the Durable Object binding itself (as the binding is resolved by Cloudflare Workers environment based on `wrangler.jsonc`), but it's good practice to include it for clarity or if your setup requires it for other Django management commands or local development simulations.
+
 ## Cloudflare D1
 
 Cloudflare D1 doesn't support transactions, meaning all execute queries are final and rollbacks are not available.
