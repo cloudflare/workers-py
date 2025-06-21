@@ -5,8 +5,11 @@
         "python_workers"
     ],
     "compatibility_date": "2025-04-10",
-    "assets": {
-      "directory": "./staticfiles/"
+    "site": {
+      "bucket": "./staticfiles"
+    },
+    "build": {
+      "command": "python src/manage.py collectstatic --noinput"
     },
     "rules": [
         {
@@ -23,16 +26,16 @@
     "durable_objects": {
         "bindings": [
             {
-                "name": "ns",
-                "class_name": "DOClass"
+                "name": "DO_STORAGE",
+                "class_name": "DjangoDO"
             }
         ]
     },
     "migrations": [
         {
             "tag": "v1",
-            "new_sqlite_classes": [
-                "DOClass"
+            "new_classes": [
+                "DjangoDO"
             ]
         }
     ],
