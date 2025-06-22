@@ -2,6 +2,8 @@
 
 This template provides a starting point for running a Django application on Cloudflare Workers, utilizing Cloudflare Durable Objects for stateful data persistence.
 
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/G4brym/django-cf/tree/main/templates/durable-objects)
+
 ## Overview
 
 This template is pre-configured to:

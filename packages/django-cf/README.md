@@ -65,8 +65,9 @@ root
     directory = "./staticfiles"
 
     # Rules for including vendored Python packages
+    # Optionally add a glob rule for "vendor/**/*.mo" to get django default translations, but this will require workers paid plan
     [[rules]]
-    globs = ["vendor/**/*.py", "vendor/**/*.mo", "vendor/tzdata/**/", "vendor/**/*.txt.gz"]
+    globs = ["vendor/**/*.py", "vendor/tzdata/**/", "vendor/**/*.txt.gz"]
     type = "Data"
     fallthrough = true
 
