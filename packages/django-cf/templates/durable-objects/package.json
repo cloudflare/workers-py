@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "dependencies": "pip install -t src/vendor -r vendor.txt && pip install -r requirements-dev.txt",
+    "dependencies": "if [ \"$WORKERS_CI\" = \"1\" ]; then apt-get install -y libsqlite3-dev; fi && pip install -t src/vendor -r vendor.txt && pip install -r requirements-dev.txt",
     "deploy": "npm run dependencies && wrangler deploy",
     "dev": "wrangler dev",
     "start": "wrangler dev"
