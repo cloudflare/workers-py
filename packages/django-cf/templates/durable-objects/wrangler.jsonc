@@ -16,7 +16,7 @@
             "globs": [
                 "vendor/**/*.txt.gz",
                 "vendor/**/*.py",
-                "vendor/**/*.mo",
+//                "vendor/**/*.mo",  optional, but requires workers paid plan
                 "vendor/tzdata/**/"
             ],
             "type": "Data",
