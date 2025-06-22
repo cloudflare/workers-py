@@ -3,8 +3,8 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "build": "pip install -t src/vendor -r vendor.txt && pip install -r requirements-dev.txt",
-    "deploy": "wrangler deploy",
+    "dependencies": "pip install -t src/vendor -r vendor.txt && pip install -r requirements-dev.txt",
+    "deploy": "npm run dependencies && wrangler deploy",
     "dev": "wrangler dev",
     "start": "wrangler dev"
   },
