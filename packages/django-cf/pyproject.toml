@@ -27,6 +27,14 @@ classifiers = [
     "Programming Language :: Python :: 3.12"
 ]
 
+[dependency-groups]
+dev = [
+    "pytest",
+    "requests",
+    "ruff",
+    "django",
+]
+
 [project.urls]
 "Homepage" = "https://github.com/G4brym/django-cf"
 "Bug Reports" = "https://github.com/G4brym/django-cf/issues"
