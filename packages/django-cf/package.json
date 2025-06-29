@@ -1,0 +1,21 @@
+{
+  "name": "django-cf",
+  "version": "1.0.0",
+  "description": "`django-cf` is a Python package that seamlessly integrates your Django applications with various Cloudflare services. Utilize the power of Cloudflare's global network for your Django projects.",
+  "homepage": "https://github.com/G4brym/django-cf#readme",
+  "bugs": {
+    "url": "https://github.com/G4brym/django-cf/issues"
+  },
+  "private": "true",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/G4brym/django-cf.git"
+  },
+  "license": "MIT",
+  "scripts": {
+    "test": "pytest"
+  },
+  "devDependencies": {
+    "wrangler": "^4.22.0"
+  }
+}
