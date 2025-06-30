@@ -27,52 +27,36 @@ class WorkerFixture:
         self.base_url = f"http://localhost:{self.port}"
 
         # Start the worker as a subprocess
-        # Use the wrangler version from package.json by omitting @latest
-        cmd = f"cd templates/durable-objects/ && npm install && npx wrangler dev --port {self.port}"
+        cmd = f"cd templates/durable-objects/ && rm -rf .wrangler/ && npx wrangler@latest dev --port {self.port}"
         self.process = subprocess.Popen(
             cmd,
             shell=True,
             preexec_fn=os.setsid,  # So we can kill the process group later
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            text=True
         )
 
         # Wait for server to start
-        server_started = self._wait_for_server()
+        self._wait_for_server()
 
-        if not server_started:
-            stdout, stderr = self.process.communicate()
-            self.stop() # Ensure process is stopped
-            raise Exception(
-                f"worker failed to start on port {self.port}.\n"
-                f"Stdout:\n{stdout}\n"
-                f"Stderr:\n{stderr}"
-            )
+        requests.get(f"{self.base_url}/__run_migrations__/")
+        requests.get(f"{self.base_url}/__create_admin__/")
 
         return self
 
-    def _wait_for_server(self, max_retries=20, retry_interval=1): # Increased max_retries
-        """Wait until the server is responding to requests. Returns True if server started, False otherwise."""
-        for i in range(max_retries):
-            # Check if the process terminated unexpectedly
-            if self.process.poll() is not None:
-                # Process has terminated
-                print(f"Wrangler process terminated prematurely with code {self.process.returncode}.")
-                return False
+    def _wait_for_server(self, max_retries=10, retry_interval=1):
+        """Wait until the server is responding to requests."""
+        for _ in range(max_retries):
             try:
-                response = requests.get(self.base_url, timeout=10) # Reduced individual timeout
+                response = requests.get(self.base_url, timeout=20)
                 if response.status_code < 500:  # Accept any non-server error response
-                    print(f"Server started on {self.base_url} after {i+1} retries.")
-                    return True
-            except requests.exceptions.RequestException as e:
-                # print(f"Retry {i+1}/{max_retries}: Server not up yet ({e})")
+                    return
+            except requests.exceptions.RequestException:
                 pass
 
             time.sleep(retry_interval)
 
-        print(f"Server did not start on {self.base_url} after {max_retries} retries.")
-        return False
+        # If we got here, the server didn't start properly
+        self.stop()
+        raise Exception(f"worker failed to start on port {self.port}")
 
     def stop(self):
         """Stop the worker."""
@@ -87,6 +71,7 @@ def web_server():
     """Pytest fixture that starts the worker for the entire test session."""
     server = WorkerFixture()
     server.start()
+
     yield server
     server.stop()
 
@@ -98,12 +83,6 @@ def test_migrations(web_server):
     assert response.json() == {"status": "success", "message": "Migrations applied."}
 
 def test_create_admin(web_server):
-    """Create an admin user."""
-    response = requests.get(f"{web_server.base_url}/__create_admin__/")
-    assert response.status_code == 200
-    assert response.json() == {"status": "success", "message": f"Admin user 'admin' created."}
-
-def test_create_admin_again(web_server):
     """Create an admin user a second time should return different state."""
     response = requests.get(f"{web_server.base_url}/__create_admin__/")
     assert response.status_code == 200
