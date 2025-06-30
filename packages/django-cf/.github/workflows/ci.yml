@@ -1,0 +1,38 @@
+name: Run Pytest
+
+on: [push]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10", "3.11", "3.12"]
+
+    steps:
+    - name: Check out code
+      uses: actions/checkout@v4
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install Python dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -e .[dev]
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20' # Specify a Node.js version
+
+    - name: Install root Node.js dependencies
+      run: npm install
+
+    - name: Install worker Node.js dependencies
+      run: cd templates/durable-objects && npm install
+
+    - name: Run tests
+      run: pytest tests/

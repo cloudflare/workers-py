@@ -65,6 +65,11 @@ This document provides guidance for AI agents working on the `django-cf` reposit
     *   Ensure `npm install` completed successfully in `templates/durable-objects/`.
     *   Verify that the port selected by `get_free_port()` is indeed available.
 *   **`ImportError: attempted relative import with no known parent package`**: Ensure `tests/__init__.py` exists.
+*   **`no tests ran` when running `pytest`**: Ensure you are running `pytest` from the root directory of the project. If you are in a subdirectory (e.g., `templates/durable-objects/`), `pytest` might not discover the tests in the `tests/` directory. Running `pytest tests/` from the root should correctly discover and run the tests.
 *   **CSRF token issues**: The `get_csrf_token` helper in `tests/test_admin.py` is a basic string parser. If Django admin templates change significantly, this helper might need updating (e.g., to use a proper HTML parser).
+
+### Continuous Integration
+
+A GitHub Actions workflow is configured in `.github/workflows/ci.yml`. This workflow automatically runs all tests using `pytest` on every push to any branch. It tests against Python versions 3.10, 3.11, and 3.12.
 
 By following these guidelines, agents can contribute effectively to this repository.
