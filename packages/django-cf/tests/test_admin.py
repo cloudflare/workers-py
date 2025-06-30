@@ -146,23 +146,38 @@ def test_admin_logout(web_server):
     # 2. Logout
     # Django's admin logout is a POST request.
     # We need a CSRF token. The logout link is usually on an admin page.
-    # We can fetch the admin dashboard (which we are on) to get a CSRF token.
-    # Or, more directly, GET the logout page itself, which shows a confirmation form with a token.
+    # We are already on the admin dashboard (response_login.text).
+    # We need a CSRF token to POST to the logout URL.
+    # Django's admin pages typically have the CSRF token available in forms.
+    # The `get_csrf_token` function can be used on the current page content (admin dashboard).
 
-    logout_confirm_response = client.get(logout_url, timeout=10)
-    assert logout_confirm_response.status_code == 200
-    assert "Are you sure you want to log out?" in logout_confirm_response.text # Or similar text
+    # Instead of fetching logout_url via GET (which might log out prematurely or not be a page),
+    # get the CSRF token from the admin dashboard page content we received after login.
+    # Note: If the logout button/form is not directly on the dashboard, this might need adjustment.
+    # However, CSRF token is usually available in hidden input fields on any admin page with forms.
+    # A more robust way might be to parse response_login.text if get_csrf_token needs a URL.
+    # For simplicity, let's assume get_csrf_token can work with the client's current cookie state
+    # and fetching a known admin page (like dashboard itself again, or a specific sub-page known to have a form).
+    # Re-fetching admin_dashboard_url to get a CSRF token is a safe bet.
 
-    csrf_token_logout = get_csrf_token(client, logout_url) # Get CSRF from the logout confirmation page
+    csrf_token_logout = get_csrf_token(client, admin_dashboard_url)
 
-    headers_logout = {"Referer": logout_url}
+    headers_logout = {"Referer": admin_dashboard_url} # Referer should be the page from which the POST is made
     response_logout = client.post(logout_url, data={"csrfmiddlewaretoken": csrf_token_logout}, headers=headers_logout, timeout=10)
 
-    assert response_logout.status_code == 200
-    assert "Logged out" in response_logout.text or "Log in again" in response_logout.text # Django 5.0 shows "Log in again"
+    # After a successful POST to /admin/logout/, Django typically redirects to the login page.
+    # The status code of the POST response itself might be 200 (if it renders a "Logged out" page)
+    # or 302 (if it immediately redirects). We should check the content of the page it lands on.
+    # If it's 302, the client will follow it if allow_redirects is True (default for client.post).
 
-    # 3. Verify user is logged out
-    response_dashboard_after_logout = client.get(admin_dashboard_url, timeout=10, allow_redirects=True)
+    assert response_logout.status_code == 200 # Django's default logout view returns 200
+    # Check for text that appears on the "Logged out" confirmation page, which is often the login page with a message.
+    # For Django < 4.0, it's "Logged out". For Django 4.0+, it's "Logged out". Django 5.0 shows "Log in again" on the login page.
+    assert "Logged out" in response_logout.text or "Log in again" in response_logout.text
+
+
+    # 3. Verify user is logged out by trying to access an authenticated page
+    response_dashboard_after_logout = client.get(admin_dashboard_url, timeout=10, allow_redirects=True) # allow_redirects is True by default for GET too
     assert response_dashboard_after_logout.status_code == 200
     assert response_dashboard_after_logout.url.startswith(login_url)
     assert "Django administration" in response_dashboard_after_logout.text

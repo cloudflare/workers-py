@@ -27,10 +27,20 @@ class WorkerFixture:
         self.base_url = f"http://localhost:{self.port}"
 
         # Start the worker as a subprocess
-        cmd = f"cd templates/durable-objects/ && rm -rf .wrangler/ && npx wrangler@latest dev --port {self.port}"
+        # Ensure we use the version of wrangler specified in templates/durable-objects/package.json
+        # by not specifying a version for npx.
+        # The Popen command will be executed with `cwd` set to `templates/durable-objects/`
+        # where `npx wrangler` should resolve to the locally installed version.
+        worker_dir = os.path.join(os.path.dirname(__file__), '..', 'templates', 'durable-objects')
+        # Clean up previous wrangler state
+        wrangler_state_dir = os.path.join(worker_dir, '.wrangler')
+        if os.path.exists(wrangler_state_dir):
+            subprocess.run(['rm', '-rf', wrangler_state_dir], cwd=worker_dir, check=True)
+
+        cmd_parts = ["npx", "wrangler", "dev", "--port", str(self.port)]
         self.process = subprocess.Popen(
-            cmd,
-            shell=True,
+            cmd_parts,
+            cwd=worker_dir, # Run npx from the worker directory
             preexec_fn=os.setsid,  # So we can kill the process group later
         )
 
