@@ -17,16 +17,33 @@ This document provides guidance for AI agents working on the `django-cf` reposit
 
 ### Running Tests
 
-1.  **Prerequisites**: Ensure all dependencies are installed as per the "Dependencies" section.
-2.  **Worker Server**: Tests rely on a running Cloudflare worker. The `tests/test_worker.py` file includes a `WorkerFixture` that handles:
-    *   Running `npm install` in `templates/durable-objects/`.
-    *   Starting the `npx wrangler dev` server using the version of `wrangler` specified in `templates/durable-objects/package.json`.
-3.  **Execute Pytest**: Run tests using the `pytest` command from the root of the repository.
-4.  **Test Structure**:
-    *   Integration tests are located in the `tests/` directory. This directory must contain an `__init__.py` file to be treated as a package.
-    *   Tests use the `requests` library to make HTTP calls to the worker.
-    *   The `web_server` fixture (defined in `tests/test_worker.py` and available to all test files) provides the base URL for the running worker.
-    *   Special management URLs (e.g., `/__run_migrations__/`, `/__create_admin__/` in `templates/durable-objects/src/app/urls.py`) are available for test setup. These create an admin user with username `admin` and password `password`.
+The project uses `pnpm` for managing Node.js dependencies and running scripts. The test execution process is defined in `.github/workflows/ci.yml` and can be replicated locally as follows:
+
+1.  **Install pnpm**: If you don't have pnpm installed, you can install it globally using npm:
+    ```bash
+    npm install -g pnpm
+    ```
+2.  **Install Project Dependencies**: Navigate to the project root and run:
+    ```bash
+    pnpm install
+    ```
+    This command installs both Node.js and Python dependencies required for the project, including those for the worker in `templates/durable-objects/`.
+3.  **Set up Tests**: Run the test setup script:
+    ```bash
+    pnpm run setup-test
+    ```
+    This script typically handles tasks like installing Python development dependencies (e.g., `pytest`, Django) and setting up the Django environment within the worker.
+4.  **Run Tests**: Execute the tests using:
+    ```bash
+    pnpm run test
+    ```
+    This command will execute `pytest` which, in turn, uses the `WorkerFixture` in `tests/test_worker.py`. The fixture manages the Cloudflare worker lifecycle (starting `wrangler dev`) for the integration tests.
+
+**Test Structure Details**:
+*   Integration tests are located in the `tests/` directory. This directory must contain an `__init__.py` file to be treated as a package.
+*   Tests use the `requests` library to make HTTP calls to the worker.
+*   The `web_server` fixture (defined in `tests/test_worker.py` and available to all test files) provides the base URL for the running worker.
+*   Special management URLs (e.g., `/__run_migrations__/`, `/__create_admin__/` in `templates/durable-objects/src/app/urls.py`) are available for test setup. These create an admin user with username `admin` and password `password`.
 
 ### Coding Conventions
 
