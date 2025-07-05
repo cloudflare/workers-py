@@ -42,3 +42,10 @@ dev = [
 
 [tool.setuptools]
 packages = ["django_cf", "django_cf.d1_api", "django_cf.d1_binding", "django_cf.do_binding"]
+
+[tool.pytest.ini_options]
+minversion = "6.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]

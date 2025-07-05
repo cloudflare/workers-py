@@ -1,8 +1,6 @@
 import requests
-from urllib.parse import urlparse, parse_qs
 
-# Import the web_server fixture from test_worker
-from .test_worker import web_server
+from ..utils import durable_objects_web_server  # NOQA
 
 def get_csrf_token(client, url):
     """Fetches a page and extracts the CSRF token from a form."""
@@ -37,17 +35,17 @@ def get_csrf_token(client, url):
         raise
 
 
-def test_admin_login_page_loads(web_server):
+def test_admin_login_page_loads(durable_objects_web_server):
     """Test that the admin login page loads correctly."""
-    admin_url = f"{web_server.base_url}/admin/login/"
+    admin_url = f"{durable_objects_web_server.base_url}/admin/login/"
     response = requests.get(admin_url, timeout=10)
     assert response.status_code == 200
     assert "Django administration" in response.text
 
-def test_admin_dashboard_unauthorized_access(web_server):
+def test_admin_dashboard_unauthorized_access(durable_objects_web_server):
     """Test that accessing the admin dashboard without login redirects to the login page."""
-    admin_dashboard_url = f"{web_server.base_url}/admin/"
-    login_url = f"{web_server.base_url}/admin/login/"
+    admin_dashboard_url = f"{durable_objects_web_server.base_url}/admin/"
+    login_url = f"{durable_objects_web_server.base_url}/admin/login/"
 
     client = requests.Session()
     # First check with allow_redirects=False to see the 302
@@ -64,10 +62,10 @@ def test_admin_dashboard_unauthorized_access(web_server):
     assert response_followed.url.startswith(login_url) # Final URL should be the login page
     assert "Django administration" in response_followed.text # Should show the login page content
 
-def test_admin_login_successful(web_server):
+def test_admin_login_successful(durable_objects_web_server):
     """Test a successful login to the Django admin."""
-    login_url = f"{web_server.base_url}/admin/login/"
-    admin_dashboard_url = f"{web_server.base_url}/admin/"
+    login_url = f"{durable_objects_web_server.base_url}/admin/login/"
+    admin_dashboard_url = f"{durable_objects_web_server.base_url}/admin/"
     client = requests.Session()
 
     csrf_token = get_csrf_token(client, login_url)
@@ -86,9 +84,9 @@ def test_admin_login_successful(web_server):
     assert "Log out" in response.text
 
 
-def test_admin_login_failed_wrong_password(web_server):
+def test_admin_login_failed_wrong_password(durable_objects_web_server):
     """Test a failed login attempt with a wrong password."""
-    login_url = f"{web_server.base_url}/admin/login/"
+    login_url = f"{durable_objects_web_server.base_url}/admin/login/"
     client = requests.Session()
     csrf_token = get_csrf_token(client, login_url)
     login_data = {
@@ -104,9 +102,9 @@ def test_admin_login_failed_wrong_password(web_server):
     assert "Please enter the correct username and password" in response.text
     assert "Log out" not in response.text
 
-def test_admin_login_failed_wrong_username(web_server):
+def test_admin_login_failed_wrong_username(durable_objects_web_server):
     """Test a failed login attempt with a non-existent username."""
-    login_url = f"{web_server.base_url}/admin/login/"
+    login_url = f"{durable_objects_web_server.base_url}/admin/login/"
     client = requests.Session()
     csrf_token = get_csrf_token(client, login_url)
     login_data = {
@@ -122,11 +120,11 @@ def test_admin_login_failed_wrong_username(web_server):
     assert "Please enter the correct username and password" in response.text
     assert "Log out" not in response.text
 
-def test_admin_logout(web_server):
+def test_admin_logout(durable_objects_web_server):
     """Test logging out from the Django admin."""
-    login_url = f"{web_server.base_url}/admin/login/"
-    logout_url = f"{web_server.base_url}/admin/logout/"
-    admin_dashboard_url = f"{web_server.base_url}/admin/"
+    login_url = f"{durable_objects_web_server.base_url}/admin/login/"
+    logout_url = f"{durable_objects_web_server.base_url}/admin/logout/"
+    admin_dashboard_url = f"{durable_objects_web_server.base_url}/admin/"
     client = requests.Session()
 
     # 1. Log in first
