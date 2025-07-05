@@ -21,17 +21,11 @@ class WorkerFixture:
         self.port = None
         self.base_url = None
 
-    def start(self):
+    def start(self, worker_dir):
         """Start the worker in a subprocess."""
         self.port = get_free_port()
         self.base_url = f"http://localhost:{self.port}"
 
-        # Start the worker as a subprocess
-        # Ensure we use the version of wrangler specified in templates/durable-objects/package.json
-        # by not specifying a version for npx.
-        # The Popen command will be executed with `cwd` set to `templates/durable-objects/`
-        # where `npx wrangler` should resolve to the locally installed version.
-        worker_dir = os.path.join(os.path.dirname(__file__), '..', 'templates', 'durable-objects')
         # Clean up previous wrangler state
         wrangler_state_dir = os.path.join(worker_dir, '.wrangler')
         if os.path.exists(wrangler_state_dir):
@@ -77,24 +71,11 @@ class WorkerFixture:
 
 
 @pytest.fixture(scope="session")
-def web_server():
+def durable_objects_web_server():
     """Pytest fixture that starts the worker for the entire test session."""
+    worker_dir = os.path.join(os.path.dirname(__file__), '..', 'templates', 'durable-objects')
     server = WorkerFixture()
-    server.start()
+    server.start(worker_dir)
 
     yield server
     server.stop()
-
-
-def test_migrations(web_server):
-    """Run migrations."""
-    response = requests.get(f"{web_server.base_url}/__run_migrations__/")
-    assert response.status_code == 200
-    assert response.json() == {"status": "success", "message": "Migrations applied."}
-
-def test_create_admin(web_server):
-    """Create an admin user a second time should return different state."""
-    response = requests.get(f"{web_server.base_url}/__create_admin__/")
-    assert response.status_code == 200
-    assert response.json() == {"status": "info", "message": f"Admin user 'admin' already exists."}
-
