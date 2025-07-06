@@ -1,0 +1,12 @@
+{% extends 'blog/base.html' %}
+
+{% block title %}{{ post.title }}{% endblock %}
+
+{% block content %}
+    <article>
+        <h2>{{ post.title }}</h2>
+        <p>Published: {{ post.pub_date|date:"F d, Y" }}</p>
+        <p>{{ post.content }}</p>
+        <a href="{% url 'blog:post_list' %}">Back to posts</a>
+    </article>
+{% endblock %}

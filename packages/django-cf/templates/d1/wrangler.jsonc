@@ -27,7 +27,7 @@
     {
       "binding": "DB",
       "database_name": "django-on-workers",
-      "database_id": "<DATABASE_ID>"
+      "database_id": "6b4c37f0-5a15-4614-81be-25052d22bc0f"
     }
   ],
   "observability": {

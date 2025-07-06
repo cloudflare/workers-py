@@ -1,12 +1,7 @@
-import json
-import http.client
-import datetime
-import re
+import sqlparse
 
 from django.db import DatabaseError, Error, DataError, OperationalError, \
 IntegrityError, InternalError, ProgrammingError, NotSupportedError, InterfaceError
-from django.conf import settings
-from django.utils import timezone
 
 class D1Result:
     lastrowid = None
@@ -121,11 +116,7 @@ class D1Database:
     def run_query(self, query, params=None):
         proc_query, params = self.process_query(query, params)
 
-        # print(query)
-        # print(params)
-
         cf_workers = self.import_from_javascript("cloudflare:workers")
-        # print(dir(cf_workers.env))
         db = getattr(cf_workers.env, self.binding)
 
         if params:
@@ -133,68 +124,59 @@ class D1Database:
         else:
             stmt = db.prepare(proc_query);
 
+        read_only = is_read_only_query(proc_query)
+
         try:
-            resp = self.run_sync(stmt.all())
+            if read_only:
+                resp = self.run_sync(stmt.raw())
+            else:
+                resp = self.run_sync(stmt.all())
         except:
             from js import Error
             Error.stackTraceLimit = 1e10
             raise Error(Error.new().stack)
 
-        results = self._convert_results(resp.results.to_py())
-
-        # print(results)
-        # print(f'rowsRead: {resp.meta.rows_read}')
-        # print(f'rowsWritten: {resp.meta.rows_written}')
-        # print('---')
+        # this is a hack, because D1 Raw method (required for reading rows) doesn't return metadata
+        if read_only:
+            results = self._convert_results_list(resp.to_py())
+            rows_read = len(results)
+            rows_written = 0
+        else:
+            results = self._convert_results_dict(resp.results.to_py())
+            rows_read = resp.meta.rows_read
+            rows_written = resp.meta.rows_written
 
         return results, {
-            "rows_read": resp.meta.rows_read,
-            "rows_written": resp.meta.rows_written,
+            "rows_read": rows_read,
+            "rows_written": rows_written,
         }
 
-    def _convert_results(self, data):
-        """
-        Convert any datetime strings in the result set to actual timezone-aware datetime objects.
-        """
-        # print('before')
-        # print(data)
+    def _convert_results_dict(self, data):
         result = []
 
         for row in data:
             row_items = ()
             for k, v in row.items():
-                if isinstance(v, str):
-                    v = self._parse_datetime(v)
                 row_items += (v,)
 
             result.append(row_items)
 
-        # print('after')
-        # print(result)
+        return result
+
+    def _convert_results_list(self, data):
+        result = []
+
+        for row in data:
+            row_items = ()
+            for v in row:
+                row_items += (v,)
+
+            result.append(row_items)
+
         return result
 
     query = None
     params = None
-
-    def _parse_datetime(self, value):
-        """
-        Parse the string value to a timezone-aware datetime object, if applicable.
-        Handles both datetime strings with and without milliseconds.
-        Uses Django's timezone utilities for proper conversion.
-        """
-        datetime_formats = ["%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"]
-
-        for dt_format in datetime_formats:
-            try:
-                naive_dt = datetime.datetime.strptime(value, dt_format)
-                # If Django is using timezones, convert to an aware datetime object
-                if timezone.is_naive(naive_dt):
-                    return timezone.make_aware(naive_dt, timezone.get_default_timezone())
-                return naive_dt
-            except (ValueError, TypeError):
-                continue  # Try the next format if parsing fails
-
-        return value  # If it's not a datetime string, return the original value
 
     def execute(self, query, params=None):
         if params:
@@ -252,3 +234,22 @@ class D1Database:
 
     def close(self):
         return
+
+
+def is_read_only_query(query: str) -> bool:
+    parsed = sqlparse.parse(query.strip())
+
+    if not parsed:
+        return False  # Invalid or empty query
+
+    # Get the first statement
+    statement = parsed[0]
+
+    # Check if the statement is a SELECT query
+    if statement.get_type().upper() == "SELECT":
+        return True
+
+    # List of modifying query types
+    modifying_types = {"INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "DROP", "REPLACE"}
+
+    return statement.get_type().upper() not in modifying_types
