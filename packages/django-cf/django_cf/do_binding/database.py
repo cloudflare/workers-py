@@ -1,14 +1,8 @@
-import json
-import http.client
-import datetime
-import re
-
 from django.db import DatabaseError, Error, DataError, OperationalError, \
-IntegrityError, InternalError, ProgrammingError, NotSupportedError, InterfaceError
-from django.conf import settings
-from django.utils import timezone
+    IntegrityError, InternalError, ProgrammingError, NotSupportedError, InterfaceError
 
 from .storage import get_storage
+
 
 class DOResult:
     lastrowid = None
@@ -41,7 +35,6 @@ class DOResult:
 
 
 class DODatabase:
-
     DataError = DataError
 
     OperationalError = OperationalError
@@ -102,7 +95,7 @@ class DODatabase:
         if self._defer_foreign_keys:
             return f'''
             PRAGMA defer_foreign_keys = on
-            
+
             {query}
 
             PRAGMA defer_foreign_keys = off
@@ -121,7 +114,7 @@ class DODatabase:
             stmt = db.exec(proc_query);
 
         try:
-            resp = stmt.toArray()
+            resp = stmt.raw().toArray()
         except:
             from js import Error
             Error.stackTraceLimit = 1e10
@@ -129,59 +122,25 @@ class DODatabase:
 
         results = self._convert_results(resp.to_py())
 
-        # print(results)
-        # print(f'rowsRead: {resp.meta.rows_read}')
-        # print(f'rowsWritten: {resp.meta.rows_written}')
-        # print('---')
-
         return results, {
             "rows_read": stmt.rowsRead,
             "rows_written": stmt.rowsWritten,
         }
 
     def _convert_results(self, data):
-        """
-        Convert any datetime strings in the result set to actual timezone-aware datetime objects.
-        """
-        # print('before')
-        # print(data)
         result = []
 
         for row in data:
             row_items = ()
-            for k, v in row.items():
-                if isinstance(v, str):
-                    v = self._parse_datetime(v)
+            for v in row:
                 row_items += (v,)
 
             result.append(row_items)
 
-        # print('after')
-        # print(result)
         return result
 
     query = None
     params = None
-
-    def _parse_datetime(self, value):
-        """
-        Parse the string value to a timezone-aware datetime object, if applicable.
-        Handles both datetime strings with and without milliseconds.
-        Uses Django's timezone utilities for proper conversion.
-        """
-        datetime_formats = ["%Y-%m-%d %H:%M:%S.%f", "%Y-%m-%d %H:%M:%S"]
-
-        for dt_format in datetime_formats:
-            try:
-                naive_dt = datetime.datetime.strptime(value, dt_format)
-                # If Django is using timezones, convert to an aware datetime object
-                if timezone.is_naive(naive_dt):
-                    return timezone.make_aware(naive_dt, timezone.get_default_timezone())
-                return naive_dt
-            except (ValueError, TypeError):
-                continue  # Try the next format if parsing fails
-
-        return value  # If it's not a datetime string, return the original value
 
     def execute(self, query, params=None):
         if params:
