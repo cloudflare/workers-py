@@ -1,0 +1,14 @@
+{
+  "name": "django-on-workers",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dependencies": "pip3 install -t src/vendor -r vendor.txt && pip3 install -r requirements-dev.txt",
+    "deploy": "npm run dependencies && wrangler deploy",
+    "dev": "wrangler dev",
+    "start": "wrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4.22.0"
+  }
+}
