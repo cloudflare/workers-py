@@ -8,12 +8,6 @@ IntegrityError, InternalError, ProgrammingError, NotSupportedError, InterfaceErr
 from django.conf import settings
 from django.utils import timezone
 
-try:
-    from workers import import_from_javascript
-    from pyodide.ffi import run_sync
-except ImportError:
-    raise Exception("Code not running inside a worker, please change to django_cf.d1_api database backend")
-
 class D1Result:
     lastrowid = None
     rowcount = -1
@@ -47,6 +41,14 @@ class D1Result:
 class D1Database:
     def __init__(self, binding):
         self.binding = binding
+
+        try:
+            from workers import import_from_javascript
+            from pyodide.ffi import run_sync
+            self.import_from_javascript = import_from_javascript
+            self.run_sync = run_sync
+        except ImportError:
+            raise Exception("Code not running inside a worker, please change to django_cf.d1_api database backend")
 
     DataError = DataError
 
@@ -122,7 +124,7 @@ class D1Database:
         # print(query)
         # print(params)
 
-        cf_workers = import_from_javascript("cloudflare:workers")
+        cf_workers = self.import_from_javascript("cloudflare:workers")
         # print(dir(cf_workers.env))
         db = getattr(cf_workers.env, self.binding)
 
@@ -132,7 +134,7 @@ class D1Database:
             stmt = db.prepare(proc_query);
 
         try:
-            resp = run_sync(stmt.all())
+            resp = self.run_sync(stmt.all())
         except:
             from js import Error
             Error.stackTraceLimit = 1e10

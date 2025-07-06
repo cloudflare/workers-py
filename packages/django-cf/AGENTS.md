@@ -6,15 +6,6 @@ This document provides guidance for AI agents working on the `django-cf` reposit
 
 `django-cf` is a Django application designed to run on Cloudflare Workers. It utilizes Cloudflare D1 for its database and Durable Objects for stateful operations. The core of this example project is located in `templates/durable-objects/`.
 
-### Dependencies
-
-*   **Node.js/npm:** Required for the Cloudflare Wrangler CLI.
-    *   The main `npm install` in the project root is for general tooling if specified.
-    *   The worker itself, located in `templates/durable-objects/`, has its own `package.json`. Ensure dependencies there (especially `wrangler`) are installed by running `npm install` within the `templates/durable-objects/` directory.
-*   **Python/pip:** Required for Django and other Python packages.
-    *   Install project and development dependencies from the root `pyproject.toml` using `pip install -e .[dev]`.
-    *   Ensure `pyproject.toml` correctly defines `[project.optional-dependencies]` for the `dev` group (e.g., `pytest`, `django`).
-
 ### Running Tests
 
 The project uses `pnpm` for managing Node.js dependencies and running scripts. The test execution process is defined in `.github/workflows/ci.yml` and can be replicated locally as follows:

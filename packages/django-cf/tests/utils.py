@@ -79,3 +79,14 @@ def durable_objects_web_server():
 
     yield server
     server.stop()
+
+
+@pytest.fixture(scope="session")
+def d1_web_server():
+    """Pytest fixture that starts the worker for the entire test session."""
+    worker_dir = os.path.join(os.path.dirname(__file__), '..', 'templates', 'd1')
+    server = WorkerFixture()
+    server.start(worker_dir)
+
+    yield server
+    server.stop()
