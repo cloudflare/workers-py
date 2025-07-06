@@ -181,6 +181,17 @@ template-root/
         python src/manage.py createsuperuser --settings=app.settings_dev
         ```
 
+    *   **Making Migrations (`makemigrations`):**
+        When you need to generate new migration files based on your model changes, you should run `makemigrations`. However, because the D1 database engine (`django_cf.d1_binding` or `django_cf.d1_api`) requires a live connection to introspect the database schema (which might not be available or desirable during the `makemigrations` phase, especially in CI environments or when you only want to generate files without querying D1), you can use the `WORKERS_CI=1` environment variable. This variable signals `django-cf` to use a dummy database engine for schema-related operations that don't strictly need a live D1 connection, allowing `makemigrations` to run.
+
+        ```bash
+        # From the template root directory
+        WORKERS_CI=1 python src/manage.py makemigrations --settings=app.settings_dev
+        # Or, if you are not using settings_dev for this and your default settings.py is configured
+        # WORKERS_CI=1 python src/manage.py makemigrations
+        ```
+        After generating migration files, you can apply them using the `migrate` command as shown above (locally with D1 API access) or via a secured worker endpoint if you have one.
+
 *   **Via a Worker Endpoint (Use with Extreme Caution):**
     While possible, running migrations or creating users directly via a worker endpoint is generally **not recommended for D1** due to the direct database access available locally via the D1 API. If you absolutely must, you can adapt the management command endpoints from the Durable Objects template (`src/app/urls.py`), but ensure they are **extremely well-secured**.
     The main risk is exposing sensitive operations over HTTP and potential complexities with the worker environment.
