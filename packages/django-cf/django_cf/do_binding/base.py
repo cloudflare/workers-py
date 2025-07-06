@@ -11,7 +11,7 @@ from .schema import DatabaseSchemaEditor
 
 
 class DatabaseWrapper(SQLiteDatabaseWrapper):
-    vendor = "sqlite"
+    vendor = "cloudflare_durable_objects"
     display_name = "DO"
 
     Database = Database
