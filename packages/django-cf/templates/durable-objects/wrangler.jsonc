@@ -15,7 +15,6 @@
         {
             "globs": [
                 "vendor/**/*.txt.gz",
-                "vendor/**/*.py",
                 // "vendor/**/*.mo",  only required for enabling translations, but requires workers paid plan
                 "vendor/tzdata/**/"
             ],

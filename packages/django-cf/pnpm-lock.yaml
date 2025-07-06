@@ -12,6 +12,12 @@ importers:
         specifier: ^4.22.0
         version: 4.23.0
 
+  templates/d1:
+    devDependencies:
+      wrangler:
+        specifier: ^4.22.0
+        version: 4.23.0
+
   templates/durable-objects:
     devDependencies:
       wrangler:

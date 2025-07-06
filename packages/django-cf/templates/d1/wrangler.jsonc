@@ -1,0 +1,36 @@
+{
+  "name": "django-on-workers-with-d1",
+  "main": "src/worker.py",
+  "compatibility_flags": [
+    "python_workers",
+    "python_workers_20250116"
+  ],
+  "compatibility_date": "2025-04-10",
+  "assets": {
+    "directory": "./staticfiles"
+  },
+  "build": {
+    "command": "python src/manage.py collectstatic --noinput"
+  },
+  "rules": [
+    {
+      "globs": [
+        "vendor/**/*.txt.gz",
+        // "vendor/**/*.mo",  only required for enabling translations, but requires workers paid plan
+        "vendor/tzdata/**/"
+      ],
+      "type": "Data",
+      "fallthrough": true
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "django-on-workers",
+      "database_id": "<DATABASE_ID>"
+    }
+  ],
+  "observability": {
+    "enabled": true
+  }
+}
