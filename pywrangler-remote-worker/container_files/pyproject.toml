@@ -1,0 +1,8 @@
+[project]
+name = "prewarm"
+version = "0.1.0"
+description = "Used to pre-warm the container"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi"
+]

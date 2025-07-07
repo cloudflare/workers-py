@@ -1,0 +1,2 @@
+#!/bin/sh
+exec uvx --from workers-py pywrangler "$@"
