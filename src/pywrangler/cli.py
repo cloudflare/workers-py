@@ -101,6 +101,7 @@ def sync_command(force=False):
     # This module is imported locally because it searches for pyproject.toml at the top-level.
     from pywrangler.sync import (
         check_requirements_txt,
+        check_wrangler_config,
         is_sync_needed,
         create_pyodide_venv,
         create_workers_venv,
@@ -119,6 +120,9 @@ def sync_command(force=False):
             "pyproject.toml hasn't changed since last sync, use --force to ignore timestamp check"
         )
         return
+
+    # Check to make sure a wrangler config file exists.
+    check_wrangler_config()
 
     # Create .venv-workers if it doesn't exist
     create_workers_venv()

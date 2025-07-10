@@ -164,11 +164,11 @@ def test_sync_command_integration(dependencies, clean_test_dir):
         f"Script failed with output: {result.stdout}\nErrors: {result.stderr}"
     )
 
-    # Verify the src/vendor directory has the expected packages
-    TEST_SRC_VENDOR = TEST_DIR / "src" / "vendor"
+    # Verify the python_modules directory has the expected packages
+    TEST_SRC_VENDOR = TEST_DIR / "python_modules"
     if test_deps:
         assert TEST_SRC_VENDOR.exists(), (
-            f"Vendor directory was not created at {TEST_SRC_VENDOR}"
+            f"python_modules directory was not created at {TEST_SRC_VENDOR}"
         )
 
         for pkg in dependencies:
@@ -183,7 +183,7 @@ def test_sync_command_integration(dependencies, clean_test_dir):
             assert all(
                 d.name.startswith("__") for d in TEST_SRC_VENDOR.iterdir() if d.is_dir()
             ), (
-                f"Vendor directory should be empty of packages but contains: {list(TEST_SRC_VENDOR.iterdir())}"
+                f"python_modules directory should be empty of packages but contains: {list(TEST_SRC_VENDOR.iterdir())}"
             )
 
     # Check .venv-workers directory exists and has the expected packages
@@ -279,6 +279,7 @@ def test_sync_command_with_unchanged_timestamps(
     mock_install_requirements.assert_not_called()
 
 
+@patch.object(pywrangler_sync, "PROJECT_ROOT", TEST_DIR)
 @patch.object(pywrangler_sync, "is_sync_needed")
 @patch.object(pywrangler_sync, "install_requirements")
 def test_sync_command_with_changed_timestamps(
@@ -305,6 +306,7 @@ def test_sync_command_with_changed_timestamps(
     mock_install_requirements.assert_called_once()
 
 
+@patch.object(pywrangler_sync, "PROJECT_ROOT", TEST_DIR)
 @patch.object(pywrangler_sync, "is_sync_needed")
 @patch.object(pywrangler_sync, "install_requirements")
 def test_sync_command_with_force_flag(
@@ -355,36 +357,14 @@ def test_sync_command_handles_missing_wrangler_config(clean_test_dir, caplog):
 
 
 @patch.object(pywrangler_sync, "PROJECT_ROOT", TEST_DIR)
-@patch.object(pywrangler_sync, "VENV_WORKERS_PATH", TEST_DIR / ".venv-workers")
 @patch.object(pywrangler_sync, "PYPROJECT_TOML_PATH", TEST_PYPROJECT)
-def test_sync_command_with_wrangler_toml(clean_test_dir, caplog):
-    """Test that the sync command correctly processes wrangler.toml files."""
-    # Create the necessary files
-    create_test_pyproject(["click"])
-    create_test_wrangler_toml("dist/worker.js")
-
-    # Verify files exist
-    assert TEST_PYPROJECT.exists()
-    assert TEST_WRANGLER_TOML.exists()
-    assert not TEST_WRANGLER_JSONC.exists()  # Ensure JSONC doesn't exist
-
-    # Use the Click test runner to invoke the command
-    runner = CliRunner()
-    result = runner.invoke(app, ["sync"])
-
-    # Check the command output and logs
-    assert result.exit_code == 0, f"Command failed: {result.stdout}\n{result.stderr}"
-
-    # Check that the path contains dist/vendor (but as an absolute path)
-    assert "dist/vendor" in caplog.text
-
-    # Verify vendor directory was created in the correct location
-    vendor_path = TEST_DIR / "dist" / "vendor"
-    assert vendor_path.exists(), f"Vendor directory was not created at {vendor_path}"
-
-
-def test_debug_flag(caplog):
+def test_debug_flag(clean_test_dir, caplog):
     """Test that the --debug flag enables debug output."""
+    # Create the pyproject.toml file
+    create_test_pyproject()
+
+    # Create a wrangler.jsonc file
+    create_test_wrangler_jsonc()
 
     # Run the command with --debug flag
     runner = CliRunner()
@@ -489,9 +469,9 @@ def test_sync_command_finds_pyproject_in_parent_directory(clean_test_dir):
     )
 
     # Verify the vendor directory was created in the parent directory (where pyproject.toml is)
-    TEST_SRC_VENDOR = TEST_DIR / "src" / "vendor"
+    TEST_SRC_VENDOR = TEST_DIR / "python_modules"
     assert TEST_SRC_VENDOR.exists(), (
-        f"Vendor directory was not created at {TEST_SRC_VENDOR}"
+        f"python_modules directory was not created at {TEST_SRC_VENDOR}"
     )
 
     # Verify the .venv-workers directory was created in the parent directory
