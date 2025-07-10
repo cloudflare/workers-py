@@ -83,14 +83,14 @@ jobs:
 
       - name: Action | Semantic Version Release
         id: release
-        uses: python-semantic-release/python-semantic-release@v10.1.0
+        uses: python-semantic-release/python-semantic-release@v10.2.0
         with:
           github_token: ${{ secrets.DEVPROD_PAT }}
           git_committer_name: "Workers DevProd"
           git_committer_email: "workers-devprod@cloudflare.com"
 
       - name: Publish | Upload to GitHub Release Assets
-        uses: python-semantic-release/publish-action@v10.1.0
+        uses: python-semantic-release/publish-action@v10.2.0
         if: steps.release.outputs.released == 'true'
         with:
           github_token: ${{ secrets.DEVPROD_PAT }}
