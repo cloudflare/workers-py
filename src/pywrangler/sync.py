@@ -6,7 +6,6 @@ import tempfile
 import click
 
 from pywrangler.utils import (
-    get_vendor_path_from_wrangler_config,
     run_command,
     find_pyproject_toml,
 )
@@ -42,6 +41,16 @@ def check_requirements_txt():
 
         logger.error(
             f"{old_requirements_txt} exists. Delete the file to continue. Exiting."
+        )
+        raise click.exceptions.Exit(code=1)
+
+
+def check_wrangler_config():
+    wrangler_jsonc = PROJECT_ROOT / "wrangler.jsonc"
+    wrangler_toml = PROJECT_ROOT / "wrangler.toml"
+    if not wrangler_jsonc.is_file() and not wrangler_toml.is_file():
+        logger.error(
+            f"{wrangler_jsonc} or {wrangler_toml} not found in {PROJECT_ROOT}."
         )
         raise click.exceptions.Exit(code=1)
 
@@ -123,16 +132,8 @@ def parse_requirements() -> list[str]:
 
 
 def _install_requirements_to_vendor(requirements: list[str]):
-    # Get the vendor path dynamically from wrangler config
-    try:
-        vendor_path_relative = get_vendor_path_from_wrangler_config(PROJECT_ROOT)
-    except (ValueError, FileNotFoundError) as e:
-        logger.error(f"Error getting vendor path: {str(e)}")
-        raise click.exceptions.Exit(code=1)
-
-    # Make vendor_path absolute by joining with PROJECT_ROOT
-    vendor_path = PROJECT_ROOT / vendor_path_relative
-    logger.debug(f"Using vendor path: {vendor_path} (determined from wrangler config)")
+    vendor_path = PROJECT_ROOT / "python_modules"
+    logger.debug(f"Using vendor path: {vendor_path}")
 
     if len(requirements) == 0:
         logger.warning(
@@ -156,7 +157,7 @@ def _install_requirements_to_vendor(requirements: list[str]):
             / ("pip.exe" if os.name == "nt" else "pip")
         )
         logger.info(
-            f"Installing packages into [bold]{vendor_path_relative}[/bold] using Pyodide pip...",
+            f"Installing packages into [bold]{vendor_path}[/bold] using Pyodide pip...",
             extra={"markup": True},
         )
         run_command(
@@ -170,7 +171,7 @@ def _install_requirements_to_vendor(requirements: list[str]):
             ]
         )
         logger.info(
-            f"Packages installed in [bold]{vendor_path_relative}[/bold].",
+            f"Packages installed in [bold]{vendor_path}[/bold].",
             extra={"markup": True},
         )
 
@@ -255,13 +256,7 @@ def is_sync_needed():
         return True
 
     # Check if vendor directory exists and get its timestamp
-    try:
-        vendor_path_relative = get_vendor_path_from_wrangler_config(PROJECT_ROOT)
-    except (ValueError, FileNotFoundError):
-        # If we can't determine the vendor path, default to requiring an update
-        return True
-
-    vendor_path = PROJECT_ROOT / vendor_path_relative
+    vendor_path = PROJECT_ROOT / "python_modules"
     if not vendor_path.is_dir():
         return True
 
