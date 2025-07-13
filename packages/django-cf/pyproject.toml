@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-cf"
-version = "0.1.3"
+version = "0.1.4"
 authors = [
   { name="Gabriel Massadas" },
 ]
@@ -41,7 +41,7 @@ dev = [
 "Source" = "https://github.com/G4brym/django-cf"
 
 [tool.setuptools]
-packages = ["django_cf", "django_cf.d1_api", "django_cf.d1_binding", "django_cf.do_binding"]
+packages = ["django_cf", "django_cf.d1_api", "django_cf.d1_binding", "django_cf.do_binding", "django_cf.middleware"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
