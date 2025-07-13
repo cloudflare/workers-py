@@ -68,32 +68,39 @@ class CloudflareAccessMiddleware:
         self.cache_timeout = getattr(settings, 'CLOUDFLARE_ACCESS_CACHE_TIMEOUT', 3600)  # 1 hour
 
     def __call__(self, request):
-        # Check if path is exempt from authentication
-        if self._is_exempt_path(request.path):
-            return self.get_response(request)
-
-        # Try to authenticate with Cloudflare Access
+        # Always try to authenticate with Cloudflare Access if JWT is present
+        # This ensures users stay logged in even after Django logout
         try:
             user = self._authenticate_cloudflare_access(request)
             if user:
-                # Set the user on the request (this is sufficient for authentication)
+                # Set the user on the request (this overrides any logged-out state)
                 request.user = user
-                # Note: We don't call login() here to avoid session dependency issues
-                # The user is still authenticated for this request
+                # Clear any logout-related session data
+                if hasattr(request, 'session'):
+                    # User was logged out but CF Access is still valid, re-authenticate
+                    try:
+                        login(request, user)
+                        logger.info("Logged in user %s", user)
+                    except Exception as e:
+                        logger.warning(f"Failed to re-login user after logout: {str(e)}")
             else:
-                # Authentication failed, return 401
-                return JsonResponse(
-                    {'error': 'Cloudflare Access authentication required'},
-                    status=401
-                )
+                # Check if path is exempt from authentication
+                if not self._is_exempt_path(request.path):
+                    # Authentication failed and path is not exempt, return 401
+                    return JsonResponse(
+                        {'error': 'Cloudflare Access authentication required'},
+                        status=401
+                    )
+                # Path is exempt, continue with anonymous user
+
         except Exception as e:
             logger.error(f"Cloudflare Access authentication error: {str(e)}")
-            return JsonResponse(
-                {'error': 'Authentication error'},
-                status=500
-            )
-
-        return self.get_response(request)
+            # Only return 500 for non-exempt paths
+            if not self._is_exempt_path(request.path):
+                return JsonResponse(
+                    {'error': 'Authentication error'},
+                    status=500
+                )
 
         return self.get_response(request)
 
@@ -190,13 +197,23 @@ class CloudflareAccessMiddleware:
 
     def _extract_jwt_token(self, request):
         """Extract JWT token from CF-Access-Jwt-Assertion header or cf_authorization cookie."""
-        # Try header first
+        # Try header first (most common)
         jwt_token = request.META.get('HTTP_CF_ACCESS_JWT_ASSERTION')
+        if jwt_token:
+            return jwt_token
+
+        # Try alternative header format
+        jwt_token = request.META.get('HTTP_CF_ACCESS_JWT_ASSERTION'.replace('_', '-'))
         if jwt_token:
             return jwt_token
 
         # Try cookie
         jwt_token = request.COOKIES.get('CF_Authorization')
+        if jwt_token:
+            return jwt_token
+
+        # Try alternative cookie name
+        jwt_token = request.COOKIES.get('cf_authorization')
         if jwt_token:
             return jwt_token
 
