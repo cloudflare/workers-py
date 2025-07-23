@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.0 (2025-07-23)
+
+### Features
+
+- Renames vendor dir to `python_modules`
+  ([`01e5ab9`](https://github.com/cloudflare/workers-py/commit/01e5ab9f0280bf267c803d1e451a473fc5171864))
+
+
 ## v1.0.4 (2025-06-20)
 
 ### Bug Fixes
