@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.1 (2025-07-23)
+
+### Bug Fixes
+
+- Output relative path in package installation message
+  ([`4eecf36`](https://github.com/cloudflare/workers-py/commit/4eecf3604fe5edb16b3f0cd775cc8773cb1b608e))
+
+
 ## v1.1.0 (2025-07-23)
 
 ### Features
