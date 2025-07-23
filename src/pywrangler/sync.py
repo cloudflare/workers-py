@@ -156,8 +156,9 @@ def _install_requirements_to_vendor(requirements: list[str]):
             / ("Scripts" if os.name == "nt" else "bin")
             / ("pip.exe" if os.name == "nt" else "pip")
         )
+        relative_vendor_path = vendor_path.relative_to(PROJECT_ROOT)
         logger.info(
-            f"Installing packages into [bold]{vendor_path}[/bold] using Pyodide pip...",
+            f"Installing packages into [bold]{relative_vendor_path}[/bold] using Pyodide pip...",
             extra={"markup": True},
         )
         run_command(
@@ -171,7 +172,7 @@ def _install_requirements_to_vendor(requirements: list[str]):
             ]
         )
         logger.info(
-            f"Packages installed in [bold]{vendor_path}[/bold].",
+            f"Packages installed in [bold]{relative_vendor_path}[/bold].",
             extra={"markup": True},
         )
 
