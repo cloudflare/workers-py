@@ -171,6 +171,10 @@ def _install_requirements_to_vendor(requirements: list[str]):
                 str(temp_file_path),
             ]
         )
+
+        # Create a pyvenv.cfg file in python_modules to mark it as a virtual environment
+        (vendor_path / "pyvenv.cfg").touch()
+
         logger.info(
             f"Packages installed in [bold]{relative_vendor_path}[/bold].",
             extra={"markup": True},
