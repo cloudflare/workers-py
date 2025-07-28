@@ -186,6 +186,12 @@ def test_sync_command_integration(dependencies, clean_test_dir):
                 f"python_modules directory should be empty of packages but contains: {list(TEST_SRC_VENDOR.iterdir())}"
             )
 
+    # Verify that pyvenv.cfg is created only when there are dependencies
+    if test_deps:
+        assert (TEST_SRC_VENDOR / "pyvenv.cfg").exists(), (
+            f"pyvenv.cfg was not created in {TEST_SRC_VENDOR}"
+        )
+
     # Check .venv-workers directory exists and has the expected packages
     TEST_VENV_WORKERS = TEST_DIR / ".venv-workers"
     assert TEST_VENV_WORKERS.exists(), (
