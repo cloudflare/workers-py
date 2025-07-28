@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.2 (2025-07-28)
+
+### Bug Fixes
+
+- Mark python_modules as a virtual env dir
+  ([`e889742`](https://github.com/cloudflare/workers-py/commit/e88974297ace9511e0ca1abc6bf617ecb52cfb05))
+
+
 ## v1.1.1 (2025-07-23)
 
 ### Bug Fixes
