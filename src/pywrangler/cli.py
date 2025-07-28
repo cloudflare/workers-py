@@ -68,7 +68,7 @@ def get_version():
     try:
         from importlib.metadata import version
 
-        return version("pywrangler")
+        return version("workers-py")
     except Exception:
         return "unknown"
 

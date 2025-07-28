@@ -36,6 +36,7 @@ uv run pywrangler sync
 To run the CLI tool while developing it, use:
 
 ```bash
+export REPO_ROOT=/path/to/repo
 uv run --project $REPO_ROOT $REPO_ROOT/src/pywrangler --help
 ```
 
