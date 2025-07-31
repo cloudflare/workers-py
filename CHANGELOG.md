@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.3 (2025-07-31)
+
+### Bug Fixes
+
+- Fixes --version returning unknown version
+  ([`fa71797`](https://github.com/cloudflare/workers-py/commit/fa71797e23bb2b8263bfc8fc34c2a21c0677c8c3))
+
+
 ## v1.1.2 (2025-07-28)
 
 ### Bug Fixes
