@@ -9,7 +9,7 @@ from pywrangler.utils import setup_logging, write_success
 setup_logging()
 logger = logging.getLogger("pywrangler")
 
-WRANGLER_COMMAND = ["npx", "wrangler"]
+WRANGLER_COMMAND = ["npx", "--yes", "wrangler"]
 
 
 class ProxyToWranglerGroup(click.Group):
