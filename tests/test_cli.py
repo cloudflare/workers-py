@@ -433,7 +433,7 @@ def test_proxy_to_wrangler_handles_subprocess_error(mock_subprocess_run):
 
     # Verify the error was attempted to be called
     mock_subprocess_run.assert_called_once_with(
-        ["npx", "wrangler", "unknown_command"], check=False, cwd="."
+        ["npx", "--yes", "wrangler", "unknown_command"], check=False, cwd="."
     )
 
 
