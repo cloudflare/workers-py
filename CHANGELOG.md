@@ -2,6 +2,18 @@
 
 <!-- version list -->
 
+## v1.1.4 (2025-08-06)
+
+### Bug Fixes
+
+- Allow overriding the python version ([#22](https://github.com/cloudflare/workers-py/pull/22),
+  [`e58114f`](https://github.com/cloudflare/workers-py/commit/e58114fd20f44b0358747a2b40652566ccc8486d))
+
+- Pass --yes to npx so it won't time out after 10 seconds if wrangler not installed
+  ([#20](https://github.com/cloudflare/workers-py/pull/20),
+  [`c80d5e5`](https://github.com/cloudflare/workers-py/commit/c80d5e58ec896fb3c494b7726d2f199defd7734b))
+
+
 ## v1.1.3 (2025-07-31)
 
 ### Bug Fixes
