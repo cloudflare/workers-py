@@ -64,7 +64,8 @@ def create_workers_venv():
         return
 
     logger.debug(f"Creating virtual environment at {VENV_WORKERS_PATH}...")
-    run_command(["uv", "venv", str(VENV_WORKERS_PATH), "--python", "python3.12"])
+    python = os.environ.get("_PYWRANGLER_PYTHON_VERSION", "python3.12")
+    run_command(["uv", "venv", str(VENV_WORKERS_PATH), "--python", python])
 
 
 def _get_pyodide_cli_path():
