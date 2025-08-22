@@ -55,6 +55,10 @@ def check_wrangler_config():
         raise click.exceptions.Exit(code=1)
 
 
+def _get_python_version():
+    return os.environ.get("_PYWRANGLER_PYTHON_VERSION", "3.12")
+
+
 def create_workers_venv():
     """
     Creates a virtual environment at `VENV_WORKERS_PATH` if it doesn't exist.
@@ -64,8 +68,10 @@ def create_workers_venv():
         return
 
     logger.debug(f"Creating virtual environment at {VENV_WORKERS_PATH}...")
-    python = os.environ.get("_PYWRANGLER_PYTHON_VERSION", "python3.12")
-    run_command(["uv", "venv", str(VENV_WORKERS_PATH), "--python", python])
+    python_version = _get_python_version()
+    run_command(
+        ["uv", "venv", str(VENV_WORKERS_PATH), "--python", f"python{python_version}"]
+    )
 
 
 def _get_pyodide_cli_path():
@@ -99,7 +105,14 @@ def install_pyodide_build():
     run_command(["uv", "pip", "install", "-p", str(venv_python_executable), "pip"])
 
     run_command(
-        ["uv", "pip", "install", "-p", str(venv_python_executable), "pyodide-build"]
+        [
+            "uv",
+            "pip",
+            "install",
+            "-p",
+            str(venv_python_executable),
+            "pyodide-build==0.30.7",
+        ]
     )
 
 
@@ -110,6 +123,12 @@ def create_pyodide_venv():
             f"Pyodide virtual environment at {PYODIDE_VENV_PATH} already exists."
         )
         return
+
+    # Workaround to fix caching issue on some machines.
+    #
+    # Fix is here: pyodide/pyodide-build#239
+    logger.debug("Installing xbuildenv...")
+    run_command([str(pyodide_cli_path), "xbuildenv", "install"])
 
     logger.debug(f"Creating Pyodide virtual environment at {PYODIDE_VENV_PATH}...")
     PYODIDE_VENV_PATH.parent.mkdir(parents=True, exist_ok=True)
