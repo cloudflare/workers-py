@@ -1,5 +1,6 @@
 import logging
 import os
+import shutil
 from pathlib import Path
 import tempfile
 
@@ -59,18 +60,66 @@ def _get_python_version():
     return os.environ.get("_PYWRANGLER_PYTHON_VERSION", "3.12")
 
 
+def _get_venv_python_version() -> str | None:
+    """
+    Retrieves the Python version from the virtual environment.
+
+    Returns:
+        The Python version string or None if it cannot be determined.
+    """
+    venv_python = (
+        VENV_WORKERS_PATH / "Scripts" / "python.exe"
+        if os.name == "nt"
+        else VENV_WORKERS_PATH / "bin" / "python"
+    )
+    if not venv_python.is_file():
+        return None
+
+    result = run_command(
+        [str(venv_python), "--version"], check=False, capture_output=True
+    )
+    if result.returncode != 0:
+        return None
+
+    return result.stdout.strip()
+
+
 def create_workers_venv():
     """
     Creates a virtual environment at `VENV_WORKERS_PATH` if it doesn't exist.
     """
+    wanted_python_version = _get_python_version()
+    logger.debug(f"Using python version: {wanted_python_version}")
+
     if VENV_WORKERS_PATH.is_dir():
-        logger.debug(f"Virtual environment at {VENV_WORKERS_PATH} already exists.")
-        return
+        installed_version = _get_venv_python_version()
+        if installed_version:
+            if wanted_python_version in installed_version:
+                logger.debug(
+                    f"Virtual environment at {VENV_WORKERS_PATH} already exists."
+                )
+                return
+
+            logger.warning(
+                f"Recreating virtual environment at {VENV_WORKERS_PATH} due to Python version mismatch. "
+                f"Found {installed_version}, expected {wanted_python_version}"
+            )
+        else:
+            logger.warning(
+                f"Could not determine python version for {VENV_WORKERS_PATH}, recreating."
+            )
+
+        shutil.rmtree(VENV_WORKERS_PATH)
 
     logger.debug(f"Creating virtual environment at {VENV_WORKERS_PATH}...")
-    python_version = _get_python_version()
     run_command(
-        ["uv", "venv", str(VENV_WORKERS_PATH), "--python", f"python{python_version}"]
+        [
+            "uv",
+            "venv",
+            str(VENV_WORKERS_PATH),
+            "--python",
+            f"python{wanted_python_version}",
+        ]
     )
 
 
