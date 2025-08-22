@@ -50,7 +50,21 @@ def run_command(
     cwd: Path | None = None,
     env: dict | None = None,
     check: bool = True,
+    capture_output: bool = False,
 ):
+    """
+    Runs a command and handles logging and errors.
+
+    Args:
+        command: The command to run as a list of strings.
+        cwd: The working directory.
+        env: Environment variables.
+        check: If True, raise an exception on non-zero exit codes.
+        capture_output: If True, capture and return stdout/stderr.
+
+    Returns:
+        A subprocess.CompletedProcess instance.
+    """
     logger.log(RUNNING_LEVEL, f"{' '.join(str(arg) for arg in command)}")
     try:
         process = subprocess.run(
@@ -58,16 +72,15 @@ def run_command(
             cwd=cwd,
             env=env,
             check=check,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
+            capture_output=capture_output,
             text=True,
         )
-        if process.stdout:
+        if process.stdout and not capture_output:
             logger.log(OUTPUT_LEVEL, f"{process.stdout.strip()}")
         return process
     except subprocess.CalledProcessError as e:
         logger.error(
-            f"Error running command: {' '.join(str(arg) for arg in command)}\nExit code: {e.returncode}\nOutput:\n{e.stdout.strip()}"
+            f"Error running command: {' '.join(str(arg) for arg in command)}\nExit code: {e.returncode}\nOutput:\n{e.stdout.strip() if e.stdout else ''}{e.stderr.strip() if e.stderr else ''}"
         )
         raise click.exceptions.Exit(code=e.returncode)
     except FileNotFoundError:

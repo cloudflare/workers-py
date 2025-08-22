@@ -485,3 +485,60 @@ def test_sync_command_finds_pyproject_in_parent_directory(clean_test_dir):
     assert TEST_VENV_WORKERS.exists(), (
         f".venv-workers directory was not created at {TEST_VENV_WORKERS}"
     )
+
+
+def test_sync_recreates_venv_on_python_version_mismatch(clean_test_dir):
+    """
+    Test that the sync command recreates the venv if the Python version
+    mismatches, using real system commands.
+    """
+    # Create initial files in the clean test directory
+    create_test_pyproject([])
+    create_test_wrangler_jsonc()
+
+    original_dir = os.getcwd()
+    try:
+        os.chdir(clean_test_dir)
+        project_root = Path(original_dir)
+        sync_cmd = ["uvx", "--from", str(project_root), "pywrangler", "sync"]
+        venv_path = clean_test_dir / ".venv-workers"
+
+        # First run: Create venv with Python 3.12
+        print("\nRunning sync to create venv with Python 3.12...")
+        env = os.environ.copy()
+        env["_PYWRANGLER_PYTHON_VERSION"] = "3.12"
+        result1 = subprocess.run(sync_cmd, capture_output=True, text=True, env=env)
+
+        assert result1.returncode == 0, (
+            f"First sync failed: {result1.stdout}\n{result1.stderr}"
+        )
+        assert venv_path.exists(), "Venv was not created on the first run."
+        initial_mtime = venv_path.stat().st_mtime
+
+        # Second run: Recreate venv with Python 3.13
+        print("\nRunning sync to recreate venv with Python 3.13...")
+        env["_PYWRANGLER_PYTHON_VERSION"] = "3.13"
+        result2 = subprocess.run(sync_cmd, capture_output=True, text=True, env=env)
+
+        assert result2.returncode == 0, (
+            f"Second sync failed: {result2.stdout}\n{result2.stderr}"
+        )
+        assert venv_path.exists(), "Venv was not recreated."
+        final_mtime = venv_path.stat().st_mtime
+
+        # Check that the venv was actually modified
+        assert final_mtime > initial_mtime, "Venv modification time did not change."
+
+        # Verify the python version in the new venv is 3.13.
+        python_exe = venv_path / (
+            "Scripts/python.exe" if os.name == "nt" else "bin/python"
+        )
+        version_result = subprocess.run(
+            [str(python_exe), "--version"], capture_output=True, text=True
+        )
+        assert "3.13" in version_result.stdout, (
+            f"Python version is not 3.13: {version_result.stdout}"
+        )
+
+    finally:
+        os.chdir(original_dir)
