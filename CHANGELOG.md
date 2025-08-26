@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.5 (2025-08-26)
+
+### Bug Fixes
+
+- Lock pyodide-build to fix running on Py 3.12
+  ([`2f301f4`](https://github.com/cloudflare/workers-py/commit/2f301f483be59ead2a799a0e8cba6291e428080b))
+
+
 ## v1.1.4 (2025-08-06)
 
 ### Bug Fixes
