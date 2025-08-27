@@ -55,7 +55,7 @@ class ProxyToWranglerGroup(click.Group):
                 remaining_args = []
 
             if cmd_name in ["dev", "publish", "deploy", "versions"]:
-                ctx.invoke(sync_command, force=False)
+                ctx.invoke(sync_command, force=False, directly_requested=False)
 
             _proxy_to_wrangler(cmd_name, remaining_args)
             sys.exit(0)
@@ -92,7 +92,7 @@ def app(ctx, debug=False):
 
 @app.command("sync")
 @click.option("--force", is_flag=True, help="Force sync even if no changes detected")
-def sync_command(force=False):
+def sync_command(force=False, directly_requested=True):
     """
     Installs Python packages from pyproject.toml into src/vendor.
 
@@ -116,9 +116,10 @@ def sync_command(force=False):
     # Check if sync is needed based on file timestamps
     sync_needed = force or is_sync_needed()
     if not sync_needed:
-        logger.warning(
-            "pyproject.toml hasn't changed since last sync, use --force to ignore timestamp check"
-        )
+        if directly_requested:
+            logger.warning(
+                "pyproject.toml hasn't changed since last sync, use --force to ignore timestamp check"
+            )
         return
 
     # Check to make sure a wrangler config file exists.
