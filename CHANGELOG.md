@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.1.6 (2025-08-27)
+
+### Bug Fixes
+
+- Sync: if nothing to do, only warn if user requested directly
+  ([#26](https://github.com/cloudflare/workers-py/pull/26),
+  [`e142800`](https://github.com/cloudflare/workers-py/commit/e142800306cf4a021c10c629814265ed63d9cd90))
+
+
 ## v1.1.5 (2025-08-26)
 
 ### Bug Fixes
