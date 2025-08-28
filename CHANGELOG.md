@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.7 (2025-08-28)
+
+### Bug Fixes
+
+- Check for venv python version mismatch
+  ([`c7871f0`](https://github.com/cloudflare/workers-py/commit/c7871f07dcc2ad54f0cd9e0243ff5107cf43d9c9))
+
+
 ## v1.1.6 (2025-08-27)
 
 ### Bug Fixes
