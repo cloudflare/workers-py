@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.1.8 (2025-09-25)
+
+### Bug Fixes
+
+- Sync: Use a token that we write only after sync succeeds
+  ([#29](https://github.com/cloudflare/workers-py/pull/29),
+  [`64bc90a`](https://github.com/cloudflare/workers-py/commit/64bc90ac3832e094e096130f87992d0899e6b8fc))
+
+
 ## v1.1.7 (2025-08-28)
 
 ### Bug Fixes
