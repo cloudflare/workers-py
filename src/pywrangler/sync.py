@@ -22,7 +22,9 @@ logger = logging.getLogger(__name__)
 PYPROJECT_TOML_PATH = find_pyproject_toml()
 PROJECT_ROOT = PYPROJECT_TOML_PATH.parent
 VENV_WORKERS_PATH = PROJECT_ROOT / ".venv-workers"
+VENV_WORKERS_TOKEN = PROJECT_ROOT / ".venv-workers/.synced"
 PYODIDE_VENV_PATH = VENV_WORKERS_PATH / "pyodide-venv"
+VENDOR_TOKEN = PROJECT_ROOT / "python_modules/.synced"
 VENV_REQUIREMENTS_PATH = VENV_WORKERS_PATH / "temp-venv-requirements.txt"
 
 
@@ -243,6 +245,7 @@ def _install_requirements_to_vendor(requirements: list[str]):
 
         # Create a pyvenv.cfg file in python_modules to mark it as a virtual environment
         (vendor_path / "pyvenv.cfg").touch()
+        VENDOR_TOKEN.write_text("")
 
         logger.info(
             f"Packages installed in [bold]{relative_vendor_path}[/bold].",
@@ -290,6 +293,7 @@ def _install_requirements_to_venv(requirements: list[str]):
                     str(temp_file_path),
                 ]
             )
+            VENV_WORKERS_TOKEN.write_text("")
             logger.info(
                 f"Packages installed in [bold]{relative_venv_workers_path}[/bold].",
                 extra={"markup": True},
@@ -321,19 +325,18 @@ def is_sync_needed():
     pyproject_mtime = PYPROJECT_TOML_PATH.stat().st_mtime
 
     # Check if .venv-workers exists and get its timestamp
-    if not VENV_WORKERS_PATH.is_dir():
+    if not VENV_WORKERS_TOKEN.exists():
         return True
 
-    venv_mtime = VENV_WORKERS_PATH.stat().st_mtime
+    venv_mtime = VENV_WORKERS_TOKEN.stat().st_mtime
     venv_needs_update = pyproject_mtime > venv_mtime
     if venv_needs_update:
         return True
 
     # Check if vendor directory exists and get its timestamp
-    vendor_path = PROJECT_ROOT / "python_modules"
-    if not vendor_path.is_dir():
+    if not VENDOR_TOKEN.exists():
         return True
 
-    vendor_mtime = vendor_path.stat().st_mtime
+    vendor_mtime = VENDOR_TOKEN.stat().st_mtime
     vendor_needs_update = pyproject_mtime > vendor_mtime
     return vendor_needs_update
