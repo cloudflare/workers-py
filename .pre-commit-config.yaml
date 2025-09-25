@@ -1,0 +1,41 @@
+exclude: (^.*patches|.*\.cgi$|^packages/micropip/src/micropip/externals|^benchmark/benchmarks$)
+default_language_version:
+  python: "3.13"
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: "v5.0.0"
+    hooks:
+      - id: check-added-large-files
+      - id: check-case-conflict
+      - id: check-merge-conflict
+      - id: check-symlinks
+      - id: check-yaml
+      - id: debug-statements
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+      - id: trailing-whitespace
+      - id: requirements-txt-fixer
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: "v0.9.1"
+    hooks:
+      - id: ruff
+        args: [--fix]
+      - id: ruff-format
+
+  - repo: https://github.com/shellcheck-py/shellcheck-py
+    rev: "v0.10.0.1"
+    hooks:
+      - id: shellcheck
+
+  - repo: https://github.com/codespell-project/codespell
+    rev: "v2.3.0"
+    hooks:
+      - id: codespell
+        args:
+          [
+            "--ignore-words-list",
+            "ommit",
+          ]
+ci:
+  autoupdate_schedule: "quarterly"

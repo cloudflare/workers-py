@@ -3,7 +3,7 @@
 A set of libraries and tools for Python Workers.
 
 
-## Pywrangler 
+## Pywrangler
 
 A CLI tool for managing vendored packages in a Python Workers project.
 

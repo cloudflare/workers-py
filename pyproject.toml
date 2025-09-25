@@ -25,7 +25,8 @@ dev = [
   "click>=8.0.0",
   "black>=23.0.0",
   "ruff>=0.1.0",
-  "mypy>=1.0.0"
+  "mypy>=1.0.0",
+  "pre-commit>=4.3.0",
 ]
 
 [project.optional-dependencies]
