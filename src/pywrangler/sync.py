@@ -4,6 +4,7 @@ import shutil
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Literal
 
 import click
 
@@ -59,8 +60,33 @@ def check_wrangler_config():
         raise click.exceptions.Exit(code=1)
 
 
-def _get_python_version():
-    return os.environ.get("_PYWRANGLER_PYTHON_VERSION", "3.12")
+def _get_python_version() -> Literal["3.12", "3.13"]:
+    res = os.environ.get("_PYWRANGLER_PYTHON_VERSION", "3.12")
+    match res:
+        case "3.12" | "3.13":
+            return res
+        case _:
+            raise ValueError(
+                f"Unexpected value for Python version '{res}', expected '3.12' or '3.13'"
+            )
+
+
+def _get_uv_pyodide_interp_name():
+    match _get_python_version():
+        case "3.12":
+            v = "3.12.7"
+        case "3.13":
+            v = "3.13.2"
+    return f"cpython-{v}-emscripten-wasm32-musl"
+
+
+def _get_pyodide_index():
+    match _get_python_version():
+        case "3.12":
+            v = "0.27.7"
+        case "3.13":
+            v = "0.28.3"
+    return "https://index.pyodide.org/" + v
 
 
 def _get_venv_python_version() -> str | None:
@@ -126,65 +152,18 @@ def create_workers_venv():
     )
 
 
-def _get_pyodide_cli_path():
-    venv_bin_path = VENV_WORKERS_PATH / ("Scripts" if os.name == "nt" else "bin")
-    pyodide_cli_path = venv_bin_path / ("pyodide.exe" if os.name == "nt" else "pyodide")
-    return pyodide_cli_path
-
-
-def install_pyodide_build():
-    pyodide_cli_path = _get_pyodide_cli_path()
-
-    if pyodide_cli_path.is_file():
-        logger.debug(
-            f"pyodide-build CLI already found at {pyodide_cli_path} (skipping install.)"
-        )
-        return
-
-    logger.debug(
-        f"Installing pyodide-build in {VENV_WORKERS_PATH} using 'uv pip install'..."
-    )
-    venv_bin_path = pyodide_cli_path.parent
-
-    # Ensure the python executable path is correct for the venv
-    venv_python_executable = venv_bin_path / (
-        "python.exe" if os.name == "nt" else "python"
-    )
-    if not venv_python_executable.is_file():
-        logger.error(f"Python executable not found at {venv_python_executable}")
-        raise click.exceptions.Exit(code=1)
-
-    run_command(["uv", "pip", "install", "-p", str(venv_python_executable), "pip"])
-
-    run_command(
-        [
-            "uv",
-            "pip",
-            "install",
-            "-p",
-            str(venv_python_executable),
-            "pyodide-build==0.30.7",
-        ]
-    )
-
-
 def create_pyodide_venv():
-    pyodide_cli_path = _get_pyodide_cli_path()
     if PYODIDE_VENV_PATH.is_dir():
         logger.debug(
             f"Pyodide virtual environment at {PYODIDE_VENV_PATH} already exists."
         )
         return
 
-    # Workaround to fix caching issue on some machines.
-    #
-    # Fix is here: pyodide/pyodide-build#239
-    logger.debug("Installing xbuildenv...")
-    run_command([str(pyodide_cli_path), "xbuildenv", "install"])
-
     logger.debug(f"Creating Pyodide virtual environment at {PYODIDE_VENV_PATH}...")
     PYODIDE_VENV_PATH.parent.mkdir(parents=True, exist_ok=True)
-    run_command([str(pyodide_cli_path), "venv", str(PYODIDE_VENV_PATH)])
+    interp_name = _get_uv_pyodide_interp_name()
+    run_command(["uv", "python", "install", interp_name])
+    run_command(["uv", "venv", PYODIDE_VENV_PATH, "--python", interp_name])
 
 
 def parse_requirements() -> list[str]:
@@ -224,26 +203,31 @@ def _install_requirements_to_vendor(requirements: list[str]):
 
     # Install packages into vendor directory
     vendor_path.mkdir(parents=True, exist_ok=True)
-    pyodide_venv_pip_path = (
-        PYODIDE_VENV_PATH
-        / ("Scripts" if os.name == "nt" else "bin")
-        / ("pip.exe" if os.name == "nt" else "pip")
-    )
     relative_vendor_path = vendor_path.relative_to(PROJECT_ROOT)
     logger.info(
-        f"Installing packages into [bold]{relative_vendor_path}[/bold] using Pyodide pip...",
+        f"Installing packages into [bold]{relative_vendor_path}[/bold]...",
         extra={"markup": True},
     )
     with temp_requirements_file(requirements) as requirements_file:
         run_command(
             [
-                pyodide_venv_pip_path,
+                "uv",
+                "pip",
                 "install",
-                "-t",
-                vendor_path,
+                "--no-build",
                 "-r",
                 requirements_file,
-            ]
+                "--extra-index-url",
+                _get_pyodide_index(),
+                "--index-strategy",
+                "unsafe-best-match",
+            ],
+            env=os.environ | {"VIRTUAL_ENV": PYODIDE_VENV_PATH},
+        )
+        pyv = _get_python_version()
+        shutil.rmtree(vendor_path)
+        shutil.copytree(
+            PYODIDE_VENV_PATH / f"lib/python{pyv}/site-packages", vendor_path
         )
 
     # Create a pyvenv.cfg file in python_modules to mark it as a virtual environment
@@ -258,26 +242,13 @@ def _install_requirements_to_vendor(requirements: list[str]):
 
 def _install_requirements_to_venv(requirements: list[str]):
     # Create a requirements file for .venv-workers that includes webtypy and pyodide-py
-    VENV_REQUIREMENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
-    # Install packages into .venv-workers so that user's IDE can see the packages.
     relative_venv_workers_path = VENV_WORKERS_PATH.relative_to(PROJECT_ROOT)
-    venv_bin_path = VENV_WORKERS_PATH / ("Scripts" if os.name == "nt" else "bin")
-    venv_python_executable = venv_bin_path / (
-        "python.exe" if os.name == "nt" else "python"
-    )
-    if not venv_python_executable.is_file():
-        logger.warning(
-            f"Python executable not found at {venv_python_executable}. Skipping installation in [bold]{relative_venv_workers_path}[/bold].",
-            extra={"markup": True},
-        )
-        return
-
     requirements = requirements.copy()
     requirements.append("webtypy")
     requirements.append("pyodide-py")
 
     logger.info(
-        f"Installing packages into [bold]{relative_venv_workers_path}[/bold] using uv pip...",
+        f"Installing packages into [bold]{relative_venv_workers_path}[/bold]...",
         extra={"markup": True},
     )
     with temp_requirements_file(requirements) as requirements_file:
@@ -286,11 +257,10 @@ def _install_requirements_to_venv(requirements: list[str]):
                 "uv",
                 "pip",
                 "install",
-                "-p",
-                venv_python_executable,
                 "-r",
                 requirements_file,
-            ]
+            ],
+            env=os.environ | {"VIRTUAL_ENV": VENV_WORKERS_PATH},
         )
     VENV_WORKERS_TOKEN.touch()
     logger.info(
