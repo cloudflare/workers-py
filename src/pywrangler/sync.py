@@ -245,7 +245,7 @@ def _install_requirements_to_vendor(requirements: list[str]):
 
         # Create a pyvenv.cfg file in python_modules to mark it as a virtual environment
         (vendor_path / "pyvenv.cfg").touch()
-        VENDOR_TOKEN.write_text("")
+        VENDOR_TOKEN.touch()
 
         logger.info(
             f"Packages installed in [bold]{relative_vendor_path}[/bold].",
@@ -293,7 +293,7 @@ def _install_requirements_to_venv(requirements: list[str]):
                     str(temp_file_path),
                 ]
             )
-            VENV_WORKERS_TOKEN.write_text("")
+            VENV_WORKERS_TOKEN.touch()
             logger.info(
                 f"Packages installed in [bold]{relative_venv_workers_path}[/bold].",
                 extra={"markup": True},
@@ -310,6 +310,12 @@ def install_requirements(requirements: list[str]):
     _install_requirements_to_venv(requirements)
 
 
+def _is_out_of_date(token: Path, time: float) -> bool:
+    if not token.exists():
+        return True
+    return time > token.stat().st_mtime
+
+
 def is_sync_needed():
     """
     Checks if pyproject.toml has been modified since the last sync.
@@ -323,20 +329,6 @@ def is_sync_needed():
         return True
 
     pyproject_mtime = PYPROJECT_TOML_PATH.stat().st_mtime
-
-    # Check if .venv-workers exists and get its timestamp
-    if not VENV_WORKERS_TOKEN.exists():
-        return True
-
-    venv_mtime = VENV_WORKERS_TOKEN.stat().st_mtime
-    venv_needs_update = pyproject_mtime > venv_mtime
-    if venv_needs_update:
-        return True
-
-    # Check if vendor directory exists and get its timestamp
-    if not VENDOR_TOKEN.exists():
-        return True
-
-    vendor_mtime = VENDOR_TOKEN.stat().st_mtime
-    vendor_needs_update = pyproject_mtime > vendor_mtime
-    return vendor_needs_update
+    return _is_out_of_date(VENDOR_TOKEN, pyproject_mtime) or _is_out_of_date(
+        VENV_WORKERS_TOKEN, pyproject_mtime
+    )
