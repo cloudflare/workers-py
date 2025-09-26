@@ -1,8 +1,9 @@
 import logging
 import os
 import shutil
-from pathlib import Path
 import tempfile
+from contextlib import contextmanager
+from pathlib import Path
 
 import click
 
@@ -202,6 +203,15 @@ def parse_requirements() -> list[str]:
         raise click.exceptions.Exit(code=1)
 
 
+@contextmanager
+def temp_requirements_file(requirements: list[str]):
+    # Write dependencies to a requirements.txt-style temp file.
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt") as temp_file:
+        temp_file.write("\n".join(requirements))
+        temp_file.flush()
+        yield temp_file.name
+
+
 def _install_requirements_to_vendor(requirements: list[str]):
     vendor_path = PROJECT_ROOT / "python_modules"
     logger.debug(f"Using vendor path: {vendor_path}")
@@ -212,97 +222,81 @@ def _install_requirements_to_vendor(requirements: list[str]):
         )
         return
 
-    # Write dependencies to a requirements.txt-style temp file.
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".txt", dir=PYODIDE_VENV_PATH
-    ) as temp_file:
-        temp_file.write("\n".join(requirements))
-        temp_file.flush()
-        temp_file_path = Path(temp_file.name)
-
-        # Install packages into vendor directory
-        vendor_path.mkdir(parents=True, exist_ok=True)
-        pyodide_venv_pip_path = (
-            PYODIDE_VENV_PATH
-            / ("Scripts" if os.name == "nt" else "bin")
-            / ("pip.exe" if os.name == "nt" else "pip")
-        )
-        relative_vendor_path = vendor_path.relative_to(PROJECT_ROOT)
-        logger.info(
-            f"Installing packages into [bold]{relative_vendor_path}[/bold] using Pyodide pip...",
-            extra={"markup": True},
-        )
+    # Install packages into vendor directory
+    vendor_path.mkdir(parents=True, exist_ok=True)
+    pyodide_venv_pip_path = (
+        PYODIDE_VENV_PATH
+        / ("Scripts" if os.name == "nt" else "bin")
+        / ("pip.exe" if os.name == "nt" else "pip")
+    )
+    relative_vendor_path = vendor_path.relative_to(PROJECT_ROOT)
+    logger.info(
+        f"Installing packages into [bold]{relative_vendor_path}[/bold] using Pyodide pip...",
+        extra={"markup": True},
+    )
+    with temp_requirements_file(requirements) as requirements_file:
         run_command(
             [
-                str(pyodide_venv_pip_path),
+                pyodide_venv_pip_path,
                 "install",
                 "-t",
-                str(vendor_path),
+                vendor_path,
                 "-r",
-                str(temp_file_path),
+                requirements_file,
             ]
         )
 
-        # Create a pyvenv.cfg file in python_modules to mark it as a virtual environment
-        (vendor_path / "pyvenv.cfg").touch()
-        VENDOR_TOKEN.touch()
+    # Create a pyvenv.cfg file in python_modules to mark it as a virtual environment
+    (vendor_path / "pyvenv.cfg").touch()
+    VENDOR_TOKEN.touch()
 
-        logger.info(
-            f"Packages installed in [bold]{relative_vendor_path}[/bold].",
-            extra={"markup": True},
-        )
+    logger.info(
+        f"Packages installed in [bold]{relative_vendor_path}[/bold].",
+        extra={"markup": True},
+    )
 
 
 def _install_requirements_to_venv(requirements: list[str]):
     # Create a requirements file for .venv-workers that includes webtypy and pyodide-py
     VENV_REQUIREMENTS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    # Install packages into .venv-workers so that user's IDE can see the packages.
+    relative_venv_workers_path = VENV_WORKERS_PATH.relative_to(PROJECT_ROOT)
+    venv_bin_path = VENV_WORKERS_PATH / ("Scripts" if os.name == "nt" else "bin")
+    venv_python_executable = venv_bin_path / (
+        "python.exe" if os.name == "nt" else "python"
+    )
+    if not venv_python_executable.is_file():
+        logger.warning(
+            f"Python executable not found at {venv_python_executable}. Skipping installation in [bold]{relative_venv_workers_path}[/bold].",
+            extra={"markup": True},
+        )
+        return
 
     requirements = requirements.copy()
     requirements.append("webtypy")
     requirements.append("pyodide-py")
 
-    # Write dependencies to a requirements.txt-style temp file.
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".txt", dir=VENV_REQUIREMENTS_PATH.parent
-    ) as temp_file:
-        temp_file.write("\n".join(requirements))
-        temp_file.flush()
-        temp_file_path = Path(temp_file.name)
-
-        # Install packages into .venv-workers so that user's IDE can see the packages.
-        venv_bin_path = VENV_WORKERS_PATH / ("Scripts" if os.name == "nt" else "bin")
-        venv_python_executable = venv_bin_path / (
-            "python.exe" if os.name == "nt" else "python"
+    logger.info(
+        f"Installing packages into [bold]{relative_venv_workers_path}[/bold] using uv pip...",
+        extra={"markup": True},
+    )
+    with temp_requirements_file(requirements) as requirements_file:
+        run_command(
+            [
+                "uv",
+                "pip",
+                "install",
+                "-p",
+                venv_python_executable,
+                "-r",
+                requirements_file,
+            ]
         )
-
-        # For nicer logs, output the relative path.
-        relative_venv_workers_path = VENV_WORKERS_PATH.relative_to(PROJECT_ROOT)
-        if venv_python_executable.is_file():
-            logger.info(
-                f"Installing packages into [bold]{relative_venv_workers_path}[/bold] using uv pip...",
-                extra={"markup": True},
-            )
-            run_command(
-                [
-                    "uv",
-                    "pip",
-                    "install",
-                    "-p",
-                    venv_python_executable,
-                    "-r",
-                    str(temp_file_path),
-                ]
-            )
-            VENV_WORKERS_TOKEN.touch()
-            logger.info(
-                f"Packages installed in [bold]{relative_venv_workers_path}[/bold].",
-                extra={"markup": True},
-            )
-        else:
-            logger.warning(
-                f"Python executable not found at {venv_python_executable}. Skipping installation in [bold]{relative_venv_workers_path}[/bold].",
-                extra={"markup": True},
-            )
+    VENV_WORKERS_TOKEN.touch()
+    logger.info(
+        f"Packages installed in [bold]{relative_venv_workers_path}[/bold].",
+        extra={"markup": True},
+    )
 
 
 def install_requirements(requirements: list[str]):
