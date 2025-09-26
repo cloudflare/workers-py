@@ -135,29 +135,17 @@ def test_sync_command_integration(dependencies, clean_test_dir):
 
     # Create a test wrangler.jsonc file
     create_test_wrangler_jsonc("src/worker.py")
+    project_root = Path.cwd().resolve()
 
-    # Save the current directory
-    original_dir = os.getcwd()
+    # Get the absolute path to the package root
+    # Run the pywrangler CLI directly using uvx
+    print("\nRunning pywrangler sync...")
+    sync_cmd = ["uvx", "--from", project_root, "pywrangler", "sync"]
 
-    try:
-        # Change to the test directory
-        os.chdir(TEST_DIR)
-
-        # Get the absolute path to the package root
-        project_root = Path(original_dir)
-
-        # Run the pywrangler CLI directly using uvx
-        print("\nRunning pywrangler sync...")
-        sync_cmd = ["uvx", "--from", str(project_root), "pywrangler", "sync"]
-
-        result = subprocess.run(sync_cmd, capture_output=True, text=True)
-        print(f"\nCommand output:\n{result.stdout}")
-        if result.stderr:
-            print(f"Command errors:\n{result.stderr}")
-
-    finally:
-        # Change back to the original directory
-        os.chdir(original_dir)
+    result = subprocess.run(sync_cmd, capture_output=True, text=True, cwd=TEST_DIR)
+    print(f"\nCommand output:\n{result.stdout}")
+    if result.stderr:
+        print(f"Command errors:\n{result.stderr}")
 
     # Check that the command succeeded
     assert result.returncode == 0, (
@@ -233,23 +221,12 @@ def test_sync_command_handles_missing_pyproject():
         assert not (temp_path / "pyproject.toml").exists()
 
         # Save original directory
-        original_dir = os.getcwd()
+        project_root = Path.cwd().resolve()
 
-        try:
-            # Change to temp directory
-            os.chdir(temp_path)
+        # Run pywrangler sync from the temp directory (should fail)
+        sync_cmd = ["uvx", "--from", project_root, "pywrangler", "sync"]
 
-            # Get the absolute path to the package root
-            project_root = Path(original_dir)
-
-            # Run pywrangler sync from the temp directory (should fail)
-            sync_cmd = ["uvx", "--from", str(project_root), "pywrangler", "sync"]
-
-            result = subprocess.run(sync_cmd, capture_output=True, text=True)
-
-        finally:
-            # Change back to original directory
-            os.chdir(original_dir)
+        result = subprocess.run(sync_cmd, capture_output=True, text=True, cwd=temp_path)
 
         # Check that the command failed with the expected error
         assert result.returncode != 0
@@ -447,27 +424,15 @@ def test_sync_command_finds_pyproject_in_parent_directory(clean_test_dir):
     subdir = TEST_DIR / "subproject"
     subdir.mkdir()
 
-    # Save the original directory
-    original_dir = os.getcwd()
+    project_root = Path.cwd().resolve()
 
-    try:
-        # Change to the subdirectory
-        os.chdir(subdir)
+    # Run the pywrangler CLI from the subdirectory
+    sync_cmd = ["uvx", "--from", project_root, "pywrangler", "sync"]
 
-        # Get the absolute path to the package root
-        project_root = Path(original_dir)
-
-        # Run the pywrangler CLI from the subdirectory
-        sync_cmd = ["uvx", "--from", str(project_root), "pywrangler", "sync"]
-
-        result = subprocess.run(sync_cmd, capture_output=True, text=True)
-        print(f"\nCommand output:\n{result.stdout}")
-        if result.stderr:
-            print(f"Command errors:\n{result.stderr}")
-
-    finally:
-        # Change back to the original directory
-        os.chdir(original_dir)
+    result = subprocess.run(sync_cmd, capture_output=True, text=True, cwd=subdir)
+    print(f"\nCommand output:\n{result.stdout}")
+    if result.stderr:
+        print(f"Command errors:\n{result.stderr}")
 
     # Check that the command succeeded
     assert result.returncode == 0, (
@@ -496,49 +461,45 @@ def test_sync_recreates_venv_on_python_version_mismatch(clean_test_dir):
     create_test_pyproject([])
     create_test_wrangler_jsonc()
 
-    original_dir = os.getcwd()
-    try:
-        os.chdir(clean_test_dir)
-        project_root = Path(original_dir)
-        sync_cmd = ["uvx", "--from", str(project_root), "pywrangler", "sync"]
-        venv_path = clean_test_dir / ".venv-workers"
+    project_root = Path.cwd().resolve()
 
-        # First run: Create venv with Python 3.12
-        print("\nRunning sync to create venv with Python 3.12...")
-        env = os.environ.copy()
-        env["_PYWRANGLER_PYTHON_VERSION"] = "3.12"
-        result1 = subprocess.run(sync_cmd, capture_output=True, text=True, env=env)
+    sync_cmd = ["uvx", "--from", project_root, "pywrangler", "sync"]
+    venv_path = clean_test_dir / ".venv-workers"
 
-        assert result1.returncode == 0, (
-            f"First sync failed: {result1.stdout}\n{result1.stderr}"
-        )
-        assert venv_path.exists(), "Venv was not created on the first run."
-        initial_mtime = venv_path.stat().st_mtime
+    # First run: Create venv with Python 3.12
+    print("\nRunning sync to create venv with Python 3.12...")
+    env = os.environ | {"_PYWRANGLER_PYTHON_VERSION": "3.12"}
+    result1 = subprocess.run(
+        sync_cmd, capture_output=True, text=True, env=env, cwd=clean_test_dir
+    )
 
-        # Second run: Recreate venv with Python 3.13
-        print("\nRunning sync to recreate venv with Python 3.13...")
-        env["_PYWRANGLER_PYTHON_VERSION"] = "3.13"
-        result2 = subprocess.run(sync_cmd, capture_output=True, text=True, env=env)
+    assert result1.returncode == 0, (
+        f"First sync failed: {result1.stdout}\n{result1.stderr}"
+    )
+    assert venv_path.exists(), "Venv was not created on the first run."
+    initial_mtime = venv_path.stat().st_mtime
 
-        assert result2.returncode == 0, (
-            f"Second sync failed: {result2.stdout}\n{result2.stderr}"
-        )
-        assert venv_path.exists(), "Venv was not recreated."
-        final_mtime = venv_path.stat().st_mtime
+    # Second run: Recreate venv with Python 3.13
+    print("\nRunning sync to recreate venv with Python 3.13...")
+    env = os.environ | {"_PYWRANGLER_PYTHON_VERSION": "3.13"}
+    result2 = subprocess.run(
+        sync_cmd, capture_output=True, text=True, env=env, cwd=clean_test_dir
+    )
 
-        # Check that the venv was actually modified
-        assert final_mtime > initial_mtime, "Venv modification time did not change."
+    assert result2.returncode == 0, (
+        f"Second sync failed: {result2.stdout}\n{result2.stderr}"
+    )
+    assert venv_path.exists(), "Venv was not recreated."
+    final_mtime = venv_path.stat().st_mtime
 
-        # Verify the python version in the new venv is 3.13.
-        python_exe = venv_path / (
-            "Scripts/python.exe" if os.name == "nt" else "bin/python"
-        )
-        version_result = subprocess.run(
-            [str(python_exe), "--version"], capture_output=True, text=True
-        )
-        assert "3.13" in version_result.stdout, (
-            f"Python version is not 3.13: {version_result.stdout}"
-        )
+    # Check that the venv was actually modified
+    assert final_mtime > initial_mtime, "Venv modification time did not change."
 
-    finally:
-        os.chdir(original_dir)
+    # Verify the python version in the new venv is 3.13.
+    python_exe = venv_path / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
+    version_result = subprocess.run(
+        [python_exe, "--version"], capture_output=True, text=True, cwd=clean_test_dir
+    )
+    assert "3.13" in version_result.stdout, (
+        f"Python version is not 3.13: {version_result.stdout}"
+    )
