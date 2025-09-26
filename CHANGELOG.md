@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.2.0 (2025-09-26)
+
+### Features
+
+- Use uv instead of pyodide-build to manage pyodide install and venv
+  ([#30](https://github.com/cloudflare/workers-py/pull/30),
+  [`1629919`](https://github.com/cloudflare/workers-py/commit/16299198db73f1e3efb99eb6ef928fc46978acd9))
+
+
 ## v1.1.8 (2025-09-25)
 
 ### Bug Fixes
