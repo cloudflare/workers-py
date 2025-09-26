@@ -106,7 +106,6 @@ def sync_command(force=False, directly_requested=True):
         create_pyodide_venv,
         create_workers_venv,
         parse_requirements,
-        install_pyodide_build,
         install_requirements,
     )
 
@@ -129,7 +128,6 @@ def sync_command(force=False, directly_requested=True):
     create_workers_venv()
 
     # Set up Pyodide virtual env
-    install_pyodide_build()
     create_pyodide_venv()
 
     # Generate requirements.txt from pyproject.toml by directly parsing the TOML file then install into vendor folder.
