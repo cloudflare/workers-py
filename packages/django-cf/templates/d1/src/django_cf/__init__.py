@@ -41,8 +41,6 @@ async def handle_wsgi(request, app):
     for header in request.headers.items():
         wsgi_request[f'HTTP_{header[0].upper()}'] = header[1]
 
-    print(dir(request))
-
     if method in ['POST', 'PUT', 'PATCH']:
         body = (await request._js_request.arrayBuffer()).to_bytes()
         wsgi_request['wsgi.input'] = BytesIO(body)
