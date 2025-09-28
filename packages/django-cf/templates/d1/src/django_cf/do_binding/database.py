@@ -1,9 +1,10 @@
-import sqlparse
-
 from django.db import DatabaseError, Error, DataError, OperationalError, \
-IntegrityError, InternalError, ProgrammingError, NotSupportedError, InterfaceError
+    IntegrityError, InternalError, ProgrammingError, NotSupportedError, InterfaceError
 
-class D1Result:
+from .storage import get_storage
+
+
+class DOResult:
     lastrowid = None
     rowcount = -1
 
@@ -30,22 +31,10 @@ class D1Result:
 
             result.append(row_items)
 
-        return D1Result(result)
+        return DOResult(result)
 
 
-class D1Database:
-    def __init__(self, binding):
-        self.binding = binding
-
-        try:
-            from workers import import_from_javascript
-            from pyodide.ffi import run_sync
-            self.import_from_javascript = import_from_javascript
-            self.run_sync = run_sync
-        except ImportError as e:
-            print(e)
-            raise Exception("Code not running inside a worker, please change to django_cf.d1_api database backend")
-
+class DODatabase:
     DataError = DataError
 
     OperationalError = OperationalError
@@ -77,8 +66,8 @@ class D1Database:
         _defer_foreign_keys = state
 
     @staticmethod
-    def connect(binding):
-        return D1Database(binding)
+    def connect():
+        return DODatabase()
 
     def cursor(self):
         return self
@@ -106,7 +95,7 @@ class D1Database:
         if self._defer_foreign_keys:
             return f'''
             PRAGMA defer_foreign_keys = on
-            
+
             {query}
 
             PRAGMA defer_foreign_keys = off
@@ -117,54 +106,28 @@ class D1Database:
     def run_query(self, query, params=None):
         proc_query, params = self.process_query(query, params)
 
-        cf_workers = self.import_from_javascript("cloudflare:workers")
-        db = getattr(cf_workers.env, self.binding)
+        db = get_storage()
 
         if params:
-            stmt = db.prepare(proc_query).bind(*params);
+            stmt = db.exec(proc_query, *params);
         else:
-            stmt = db.prepare(proc_query);
-
-        read_only = is_read_only_query(proc_query)
+            stmt = db.exec(proc_query);
 
         try:
-            if read_only:
-                resp = self.run_sync(stmt.raw())
-            else:
-                resp = self.run_sync(stmt.all())
+            resp = stmt.raw().toArray()
         except:
             from js import Error
             Error.stackTraceLimit = 1e10
             raise Error(Error.new().stack)
 
-        # this is a hack, because D1 Raw method (required for reading rows) doesn't return metadata
-        if read_only:
-            results = self._convert_results_list(resp.to_py())
-            rows_read = len(results)
-            rows_written = 0
-        else:
-            results = self._convert_results_dict(resp.results.to_py())
-            rows_read = resp.meta.rows_read
-            rows_written = resp.meta.rows_written
+        results = self._convert_results(resp.to_py())
 
         return results, {
-            "rows_read": rows_read,
-            "rows_written": rows_written,
+            "rows_read": stmt.rowsRead,
+            "rows_written": stmt.rowsWritten,
         }
 
-    def _convert_results_dict(self, data):
-        result = []
-
-        for row in data:
-            row_items = ()
-            for k, v in row.items():
-                row_items += (v,)
-
-            result.append(row_items)
-
-        return result
-
-    def _convert_results_list(self, data):
+    def _convert_results(self, data):
         result = []
 
         for row in data:
@@ -235,22 +198,3 @@ class D1Database:
 
     def close(self):
         return
-
-
-def is_read_only_query(query: str) -> bool:
-    parsed = sqlparse.parse(query.strip())
-
-    if not parsed:
-        return False  # Invalid or empty query
-
-    # Get the first statement
-    statement = parsed[0]
-
-    # Check if the statement is a SELECT query
-    if statement.get_type().upper() == "SELECT":
-        return True
-
-    # List of modifying query types
-    modifying_types = {"INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "DROP", "REPLACE"}
-
-    return statement.get_type().upper() not in modifying_types
