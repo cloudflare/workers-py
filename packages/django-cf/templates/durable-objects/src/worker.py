@@ -1,5 +1,6 @@
+from workers import DurableObject, WorkerEntrypoint
+
 from django_cf import DjangoCFDurableObject
-from workers import DurableObject
 
 
 class DjangoDO(DjangoCFDurableObject, DurableObject):
@@ -8,7 +9,8 @@ class DjangoDO(DjangoCFDurableObject, DurableObject):
         return application
 
 
-async def on_fetch(request, env):
-    id = env.DO_STORAGE.idFromName("A")
-    obj = env.DO_STORAGE.get(id)
-    return await obj.fetch(request)
+class Default(WorkerEntrypoint):
+    async def fetch(self, request):
+        id = self.env.DO_STORAGE.idFromName("A")
+        obj = self.env.DO_STORAGE.get(id)
+        return await obj.fetch(request)

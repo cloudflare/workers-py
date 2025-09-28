@@ -115,11 +115,9 @@ LANGUAGE_CODE = 'en-us'
 
 TIME_ZONE = 'UTC'
 
-# Enabling translations, requires also enabling the glob "vendor/**/*.mo" in wrangler.jsonc
-# This will make your worker bigger than 3MB, thus requiring you a Workers Paid Plan
 USE_I18N = False
 
-USE_TZ = True
+USE_TZ = False
 
 
 # Static files (CSS, JavaScript, Images)

@@ -1,11 +1,11 @@
 {
   "name": "django-on-workers-with-d1",
-  "main": "src/worker.py",
+  "main": "src/index.py",
   "compatibility_flags": [
     "python_workers",
     "python_workers_20250116"
   ],
-  "compatibility_date": "2025-04-10",
+  "compatibility_date": "2025-09-06",
   "assets": {
     "directory": "./staticfiles"
   },
@@ -15,9 +15,11 @@
   "rules": [
     {
       "globs": [
-        "vendor/**/*.txt.gz",
-        // "vendor/**/*.mo",  only required for enabling translations, but requires workers paid plan
-        "vendor/tzdata/**/"
+        "**/*.txt.gz",
+         "python_modules/**/*.mo",
+        "python_modules/tzdata/**/*",
+         "**/*.mo",
+        "tzdata/**/"
       ],
       "type": "Data",
       "fallthrough": true
@@ -27,10 +29,13 @@
     {
       "binding": "DB",
       "database_name": "django-on-workers",
-      "database_id": "6b4c37f0-5a15-4614-81be-25052d22bc0f"
+      "database_id": "924e612f-6293-4a3f-be66-cce441957b03"
     }
   ],
   "observability": {
     "enabled": true
+  },
+   "limits": {
+    "cpu_ms": 5000 // default is 30000 (30 seconds)
   }
 }
