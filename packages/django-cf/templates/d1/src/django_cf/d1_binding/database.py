@@ -126,12 +126,18 @@ class D1Database:
             stmt = db.prepare(proc_query);
 
         read_only = is_read_only_query(proc_query)
-
+        print('----')
+        print(proc_query)
         try:
+            print(0)
             if read_only:
                 resp = self.run_sync(stmt.raw())
+                print(1)
+                print(resp)
             else:
                 resp = self.run_sync(stmt.all())
+                print(2)
+                print(resp)
         except:
             from js import Error
             Error.stackTraceLimit = 1e10
@@ -146,6 +152,7 @@ class D1Database:
             results = self._convert_results_dict(resp.results.to_py())
             rows_read = resp.meta.rows_read
             rows_written = resp.meta.rows_written
+        print(results)
 
         return results, {
             "rows_read": rows_read,
@@ -153,24 +160,38 @@ class D1Database:
         }
 
     def _convert_results_dict(self, data):
+        from pyodide.ffi import jsnull
+        print(jsnull)
+        print(dir(jsnull))
         result = []
 
         for row in data:
             row_items = ()
             for k, v in row.items():
-                row_items += (v,)
+                if v is jsnull:
+                    print(3)
+                    row_items += (None,)
+                else:
+                    row_items += (v,)
 
             result.append(row_items)
 
         return result
 
     def _convert_results_list(self, data):
+        from pyodide.ffi import jsnull
+        print(jsnull)
+        print(dir(jsnull))
         result = []
 
         for row in data:
             row_items = ()
             for v in row:
-                row_items += (v,)
+                if v is jsnull:
+                    print(3)
+                    row_items += (None,)
+                else:
+                    row_items += (v,)
 
             result.append(row_items)
 
