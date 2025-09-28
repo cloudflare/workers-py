@@ -83,7 +83,7 @@ if os.getenv('WORKERS_CI') == "1":
 else:
     DATABASES = {
         'default': {
-            'ENGINE': 'django_cf.d1_binding',
+            'ENGINE': 'django_cf.db.backends.d1',
             # 'CLOUDFLARE_BINDING' should match the binding name in your wrangler.toml
             'CLOUDFLARE_BINDING': 'DB',
         }
