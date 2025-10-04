@@ -12,7 +12,7 @@ A CLI tool for managing vendored packages in a Python Workers project.
 On Linux, you may be able to install the tool globally by running:
 
 ```
-uv pip install --system workers-py
+uv tool install workers-py
 ```
 
 Alternatively, you can add `workers-py` to your pyproject.toml:
@@ -43,7 +43,7 @@ uv run --project $REPO_ROOT $REPO_ROOT/src/pywrangler --help
 On Linux, to install it globally, you may also be able to run:
 
 ```
-uv pip install --system -e .
+uv tool install -e .
 ```
 
 Alternatively, you can add `workers-py` to your pyproject.toml:
