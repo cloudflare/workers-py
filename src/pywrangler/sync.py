@@ -152,6 +152,21 @@ def create_workers_venv():
     )
 
 
+MIN_UV_VERSION = (0, 8, 10)
+
+
+def check_uv_version():
+    res = run_command(["uv", "--version"], capture_output=True)
+    ver_str = res.stdout.split(" ")[1]
+    ver = tuple(int(x) for x in ver_str.split("."))
+    if ver >= MIN_UV_VERSION:
+        return
+    min_version_str = ".".join(str(x) for x in MIN_UV_VERSION)
+    logger.error(f"uv version at least {min_version_str} required, have {ver_str}.")
+    logger.error("Update uv with `uv self update`.")
+    raise click.exceptions.Exit(code=1)
+
+
 def create_pyodide_venv():
     if PYODIDE_VENV_PATH.is_dir():
         logger.debug(
@@ -159,6 +174,7 @@ def create_pyodide_venv():
         )
         return
 
+    check_uv_version()
     logger.debug(f"Creating Pyodide virtual environment at {PYODIDE_VENV_PATH}...")
     PYODIDE_VENV_PATH.parent.mkdir(parents=True, exist_ok=True)
     interp_name = _get_uv_pyodide_interp_name()
