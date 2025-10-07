@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.2.1 (2025-10-07)
+
+### Bug Fixes
+
+- Add version check for uv ([#36](https://github.com/cloudflare/workers-py/pull/36),
+  [`f9b16ab`](https://github.com/cloudflare/workers-py/commit/f9b16ab2cd08b0c5afe7e10b053f982d3d536633))
+
+### Documentation
+
+- Update README.md to use `uv tool`
+  ([`14770ae`](https://github.com/cloudflare/workers-py/commit/14770aea1c2bc2dd052c7f162f8fc4192815c550))
+
+
 ## v1.2.0 (2025-09-26)
 
 ### Features
