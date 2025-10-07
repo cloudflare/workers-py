@@ -84,8 +84,14 @@ def create_test_pyproject(dependencies=None):
     return dependencies
 
 
-def create_test_wrangler_jsonc(main_path="src/worker.py"):
-    """Create a test wrangler.jsonc file with the given main path."""
+def create_test_wrangler_jsonc(main_path="src/worker.py", python_version="3.12"):
+    """Create a test wrangler.jsonc file with the given main path and Python version."""
+    compat_flags = ["python_workers"]
+    if python_version == "3.13":
+        compat_flags.append("python_workers_20250116")
+
+    compat_flags_str = ", ".join([f'"{flag}"' for flag in compat_flags])
+
     content = f"""
     /**
      * For more details on how to configure Wrangler, refer to:
@@ -99,14 +105,23 @@ def create_test_wrangler_jsonc(main_path="src/worker.py"):
         "main": "{main_path}",
 
         // Compatibility date
-        "compatibility_date": "2023-10-30"
+        "compatibility_date": "2023-10-30",
+
+        // Compatibility flags
+        "compatibility_flags": [{compat_flags_str}]
     }}
     """
     TEST_WRANGLER_JSONC.write_text(content)
 
 
-def create_test_wrangler_toml(main_path="dist/worker.js"):
-    """Create a test wrangler.toml file with the given main path."""
+def create_test_wrangler_toml(main_path="dist/worker.js", python_version="3.12"):
+    """Create a test wrangler.toml file with the given main path and Python version."""
+    compat_flags = ["python_workers"]
+    if python_version == "3.13":
+        compat_flags.append("python_workers_20250116")
+
+    compat_flags_str = ", ".join([f'"{flag}"' for flag in compat_flags])
+
     content = dedent(f"""
         # Name of the worker
         name = "test-worker-toml"
@@ -116,6 +131,9 @@ def create_test_wrangler_toml(main_path="dist/worker.js"):
 
         # Compatibility date
         compatibility_date = "2023-10-30"
+
+        # Compatibility flags
+        compatibility_flags = [{compat_flags_str}]
     """)
     TEST_WRANGLER_TOML.write_text(content)
 
@@ -217,7 +235,17 @@ def test_sync_command_handles_missing_pyproject():
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_path = Path(temp_dir)
 
-        # Don't create pyproject.toml file
+        # Create a wrangler config but don't create pyproject.toml file
+        wrangler_jsonc = temp_path / "wrangler.jsonc"
+        wrangler_jsonc.write_text("""
+        {
+            "name": "test-worker",
+            "main": "src/worker.py",
+            "compatibility_date": "2023-10-30",
+            "compatibility_flags": ["python_workers"]
+        }
+        """)
+
         assert not (temp_path / "pyproject.toml").exists()
 
         # Save original directory
@@ -459,18 +487,17 @@ def test_sync_recreates_venv_on_python_version_mismatch(clean_test_dir):
     """
     # Create initial files in the clean test directory
     create_test_pyproject([])
-    create_test_wrangler_jsonc()
 
     project_root = Path.cwd().resolve()
 
     sync_cmd = ["uvx", "--from", project_root, "pywrangler", "sync"]
     venv_path = clean_test_dir / ".venv-workers"
 
-    # First run: Create venv with Python 3.12
+    # First run: Create venv with Python 3.12 (using basic python_workers flag)
     print("\nRunning sync to create venv with Python 3.12...")
-    env = os.environ | {"_PYWRANGLER_PYTHON_VERSION": "3.12"}
+    create_test_wrangler_jsonc(python_version="3.12")
     result1 = subprocess.run(
-        sync_cmd, capture_output=True, text=True, env=env, cwd=clean_test_dir
+        sync_cmd, capture_output=True, text=True, cwd=clean_test_dir
     )
 
     assert result1.returncode == 0, (
@@ -479,11 +506,11 @@ def test_sync_recreates_venv_on_python_version_mismatch(clean_test_dir):
     assert venv_path.exists(), "Venv was not created on the first run."
     initial_mtime = venv_path.stat().st_mtime
 
-    # Second run: Recreate venv with Python 3.13
+    # Second run: Recreate venv with Python 3.13 (using python_workers_20250116 flag)
     print("\nRunning sync to recreate venv with Python 3.13...")
-    env = os.environ | {"_PYWRANGLER_PYTHON_VERSION": "3.13"}
+    create_test_wrangler_jsonc(python_version="3.13")
     result2 = subprocess.run(
-        sync_cmd, capture_output=True, text=True, env=env, cwd=clean_test_dir
+        sync_cmd, capture_output=True, text=True, cwd=clean_test_dir
     )
 
     assert result2.returncode == 0, (

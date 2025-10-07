@@ -3,15 +3,18 @@ import os
 import shutil
 import tempfile
 from contextlib import contextmanager
+from datetime import datetime
 from pathlib import Path
 from typing import Literal
 
 import click
+import pyjson5
 
 from pywrangler.utils import (
     run_command,
     find_pyproject_toml,
 )
+from pywrangler.metadata import PYTHON_COMPAT_VERSIONS
 
 try:
     import tomllib  # Standard in Python 3.11+
@@ -60,15 +63,88 @@ def check_wrangler_config():
         raise click.exceptions.Exit(code=1)
 
 
+def _parse_wrangler_config() -> dict:
+    """
+    Parse wrangler configuration from either wrangler.toml or wrangler.jsonc.
+
+    Returns:
+        dict: Parsed configuration data
+    """
+    wrangler_toml = PROJECT_ROOT / "wrangler.toml"
+    wrangler_jsonc = PROJECT_ROOT / "wrangler.jsonc"
+
+    if wrangler_toml.is_file():
+        try:
+            with open(wrangler_toml, "rb") as f:
+                return tomllib.load(f)
+        except tomllib.TOMLDecodeError as e:
+            logger.error(f"Error parsing {wrangler_toml}: {e}")
+            raise click.exceptions.Exit(code=1)
+
+    if wrangler_jsonc.is_file():
+        try:
+            with open(wrangler_jsonc, "r") as f:
+                content = f.read()
+            return pyjson5.loads(content)
+        except (pyjson5.Json5DecoderError, ValueError) as e:
+            logger.error(f"Error parsing {wrangler_jsonc}: {e}")
+            raise click.exceptions.Exit(code=1)
+
+    return {}
+
+
 def _get_python_version() -> Literal["3.12", "3.13"]:
-    res = os.environ.get("_PYWRANGLER_PYTHON_VERSION", "3.12")
-    match res:
-        case "3.12" | "3.13":
-            return res
-        case _:
-            raise ValueError(
-                f"Unexpected value for Python version '{res}', expected '3.12' or '3.13'"
-            )
+    """
+    Determine Python version from wrangler configuration.
+
+    Returns:
+        Python version string
+    """
+    config = _parse_wrangler_config()
+
+    if not config:
+        logger.error("No wrangler config found")
+        raise click.exceptions.Exit(code=1)
+
+    compat_flags = config.get("compatibility_flags", [])
+
+    if "compatibility_date" not in config:
+        logger.error("No compatibility_date specified in wrangler config")
+        raise click.exceptions.Exit(code=1)
+    try:
+        compat_date = datetime.strptime(config.get("compatibility_date"), "%Y-%m-%d")
+    except ValueError:
+        logger.error(
+            f"Invalid compatibility_date format: {config.get('compatibility_date')}"
+        )
+        raise click.exceptions.Exit(code=1)
+
+    # Check if python_workers base flag is present (required for Python workers)
+    if "python_workers" not in compat_flags:
+        logger.error("`python_workers` compat flag not specified in wrangler config")
+        raise click.exceptions.Exit(code=1)
+
+    # Find the most specific Python version based on compat flags and date
+    # Sort by version descending to prioritize newer versions
+    sorted_versions = sorted(
+        PYTHON_COMPAT_VERSIONS, key=lambda x: x.version, reverse=True
+    )
+
+    for py_version in sorted_versions:
+        # Check if the specific compat flag is present
+        if py_version.compat_flag in compat_flags:
+            return py_version.version
+
+        # For versions with compat_date, also check the date requirement
+        if (
+            py_version.compat_date
+            and compat_date
+            and compat_date >= py_version.compat_date
+        ):
+            return py_version.version
+
+    logger.error("Could not determine Python version from wrangler config")
+    raise click.exceptions.Exit(code=1)
 
 
 def _get_uv_pyodide_interp_name():
@@ -118,7 +194,7 @@ def create_workers_venv():
     Creates a virtual environment at `VENV_WORKERS_PATH` if it doesn't exist.
     """
     wanted_python_version = _get_python_version()
-    logger.debug(f"Using python version: {wanted_python_version}")
+    logger.debug(f"Using python version from wrangler config: {wanted_python_version}")
 
     if VENV_WORKERS_PATH.is_dir():
         installed_version = _get_venv_python_version()

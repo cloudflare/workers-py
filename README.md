@@ -58,7 +58,14 @@ workers-py = { path = "../workers-py" }
 
 Then run via `uv run pywrangler`.
 
-## Tests
+#### Lint
+
+```
+uv run ruff check --fix
+uv run ruff format
+```
+
+#### Tests
 
 ```
 $ uv cache clean

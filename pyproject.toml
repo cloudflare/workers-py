@@ -17,6 +17,7 @@ dependencies = [
     "click>=8.0.0,<9.0.0",
     "rich>=13.0.0",
     "pyodide-cli",
+    "pyjson5>=1.6.0",
 ]
 
 [dependency-groups]
