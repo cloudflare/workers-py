@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.3.0 (2025-10-08)
+
+### Features
+
+- Implements python version detection based on wrangler config
+  ([`dec6e10`](https://github.com/cloudflare/workers-py/commit/dec6e10a8ff685feffbbd329d26a52212d83e0e3))
+
+
 ## v1.2.1 (2025-10-07)
 
 ### Bug Fixes
