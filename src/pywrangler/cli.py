@@ -57,6 +57,11 @@ class ProxyToWranglerGroup(click.Group):
             if cmd_name in ["dev", "publish", "deploy", "versions"]:
                 ctx.invoke(sync_command, force=False, directly_requested=False)
 
+            if cmd_name == "dev":
+                from pywrangler.sync import check_wrangler_version
+
+                check_wrangler_version()
+
             _proxy_to_wrangler(cmd_name, remaining_args)
             sys.exit(0)
 
