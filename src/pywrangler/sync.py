@@ -333,10 +333,9 @@ def _install_requirements_to_vendor(requirements: list[str]):
 
 
 def _install_requirements_to_venv(requirements: list[str]):
-    # Create a requirements file for .venv-workers that includes webtypy and pyodide-py
+    # Create a requirements file for .venv-workers that includes pyodide-py
     relative_venv_workers_path = VENV_WORKERS_PATH.relative_to(PROJECT_ROOT)
     requirements = requirements.copy()
-    requirements.append("webtypy")
     requirements.append("pyodide-py")
 
     logger.info(

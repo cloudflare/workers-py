@@ -213,10 +213,7 @@ def test_sync_command_integration(dependencies, clean_test_dir):
         "site-packages directory does not exist in .venv-workers"
     )
 
-    # Check that webtypy and pyodide-py are installed (should always be installed, even if no deps are specified)
-    assert is_package_installed(site_packages_path, "webtypy"), (
-        "webtypy package was not installed in .venv-workers"
-    )
+    # Check that pyodide-py is installed (should always be installed, even if no deps are specified)
     assert is_package_installed(site_packages_path, "pyodide-py"), (
         "pyodide-py package was not installed in .venv-workers"
     )

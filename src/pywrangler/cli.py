@@ -4,12 +4,10 @@ import sys
 import textwrap
 import click
 
-from pywrangler.utils import setup_logging, write_success
+from .utils import setup_logging, write_success, WRANGLER_COMMAND
 
 setup_logging()
 logger = logging.getLogger("pywrangler")
-
-WRANGLER_COMMAND = ["npx", "--yes", "wrangler"]
 
 
 class ProxyToWranglerGroup(click.Group):
@@ -88,6 +86,26 @@ def app(ctx, debug=False):
     # Set the logging level to DEBUG if the debug flag is provided
     if debug:
         logger.setLevel(logging.DEBUG)
+
+
+@app.command("types")
+@click.option(
+    "-o",
+    "--outdir",
+    type=click.Path(writable=True),
+    help="The output directory to write the generated types. Default: .venv/lib/python3.vv/site-packages/js-stubs",
+)
+@click.option(
+    "-c",
+    "--config",
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    help="Path to Wrangler configuration file",
+)
+def types_command(outdir=None, config=None):
+    from .types import wrangler_types
+
+    wrangler_types(outdir, config)
+    raise click.exceptions.Exit(code=0)
 
 
 @app.command("sync")

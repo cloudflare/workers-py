@@ -6,6 +6,8 @@ import click
 from rich.logging import Console, RichHandler
 from rich.theme import Theme
 
+WRANGLER_COMMAND = ["npx", "--yes", "wrangler"]
+
 logger = logging.getLogger(__name__)
 
 SUCCESS_LEVEL = 100
