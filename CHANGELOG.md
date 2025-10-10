@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.4.0 (2025-10-10)
+
+### Features
+
+- Adds wrangler version check
+  ([`ed41bcc`](https://github.com/cloudflare/workers-py/commit/ed41bccf24d5130b2c628edc7c3ece48edf14253))
+
+
 ## v1.3.0 (2025-10-08)
 
 ### Features
