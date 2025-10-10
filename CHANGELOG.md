@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.5.0 (2025-10-10)
+
+### Features
+
+- Implement pywrangler types to generate Python type stubs
+  ([#38](https://github.com/cloudflare/workers-py/pull/38),
+  [`39b67bd`](https://github.com/cloudflare/workers-py/commit/39b67bd24ed3916de12aa9025703ed18fe4a73cd))
+
+
 ## v1.4.0 (2025-10-10)
 
 ### Features
