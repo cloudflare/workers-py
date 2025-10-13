@@ -4,38 +4,42 @@ import re
 import shutil
 import tempfile
 from contextlib import contextmanager
-from datetime import datetime
 from pathlib import Path
-from typing import Literal
 
 import click
-import pyjson5
+import tomllib
 
 from .utils import (
     run_command,
     find_pyproject_toml,
+    get_python_version,
+    get_pyodide_index,
+    get_uv_pyodide_interp_name,
+    get_project_root,
 )
-from .metadata import PYTHON_COMPAT_VERSIONS
 
-try:
-    import tomllib  # Standard in Python 3.11+
-except ImportError:
-    import tomli as tomllib  # For Python < 3.11
 
 logger = logging.getLogger(__name__)
 
-# Define paths
-PYPROJECT_TOML_PATH = find_pyproject_toml()
-PROJECT_ROOT = PYPROJECT_TOML_PATH.parent
-VENV_WORKERS_PATH = PROJECT_ROOT / ".venv-workers"
-VENV_WORKERS_TOKEN = PROJECT_ROOT / ".venv-workers/.synced"
-PYODIDE_VENV_PATH = VENV_WORKERS_PATH / "pyodide-venv"
-VENDOR_TOKEN = PROJECT_ROOT / "python_modules/.synced"
-VENV_REQUIREMENTS_PATH = VENV_WORKERS_PATH / "temp-venv-requirements.txt"
+
+def get_venv_workers_path():
+    return get_project_root() / ".venv-workers"
+
+
+def get_venv_workers_token_path():
+    return get_venv_workers_path() / ".synced"
+
+
+def get_vendor_token_path():
+    return get_project_root() / "python_modules/.synced"
+
+
+def get_pyodide_venv_path():
+    return get_venv_workers_path() / "pyodide-venv"
 
 
 def check_requirements_txt():
-    old_requirements_txt = PROJECT_ROOT / "requirements.txt"
+    old_requirements_txt = get_project_root() / "requirements.txt"
     if old_requirements_txt.is_file():
         with open(old_requirements_txt, "r") as f:
             requirements = f.read().splitlines()
@@ -54,118 +58,6 @@ def check_requirements_txt():
         raise click.exceptions.Exit(code=1)
 
 
-def check_wrangler_config():
-    wrangler_jsonc = PROJECT_ROOT / "wrangler.jsonc"
-    wrangler_toml = PROJECT_ROOT / "wrangler.toml"
-    if not wrangler_jsonc.is_file() and not wrangler_toml.is_file():
-        logger.error(
-            f"{wrangler_jsonc} or {wrangler_toml} not found in {PROJECT_ROOT}."
-        )
-        raise click.exceptions.Exit(code=1)
-
-
-def _parse_wrangler_config() -> dict:
-    """
-    Parse wrangler configuration from either wrangler.toml or wrangler.jsonc.
-
-    Returns:
-        dict: Parsed configuration data
-    """
-    wrangler_toml = PROJECT_ROOT / "wrangler.toml"
-    wrangler_jsonc = PROJECT_ROOT / "wrangler.jsonc"
-
-    if wrangler_toml.is_file():
-        try:
-            with open(wrangler_toml, "rb") as f:
-                return tomllib.load(f)
-        except tomllib.TOMLDecodeError as e:
-            logger.error(f"Error parsing {wrangler_toml}: {e}")
-            raise click.exceptions.Exit(code=1)
-
-    if wrangler_jsonc.is_file():
-        try:
-            with open(wrangler_jsonc, "r") as f:
-                content = f.read()
-            return pyjson5.loads(content)
-        except (pyjson5.Json5DecoderError, ValueError) as e:
-            logger.error(f"Error parsing {wrangler_jsonc}: {e}")
-            raise click.exceptions.Exit(code=1)
-
-    return {}
-
-
-def _get_python_version() -> Literal["3.12", "3.13"]:
-    """
-    Determine Python version from wrangler configuration.
-
-    Returns:
-        Python version string
-    """
-    config = _parse_wrangler_config()
-
-    if not config:
-        logger.error("No wrangler config found")
-        raise click.exceptions.Exit(code=1)
-
-    compat_flags = config.get("compatibility_flags", [])
-
-    if "compatibility_date" not in config:
-        logger.error("No compatibility_date specified in wrangler config")
-        raise click.exceptions.Exit(code=1)
-    try:
-        compat_date = datetime.strptime(config.get("compatibility_date"), "%Y-%m-%d")
-    except ValueError:
-        logger.error(
-            f"Invalid compatibility_date format: {config.get('compatibility_date')}"
-        )
-        raise click.exceptions.Exit(code=1)
-
-    # Check if python_workers base flag is present (required for Python workers)
-    if "python_workers" not in compat_flags:
-        logger.error("`python_workers` compat flag not specified in wrangler config")
-        raise click.exceptions.Exit(code=1)
-
-    # Find the most specific Python version based on compat flags and date
-    # Sort by version descending to prioritize newer versions
-    sorted_versions = sorted(
-        PYTHON_COMPAT_VERSIONS, key=lambda x: x.version, reverse=True
-    )
-
-    for py_version in sorted_versions:
-        # Check if the specific compat flag is present
-        if py_version.compat_flag in compat_flags:
-            return py_version.version
-
-        # For versions with compat_date, also check the date requirement
-        if (
-            py_version.compat_date
-            and compat_date
-            and compat_date >= py_version.compat_date
-        ):
-            return py_version.version
-
-    logger.error("Could not determine Python version from wrangler config")
-    raise click.exceptions.Exit(code=1)
-
-
-def _get_uv_pyodide_interp_name():
-    match _get_python_version():
-        case "3.12":
-            v = "3.12.7"
-        case "3.13":
-            v = "3.13.2"
-    return f"cpython-{v}-emscripten-wasm32-musl"
-
-
-def _get_pyodide_index():
-    match _get_python_version():
-        case "3.12":
-            v = "0.27.7"
-        case "3.13":
-            v = "0.28.3"
-    return "https://index.pyodide.org/" + v
-
-
 def _get_venv_python_version() -> str | None:
     """
     Retrieves the Python version from the virtual environment.
@@ -173,10 +65,11 @@ def _get_venv_python_version() -> str | None:
     Returns:
         The Python version string or None if it cannot be determined.
     """
+    venv_workers_path = get_venv_workers_path()
     venv_python = (
-        VENV_WORKERS_PATH / "Scripts" / "python.exe"
+        venv_workers_path / "Scripts" / "python.exe"
         if os.name == "nt"
-        else VENV_WORKERS_PATH / "bin" / "python"
+        else venv_workers_path / "bin" / "python"
     )
     if not venv_python.is_file():
         return None
@@ -192,37 +85,38 @@ def _get_venv_python_version() -> str | None:
 
 def create_workers_venv():
     """
-    Creates a virtual environment at `VENV_WORKERS_PATH` if it doesn't exist.
+    Creates a virtual environment at `venv_workers_path` if it doesn't exist.
     """
-    wanted_python_version = _get_python_version()
+    wanted_python_version = get_python_version()
     logger.debug(f"Using python version from wrangler config: {wanted_python_version}")
 
-    if VENV_WORKERS_PATH.is_dir():
+    venv_workers_path = get_venv_workers_path()
+    if venv_workers_path.is_dir():
         installed_version = _get_venv_python_version()
         if installed_version:
             if wanted_python_version in installed_version:
                 logger.debug(
-                    f"Virtual environment at {VENV_WORKERS_PATH} already exists."
+                    f"Virtual environment at {venv_workers_path} already exists."
                 )
                 return
 
             logger.warning(
-                f"Recreating virtual environment at {VENV_WORKERS_PATH} due to Python version mismatch. "
+                f"Recreating virtual environment at {venv_workers_path} due to Python version mismatch. "
                 f"Found {installed_version}, expected {wanted_python_version}"
             )
         else:
             logger.warning(
-                f"Could not determine python version for {VENV_WORKERS_PATH}, recreating."
+                f"Could not determine python version for {venv_workers_path}, recreating."
             )
 
-        shutil.rmtree(VENV_WORKERS_PATH)
+        shutil.rmtree(venv_workers_path)
 
-    logger.debug(f"Creating virtual environment at {VENV_WORKERS_PATH}...")
+    logger.debug(f"Creating virtual environment at {venv_workers_path}...")
     run_command(
         [
             "uv",
             "venv",
-            str(VENV_WORKERS_PATH),
+            str(venv_workers_path),
             "--python",
             f"python{wanted_python_version}",
         ]
@@ -288,24 +182,26 @@ def check_wrangler_version():
 
 
 def create_pyodide_venv():
-    if PYODIDE_VENV_PATH.is_dir():
+    pyodide_venv_path = get_pyodide_venv_path()
+    if pyodide_venv_path.is_dir():
         logger.debug(
-            f"Pyodide virtual environment at {PYODIDE_VENV_PATH} already exists."
+            f"Pyodide virtual environment at {pyodide_venv_path} already exists."
         )
         return
 
     check_uv_version()
-    logger.debug(f"Creating Pyodide virtual environment at {PYODIDE_VENV_PATH}...")
-    PYODIDE_VENV_PATH.parent.mkdir(parents=True, exist_ok=True)
-    interp_name = _get_uv_pyodide_interp_name()
+    logger.debug(f"Creating Pyodide virtual environment at {pyodide_venv_path}...")
+    pyodide_venv_path.parent.mkdir(parents=True, exist_ok=True)
+    interp_name = get_uv_pyodide_interp_name()
     run_command(["uv", "python", "install", interp_name])
-    run_command(["uv", "venv", PYODIDE_VENV_PATH, "--python", interp_name])
+    run_command(["uv", "venv", pyodide_venv_path, "--python", interp_name])
 
 
 def parse_requirements() -> list[str]:
-    logger.debug(f"Reading dependencies from {PYPROJECT_TOML_PATH}...")
+    pyproject_toml_path = find_pyproject_toml()
+    logger.debug(f"Reading dependencies from {pyproject_toml_path}...")
     try:
-        with open(PYPROJECT_TOML_PATH, "rb") as f:
+        with open(pyproject_toml_path, "rb") as f:
             pyproject_data = tomllib.load(f)
 
         # Extract dependencies from [project.dependencies]
@@ -314,7 +210,7 @@ def parse_requirements() -> list[str]:
         logger.info(f"Found {len(dependencies)} dependencies.")
         return dependencies
     except tomllib.TOMLDecodeError as e:
-        logger.error(f"Error parsing {PYPROJECT_TOML_PATH}: {str(e)}")
+        logger.error(f"Error parsing {pyproject_toml_path}: {str(e)}")
         raise click.exceptions.Exit(code=1)
 
 
@@ -328,7 +224,7 @@ def temp_requirements_file(requirements: list[str]):
 
 
 def _install_requirements_to_vendor(requirements: list[str]):
-    vendor_path = PROJECT_ROOT / "python_modules"
+    vendor_path = get_project_root() / "python_modules"
     logger.debug(f"Using vendor path: {vendor_path}")
 
     if len(requirements) == 0:
@@ -339,7 +235,7 @@ def _install_requirements_to_vendor(requirements: list[str]):
 
     # Install packages into vendor directory
     vendor_path.mkdir(parents=True, exist_ok=True)
-    relative_vendor_path = vendor_path.relative_to(PROJECT_ROOT)
+    relative_vendor_path = vendor_path.relative_to(get_project_root())
     logger.info(
         f"Installing packages into [bold]{relative_vendor_path}[/bold]...",
         extra={"markup": True},
@@ -354,21 +250,21 @@ def _install_requirements_to_vendor(requirements: list[str]):
                 "-r",
                 requirements_file,
                 "--extra-index-url",
-                _get_pyodide_index(),
+                get_pyodide_index(),
                 "--index-strategy",
                 "unsafe-best-match",
             ],
-            env=os.environ | {"VIRTUAL_ENV": PYODIDE_VENV_PATH},
+            env=os.environ | {"VIRTUAL_ENV": get_pyodide_venv_path()},
         )
-        pyv = _get_python_version()
+        pyv = get_python_version()
         shutil.rmtree(vendor_path)
         shutil.copytree(
-            PYODIDE_VENV_PATH / f"lib/python{pyv}/site-packages", vendor_path
+            get_pyodide_venv_path() / f"lib/python{pyv}/site-packages", vendor_path
         )
 
     # Create a pyvenv.cfg file in python_modules to mark it as a virtual environment
     (vendor_path / "pyvenv.cfg").touch()
-    VENDOR_TOKEN.touch()
+    get_vendor_token_path().touch()
 
     logger.info(
         f"Packages installed in [bold]{relative_vendor_path}[/bold].",
@@ -378,7 +274,9 @@ def _install_requirements_to_vendor(requirements: list[str]):
 
 def _install_requirements_to_venv(requirements: list[str]):
     # Create a requirements file for .venv-workers that includes pyodide-py
-    relative_venv_workers_path = VENV_WORKERS_PATH.relative_to(PROJECT_ROOT)
+    venv_workers_path = get_venv_workers_path()
+    project_root = get_project_root()
+    relative_venv_workers_path = venv_workers_path.relative_to(project_root)
     requirements = requirements.copy()
     requirements.append("pyodide-py")
 
@@ -395,9 +293,10 @@ def _install_requirements_to_venv(requirements: list[str]):
                 "-r",
                 requirements_file,
             ],
-            env=os.environ | {"VIRTUAL_ENV": VENV_WORKERS_PATH},
+            env=os.environ | {"VIRTUAL_ENV": venv_workers_path},
         )
-    VENV_WORKERS_TOKEN.touch()
+
+    get_venv_workers_token_path().touch()
     logger.info(
         f"Packages installed in [bold]{relative_venv_workers_path}[/bold].",
         extra={"markup": True},
@@ -422,12 +321,12 @@ def is_sync_needed():
     Returns:
         bool: True if sync is needed, False otherwise
     """
-
-    if not PYPROJECT_TOML_PATH.is_file():
+    pyproject_toml_path = find_pyproject_toml()
+    if not pyproject_toml_path.is_file():
         # If pyproject.toml doesn't exist, we need to abort anyway
         return True
 
-    pyproject_mtime = PYPROJECT_TOML_PATH.stat().st_mtime
-    return _is_out_of_date(VENDOR_TOKEN, pyproject_mtime) or _is_out_of_date(
-        VENV_WORKERS_TOKEN, pyproject_mtime
+    pyproject_mtime = pyproject_toml_path.stat().st_mtime
+    return _is_out_of_date(get_vendor_token_path(), pyproject_mtime) or _is_out_of_date(
+        get_venv_workers_token_path(), pyproject_mtime
     )
