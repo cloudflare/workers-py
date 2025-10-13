@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.5.1 (2025-10-13)
+
+### Bug Fixes
+
+- Fix default value for --outdir in help message
+  ([#39](https://github.com/cloudflare/workers-py/pull/39),
+  [`7aded7a`](https://github.com/cloudflare/workers-py/commit/7aded7a43580fc50b6408baee0184fa814481c9b))
+
+
 ## v1.5.0 (2025-10-10)
 
 ### Features

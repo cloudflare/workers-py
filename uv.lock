@@ -689,7 +689,7 @@ wheels = [
 
 [[package]]
 name = "workers-py"
-version = "1.5.0"
+version = "1.5.1"
 source = { editable = "." }
 dependencies = [
     { name = "click", version = "8.1.8", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
