@@ -5,6 +5,16 @@ import textwrap
 import click
 
 from .utils import setup_logging, write_success, WRANGLER_COMMAND
+from .sync import check_wrangler_version
+from .sync import (
+    check_requirements_txt,
+    check_wrangler_config,
+    is_sync_needed,
+    create_pyodide_venv,
+    create_workers_venv,
+    parse_requirements,
+    install_requirements,
+)
 
 setup_logging()
 logger = logging.getLogger("pywrangler")
@@ -56,8 +66,6 @@ class ProxyToWranglerGroup(click.Group):
                 ctx.invoke(sync_command, force=False, directly_requested=False)
 
             if cmd_name == "dev":
-                from pywrangler.sync import check_wrangler_version
-
                 check_wrangler_version()
 
             _proxy_to_wrangler(cmd_name, remaining_args)
@@ -121,17 +129,6 @@ def sync_command(force=False, directly_requested=True):
 
     Also creates a virtual env for Workers that you can use for testing.
     """
-    # This module is imported locally because it searches for pyproject.toml at the top-level.
-    from pywrangler.sync import (
-        check_requirements_txt,
-        check_wrangler_config,
-        is_sync_needed,
-        create_pyodide_venv,
-        create_workers_venv,
-        parse_requirements,
-        install_requirements,
-    )
-
     # Check if requirements.txt does not exist.
     check_requirements_txt()
 
