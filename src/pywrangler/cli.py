@@ -98,7 +98,7 @@ def app(ctx, debug=False):
     "-o",
     "--outdir",
     type=click.Path(writable=True),
-    help="The output directory to write the generated types. Default: .venv/lib/python3.vv/site-packages/js-stubs",
+    help="The output directory to write the generated types. Default: ./src",
 )
 @click.option(
     "-c",
