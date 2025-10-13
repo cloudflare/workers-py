@@ -1,3 +1,3 @@
-from pywrangler.cli import app
+from .cli import app
 
 app()
