@@ -61,7 +61,7 @@ class ProxyToWranglerGroup(click.Group):
                 ctx.invoke(sync_command, force=False, directly_requested=False)
 
             if cmd_name == "dev":
-                from pywrangler.sync import check_wrangler_version
+                from .sync import check_wrangler_version
 
                 check_wrangler_version()
 
@@ -134,7 +134,7 @@ def sync_command(force=False, directly_requested=True):
     Also creates a virtual env for Workers that you can use for testing.
     """
     # This module is imported locally because it searches for pyproject.toml at the top-level.
-    from pywrangler.sync import (
+    from .sync import (
         check_requirements_txt,
         check_wrangler_config,
         is_sync_needed,

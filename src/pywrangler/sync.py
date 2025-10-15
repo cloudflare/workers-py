@@ -11,11 +11,11 @@ from typing import Literal
 import click
 import pyjson5
 
-from pywrangler.utils import (
+from .utils import (
     run_command,
     find_pyproject_toml,
 )
-from pywrangler.metadata import PYTHON_COMPAT_VERSIONS
+from .metadata import PYTHON_COMPAT_VERSIONS
 
 try:
     import tomllib  # Standard in Python 3.11+
