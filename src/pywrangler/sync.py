@@ -263,7 +263,7 @@ def check_wrangler_version():
     # Parse version from output like "wrangler 4.42.1" or " ⛅️ wrangler 4.42.1"
     version_line = result.stdout.strip()
     # Extract version number using regex
-    version_match = re.search(r"wrangler\s+(\d+)\.(\d+)\.(\d+)", version_line)
+    version_match = re.search(r"(\d+)\.(\d+)\.(\d+)", version_line)
 
     if not version_match:
         logger.error(f"Could not parse wrangler version from: {version_line}")
