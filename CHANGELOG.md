@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.0 (2025-10-15)
+
+### Features
+
+- Pywrangler init proxies to C3 directly with Python preselected
+  ([`8ec7724`](https://github.com/cloudflare/workers-py/commit/8ec7724c4768314cf5a6a4434cb0c33b95d3611f))
+
+
 ## v1.5.1 (2025-10-13)
 
 ### Bug Fixes
