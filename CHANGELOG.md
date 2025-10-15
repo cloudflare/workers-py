@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.6.1 (2025-10-15)
+
+### Bug Fixes
+
+- Be more lenient with wrangler version parsing
+  ([#45](https://github.com/cloudflare/workers-py/pull/45),
+  [`8315a03`](https://github.com/cloudflare/workers-py/commit/8315a03de83bff3836c84be28726bea7f6124dd8))
+
+
 ## v1.6.0 (2025-10-15)
 
 ### Features
