@@ -4,7 +4,12 @@ import sys
 import textwrap
 import click
 
-from .utils import setup_logging, write_success, WRANGLER_COMMAND
+from .utils import (
+    setup_logging,
+    write_success,
+    WRANGLER_COMMAND,
+    WRANGLER_CREATE_COMMAND,
+)
 
 setup_logging()
 logger = logging.getLogger("pywrangler")
@@ -59,6 +64,13 @@ class ProxyToWranglerGroup(click.Group):
                 from pywrangler.sync import check_wrangler_version
 
                 check_wrangler_version()
+
+            if cmd_name == "init":
+                # explicitly call `create-cloudflare` so we can instruct it to only show Python templates
+                _proxy_to_create_cloudflare(
+                    ["--lang=python", "--no-deploy"] + remaining_args
+                )
+                sys.exit(0)
 
             _proxy_to_wrangler(cmd_name, remaining_args)
             sys.exit(0)
@@ -173,5 +185,18 @@ def _proxy_to_wrangler(command_name, args_list):
     except FileNotFoundError as e:
         logger.error(
             f"Wrangler not found. Ensure Node.js and Wrangler are installed and in your PATH. Error was: {str(e)}"
+        )
+        click.get_current_context().exit(1)
+
+
+def _proxy_to_create_cloudflare(args_list):
+    command_to_run = WRANGLER_CREATE_COMMAND + args_list
+    logger.info(f"Passing command to npx create-cloudflare: {' '.join(command_to_run)}")
+    try:
+        process = subprocess.run(command_to_run, check=False, cwd=".")
+        click.get_current_context().exit(process.returncode)
+    except FileNotFoundError as e:
+        logger.error(
+            f"Create-cloudflare not found. Ensure Node.js and create-cloudflare are installed and in your PATH. Error was: {str(e)}"
         )
         click.get_current_context().exit(1)

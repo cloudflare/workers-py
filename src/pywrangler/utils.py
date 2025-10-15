@@ -7,6 +7,7 @@ from rich.logging import Console, RichHandler
 from rich.theme import Theme
 
 WRANGLER_COMMAND = ["npx", "--yes", "wrangler"]
+WRANGLER_CREATE_COMMAND = ["npx", "--yes", "create-cloudflare"]
 
 logger = logging.getLogger(__name__)
 

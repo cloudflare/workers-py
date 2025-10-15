@@ -33,18 +33,13 @@ uv run pywrangler sync
 
 ### Development
 
-To run the CLI tool while developing it, use:
-
-```bash
-export REPO_ROOT=/path/to/repo
-uv run --project $REPO_ROOT $REPO_ROOT/src/pywrangler --help
-```
-
-On Linux, to install it globally, you may also be able to run:
+To run the CLI tool while developing it, install it globally:
 
 ```
 uv tool install -e .
 ```
+
+Then run it via `pywrangler`.
 
 Alternatively, you can add `workers-py` to your pyproject.toml:
 
