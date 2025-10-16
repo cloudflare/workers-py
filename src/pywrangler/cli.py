@@ -9,6 +9,7 @@ from .utils import (
     write_success,
     WRANGLER_COMMAND,
     WRANGLER_CREATE_COMMAND,
+    check_wrangler_config,
 )
 
 setup_logging()
@@ -136,7 +137,6 @@ def sync_command(force=False, directly_requested=True):
     # This module is imported locally because it searches for pyproject.toml at the top-level.
     from .sync import (
         check_requirements_txt,
-        check_wrangler_config,
         is_sync_needed,
         create_pyodide_venv,
         create_workers_venv,
