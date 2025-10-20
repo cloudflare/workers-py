@@ -26,7 +26,7 @@ PACKAGE_JSON = """
 """
 
 
-def wrangler_types(outdir_arg: str | None, config: str | None, /):
+def wrangler_types(outdir_arg: str | None, config: str | None, /) -> None:
     args = ["types"]
     if config:
         args += ["--config", config]

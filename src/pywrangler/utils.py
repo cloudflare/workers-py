@@ -8,7 +8,7 @@ from rich.logging import Console, RichHandler
 from rich.theme import Theme
 from .metadata import PYTHON_COMPAT_VERSIONS
 from datetime import datetime
-from typing import Literal
+from typing import Literal, TypedDict, cast
 import pyjson5
 import tomllib
 
@@ -22,7 +22,7 @@ RUNNING_LEVEL = 15
 OUTPUT_LEVEL = 16
 
 
-def setup_logging():
+def setup_logging() -> None:
     console = Console(
         theme=Theme(
             {
@@ -50,7 +50,7 @@ def setup_logging():
     logging.addLevelName(OUTPUT_LEVEL, "OUTPUT")
 
 
-def write_success(msg):
+def write_success(msg: str) -> None:
     logging.log(SUCCESS_LEVEL, msg)
 
 
@@ -60,7 +60,7 @@ def run_command(
     env: dict | None = None,
     check: bool = True,
     capture_output: bool = False,
-):
+) -> subprocess.CompletedProcess[str]:
     """
     Runs a command and handles logging and errors.
 
@@ -121,11 +121,30 @@ def find_pyproject_toml() -> Path:
     raise click.exceptions.Exit(code=1)
 
 
+class PyProjectProject(TypedDict):
+    dependencies: list[str]
+
+
+class PyProject(TypedDict):
+    project: PyProjectProject
+
+
+def read_pyproject_toml() -> PyProject:
+    pyproject_toml = find_pyproject_toml()
+    logger.debug(f"Reading {pyproject_toml}...")
+    try:
+        with open(pyproject_toml, "rb") as f:
+            return cast(PyProject, tomllib.load(f))
+    except tomllib.TOMLDecodeError as e:
+        logger.error(f"Error parsing {pyproject_toml}: {str(e)}")
+        raise click.exceptions.Exit(code=1)
+
+
 def get_project_root() -> Path:
     return find_pyproject_toml().parent
 
 
-def check_wrangler_config():
+def check_wrangler_config() -> None:
     PROJECT_ROOT = get_project_root()
     wrangler_jsonc = PROJECT_ROOT / "wrangler.jsonc"
     wrangler_toml = PROJECT_ROOT / "wrangler.toml"
@@ -136,7 +155,11 @@ def check_wrangler_config():
         raise click.exceptions.Exit(code=1)
 
 
-def _parse_wrangler_config() -> dict:
+class WranglerConfig(TypedDict):
+    pass
+
+
+def _parse_wrangler_config() -> WranglerConfig:
     """
     Parse wrangler configuration from either wrangler.toml or wrangler.jsonc.
 
@@ -150,7 +173,7 @@ def _parse_wrangler_config() -> dict:
     if wrangler_toml.is_file():
         try:
             with open(wrangler_toml, "rb") as f:
-                return tomllib.load(f)
+                return cast(WranglerConfig, tomllib.load(f))
         except tomllib.TOMLDecodeError as e:
             logger.error(f"Error parsing {wrangler_toml}: {e}")
             raise click.exceptions.Exit(code=1)
@@ -159,8 +182,8 @@ def _parse_wrangler_config() -> dict:
         try:
             with open(wrangler_jsonc, "r") as f:
                 content = f.read()
-            return pyjson5.loads(content)
-        except (pyjson5.Json5DecoderError, ValueError) as e:
+            return cast(WranglerConfig, pyjson5.loads(content))
+        except (pyjson5.Json5DecoderException, ValueError) as e:
             logger.error(f"Error parsing {wrangler_jsonc}: {e}")
             raise click.exceptions.Exit(code=1)
 
@@ -222,7 +245,7 @@ def get_python_version() -> Literal["3.12", "3.13"]:
     raise click.exceptions.Exit(code=1)
 
 
-def get_uv_pyodide_interp_name():
+def get_uv_pyodide_interp_name() -> str:
     match get_python_version():
         case "3.12":
             v = "3.12.7"
@@ -231,7 +254,7 @@ def get_uv_pyodide_interp_name():
     return f"cpython-{v}-emscripten-wasm32-musl"
 
 
-def get_pyodide_index():
+def get_pyodide_index() -> str:
     match get_python_version():
         case "3.12":
             v = "0.27.7"

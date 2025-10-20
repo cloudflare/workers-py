@@ -11,13 +11,14 @@ from .utils import (
     WRANGLER_CREATE_COMMAND,
     check_wrangler_config,
 )
+from typing import Never
 
 setup_logging()
 logger = logging.getLogger("pywrangler")
 
 
 class ProxyToWranglerGroup(click.Group):
-    def get_help(self, ctx):
+    def get_help(self, ctx: click.Context) -> str:
         """Override to add custom help content."""
         # Get the default help text
         help_text = super().get_help(ctx)
@@ -48,7 +49,7 @@ class ProxyToWranglerGroup(click.Group):
 
         return help_text
 
-    def get_command(self, ctx, cmd_name):
+    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command:
         command = super().get_command(ctx, cmd_name)
 
         if command is None:
@@ -79,7 +80,7 @@ class ProxyToWranglerGroup(click.Group):
         return command
 
 
-def get_version():
+def get_version() -> str:
     """Get the version of pywrangler."""
     try:
         from importlib.metadata import version
@@ -92,8 +93,7 @@ def get_version():
 @click.group(cls=ProxyToWranglerGroup)
 @click.option("--debug", is_flag=True, help="Enable debug logging")
 @click.version_option(version=get_version(), prog_name="pywrangler")
-@click.pass_context
-def app(ctx, debug=False):
+def app(debug: bool = False) -> None:
     """
     A CLI tool for Cloudflare Workers.
     Use 'sync' command for Python package setup.
@@ -119,7 +119,7 @@ def app(ctx, debug=False):
     type=click.Path(exists=True, dir_okay=False, readable=True),
     help="Path to Wrangler configuration file",
 )
-def types_command(outdir=None, config=None):
+def types_command(outdir: str | None, config: str | None) -> Never:
     from .types import wrangler_types
 
     wrangler_types(outdir, config)
@@ -128,7 +128,7 @@ def types_command(outdir=None, config=None):
 
 @app.command("sync")
 @click.option("--force", is_flag=True, help="Force sync even if no changes detected")
-def sync_command(force=False, directly_requested=True):
+def sync_command(force: bool = False, directly_requested: bool = True) -> None:
     """
     Installs Python packages from pyproject.toml into src/vendor.
 
@@ -176,7 +176,7 @@ def sync_command(force=False, directly_requested=True):
     write_success("Sync process completed successfully.")
 
 
-def _proxy_to_wrangler(command_name, args_list):
+def _proxy_to_wrangler(command_name: str, args_list: list[str]) -> Never:
     command_to_run = WRANGLER_COMMAND + [command_name] + args_list
     logger.info(f"Passing command to npx wrangler: {' '.join(command_to_run)}")
     try:
@@ -189,7 +189,7 @@ def _proxy_to_wrangler(command_name, args_list):
         click.get_current_context().exit(1)
 
 
-def _proxy_to_create_cloudflare(args_list):
+def _proxy_to_create_cloudflare(args_list: list[str]) -> Never:
     command_to_run = WRANGLER_CREATE_COMMAND + args_list
     logger.info(f"Passing command to npx create-cloudflare: {' '.join(command_to_run)}")
     try:
