@@ -1,5 +1,5 @@
-from typing import Literal, NamedTuple
 from datetime import datetime
+from typing import Literal, NamedTuple
 
 
 class PythonCompatVersion(NamedTuple):

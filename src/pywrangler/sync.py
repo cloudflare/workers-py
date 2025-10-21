@@ -2,24 +2,23 @@ import logging
 import os
 import shutil
 import tempfile
-from contextlib import contextmanager
 from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 
 import click
 
 from .utils import (
-    check_wrangler_config,
     check_uv_version,
-    run_command,
+    check_wrangler_config,
     find_pyproject_toml,
-    get_python_version,
-    get_pyodide_index,
-    get_uv_pyodide_interp_name,
     get_project_root,
+    get_pyodide_index,
+    get_python_version,
+    get_uv_pyodide_interp_name,
     read_pyproject_toml,
+    run_command,
 )
-
 
 logger = logging.getLogger(__name__)
 
@@ -43,7 +42,7 @@ def get_pyodide_venv_path() -> Path:
 def check_requirements_txt() -> None:
     old_requirements_txt = get_project_root() / "requirements.txt"
     if old_requirements_txt.is_file():
-        with open(old_requirements_txt, "r") as f:
+        with open(old_requirements_txt) as f:
             requirements = f.read().splitlines()
             logger.warning(
                 "Specifying Python Packages in requirements.txt is no longer supported, please use pyproject.toml instead.\n"

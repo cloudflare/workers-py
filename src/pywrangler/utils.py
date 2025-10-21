@@ -1,17 +1,18 @@
 import logging
-import subprocess
-from pathlib import Path
 import re
+import subprocess
+import tomllib
+from datetime import datetime
+from functools import cache
+from pathlib import Path
+from typing import Literal, TypedDict, cast
 
 import click
-from functools import cache
+import pyjson5
 from rich.logging import Console, RichHandler
 from rich.theme import Theme
+
 from .metadata import PYTHON_COMPAT_VERSIONS
-from datetime import datetime
-from typing import Literal, TypedDict, cast
-import pyjson5
-import tomllib
 
 WRANGLER_COMMAND = ["npx", "--yes", "wrangler"]
 WRANGLER_CREATE_COMMAND = ["npx", "--yes", "create-cloudflare"]
@@ -239,7 +240,7 @@ def _parse_wrangler_config() -> WranglerConfig:
 
     if wrangler_jsonc.is_file():
         try:
-            with open(wrangler_jsonc, "r") as f:
+            with open(wrangler_jsonc) as f:
                 content = f.read()
             return cast(WranglerConfig, pyjson5.loads(content))
         except (pyjson5.Json5DecoderException, ValueError) as e:
