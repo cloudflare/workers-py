@@ -19,6 +19,8 @@ dependencies = [
     "pyodide-cli",
     "pyjson5>=1.6.0",
     "pyodide-py",
+    "requests",
+    "types-requests>=2.32.4.20250913",
 ]
 
 [dependency-groups]

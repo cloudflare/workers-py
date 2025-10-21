@@ -314,10 +314,23 @@ def get_uv_pyodide_interp_name() -> str:
     return f"cpython-{v}-emscripten-wasm32-musl"
 
 
-def get_pyodide_index() -> str:
+def get_pyodide_version() -> str:
     match get_python_version():
         case "3.12":
-            v = "0.27.7"
+            return "0.27.7"
         case "3.13":
-            v = "0.28.3"
-    return "https://index.pyodide.org/" + v
+            return "0.28.3"
+
+
+def get_pyodide_index() -> str:
+    return "https://index.pyodide.org/" + get_pyodide_version()
+
+
+def get_pyodide_base_url() -> str:
+    ver = get_pyodide_version()
+    return f"https://cdn.jsdelivr.net/pyodide/v{ver}/full/"
+
+
+def get_pyodide_lock_url() -> str:
+    base = get_pyodide_base_url()
+    return base + "pyodide-lock.json"
