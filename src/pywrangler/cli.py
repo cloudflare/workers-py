@@ -2,17 +2,18 @@ import logging
 import subprocess
 import sys
 import textwrap
+from typing import Never
+
 import click
 
+from .sync import sync
 from .utils import (
-    setup_logging,
-    check_wrangler_version,
-    write_success,
     WRANGLER_COMMAND,
     WRANGLER_CREATE_COMMAND,
+    check_wrangler_version,
+    setup_logging,
+    write_success,
 )
-from .sync import sync
-from typing import Never
 
 setup_logging()
 logger = logging.getLogger("pywrangler")
@@ -31,6 +32,7 @@ class ProxyToWranglerGroup(click.Group):
                 capture_output=True,
                 text=True,
                 timeout=10,
+                check=False,
             )
             if result.returncode == 0:
                 wrangler_help = result.stdout

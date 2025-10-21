@@ -1,10 +1,8 @@
 from contextlib import chdir
 from subprocess import run
 
-
 # Import the full module so we can patch constants
 from pywrangler.types import wrangler_types
-
 
 WRANGLER_TOML = """
 compatibility_date = "2025-08-14"
@@ -54,7 +52,7 @@ def test_types(tmp_path):
 
     with chdir(tmp_path):
         wrangler_types(None, None)
-        result = run(["uv", "run", "mypy"], capture_output=True, text=True)
+        result = run(["uv", "run", "mypy"], capture_output=True, text=True, check=False)
 
         assert 'Revealed type is "js.KVNamespace_iface"' in result.stdout
         assert 'Revealed type is "builtins.str | None"' in result.stdout

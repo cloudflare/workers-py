@@ -3,16 +3,17 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from unittest.mock import patch, Mock
 from textwrap import dedent
+from unittest.mock import Mock, patch
 
 import pytest
 from click.testing import CliRunner
 
-# Import the full module so we can patch constants
-from pywrangler.cli import app
 import pywrangler.sync as pywrangler_sync
 import pywrangler.utils as pywrangler_utils
+
+# Import the full module so we can patch constants
+from pywrangler.cli import app
 
 
 # Helper function to check if a package is installed in a site-packages directory
@@ -155,7 +156,9 @@ def test_sync_command_integration(dependencies, test_dir):
     print("\nRunning pywrangler sync...")
     sync_cmd = ["uv", "run", "pywrangler", "sync"]
 
-    result = subprocess.run(sync_cmd, capture_output=True, text=True, cwd=test_dir)
+    result = subprocess.run(
+        sync_cmd, capture_output=True, text=True, cwd=test_dir, check=False
+    )
     print(f"\nCommand output:\n{result.stdout}")
     if result.stderr:
         print(f"Command errors:\n{result.stderr}")
@@ -177,15 +180,14 @@ def test_sync_command_integration(dependencies, test_dir):
                 f"Package {pkg} was not installed in {TEST_SRC_VENDOR}"
             )
 
-    else:
-        # If no dependencies, vendor dir might still be created but should be empty
-        if TEST_SRC_VENDOR.exists() and TEST_SRC_VENDOR.is_dir():
-            # Allow for empty directories like __pycache__ that might be created
-            assert all(
-                d.name.startswith("__") for d in TEST_SRC_VENDOR.iterdir() if d.is_dir()
-            ), (
-                f"python_modules directory should be empty of packages but contains: {list(TEST_SRC_VENDOR.iterdir())}"
-            )
+    # If no dependencies, vendor dir might still be created but should be empty
+    elif TEST_SRC_VENDOR.exists() and TEST_SRC_VENDOR.is_dir():
+        # Allow for empty directories like __pycache__ that might be created
+        assert all(
+            d.name.startswith("__") for d in TEST_SRC_VENDOR.iterdir() if d.is_dir()
+        ), (
+            f"python_modules directory should be empty of packages but contains: {list(TEST_SRC_VENDOR.iterdir())}"
+        )
 
     # Verify that pyvenv.cfg is created only when there are dependencies
     if test_deps:
@@ -243,7 +245,9 @@ def test_sync_command_handles_missing_pyproject():
         # Run pywrangler sync from the temp directory (should fail)
         sync_cmd = ["uv", "run", "pywrangler", "sync"]
 
-        result = subprocess.run(sync_cmd, capture_output=True, text=True, cwd=temp_path)
+        result = subprocess.run(
+            sync_cmd, capture_output=True, text=True, cwd=temp_path, check=False
+        )
 
         # Check that the command failed with the expected error
         assert result.returncode != 0
@@ -423,7 +427,9 @@ def test_sync_command_finds_pyproject_in_parent_directory(test_dir):
     # Run the pywrangler CLI from the subdirectory
     sync_cmd = ["uv", "run", "pywrangler", "sync"]
 
-    result = subprocess.run(sync_cmd, capture_output=True, text=True, cwd=subdir)
+    result = subprocess.run(
+        sync_cmd, capture_output=True, text=True, cwd=subdir, check=False
+    )
     print(f"\nCommand output:\n{result.stdout}")
     if result.stderr:
         print(f"Command errors:\n{result.stderr}")
@@ -460,7 +466,9 @@ def test_sync_recreates_venv_on_python_version_mismatch(test_dir):
     # First run: Create venv with Python 3.12 (using basic python_workers flag)
     print("\nRunning sync to create venv with Python 3.12...")
     create_test_wrangler_jsonc(test_dir, python_version="3.12")
-    result1 = subprocess.run(sync_cmd, capture_output=True, text=True, cwd=test_dir)
+    result1 = subprocess.run(
+        sync_cmd, capture_output=True, text=True, cwd=test_dir, check=False
+    )
 
     assert result1.returncode == 0, (
         f"First sync failed: {result1.stdout}\n{result1.stderr}"
@@ -472,7 +480,7 @@ def test_sync_recreates_venv_on_python_version_mismatch(test_dir):
     print("\nRunning sync to recreate venv with Python 3.13...")
     create_test_pyproject(test_dir)
     create_test_wrangler_jsonc(test_dir, python_version="3.13")
-    result2 = subprocess.run(sync_cmd, text=True, cwd=test_dir)
+    result2 = subprocess.run(sync_cmd, text=True, cwd=test_dir, check=False)
 
     assert result2.returncode == 0, (
         f"Second sync failed: {result2.stdout}\n{result2.stderr}"
@@ -486,7 +494,11 @@ def test_sync_recreates_venv_on_python_version_mismatch(test_dir):
     # Verify the python version in the new venv is 3.13.
     python_exe = venv_path / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     version_result = subprocess.run(
-        [python_exe, "--version"], capture_output=True, text=True, cwd=test_dir
+        [python_exe, "--version"],
+        capture_output=True,
+        text=True,
+        cwd=test_dir,
+        check=False,
     )
     assert "3.13" in version_result.stdout, (
         f"Python version is not 3.13: {version_result.stdout}"
