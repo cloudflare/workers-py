@@ -1,6 +1,7 @@
 import logging
 import subprocess
 from pathlib import Path
+import re
 
 import click
 from functools import cache
@@ -142,6 +143,64 @@ def read_pyproject_toml() -> PyProject:
 
 def get_project_root() -> Path:
     return find_pyproject_toml().parent
+
+
+MIN_UV_VERSION = (0, 8, 10)
+MIN_WRANGLER_VERSION = (4, 42, 1)
+
+
+def check_uv_version() -> None:
+    res = run_command(["uv", "--version"], capture_output=True)
+    ver_str = res.stdout.split(" ")[1]
+    ver = tuple(int(x) for x in ver_str.split("."))
+    if ver >= MIN_UV_VERSION:
+        return
+    min_version_str = ".".join(str(x) for x in MIN_UV_VERSION)
+    logger.error(f"uv version at least {min_version_str} required, have {ver_str}.")
+    logger.error("Update uv with `uv self update`.")
+    raise click.exceptions.Exit(code=1)
+
+
+def check_wrangler_version() -> None:
+    """
+    Check that the installed wrangler version is at least 4.42.1.
+
+    Raises:
+        click.exceptions.Exit: If wrangler is not installed or version is too old.
+    """
+    result = run_command(
+        ["npx", "--yes", "wrangler", "--version"], capture_output=True, check=False
+    )
+    if result.returncode != 0:
+        logger.error("Failed to get wrangler version. Is wrangler installed?")
+        logger.error("Install wrangler with: npm install wrangler@latest")
+        raise click.exceptions.Exit(code=1)
+
+    # Parse version from output like "wrangler 4.42.1" or " ⛅️ wrangler 4.42.1"
+    version_line = result.stdout.strip()
+    # Extract version number using regex
+    version_match = re.search(r"(\d+)\.(\d+)\.(\d+)", version_line)
+
+    if not version_match:
+        logger.error(f"Could not parse wrangler version from: {version_line}")
+        logger.error("Install wrangler with: npm install wrangler@latest")
+        raise click.exceptions.Exit(code=1)
+
+    major, minor, patch = map(int, version_match.groups())
+    current_version = (major, minor, patch)
+
+    if current_version < MIN_WRANGLER_VERSION:
+        min_version_str = ".".join(str(x) for x in MIN_WRANGLER_VERSION)
+        current_version_str = ".".join(str(x) for x in current_version)
+        logger.error(
+            f"wrangler version at least {min_version_str} required, have {current_version_str}."
+        )
+        logger.error("Update wrangler with: npm install wrangler@latest")
+        raise click.exceptions.Exit(code=1)
+
+    logger.debug(
+        f"wrangler version {'.'.join(str(x) for x in current_version)} is sufficient"
+    )
 
 
 def check_wrangler_config() -> None:
