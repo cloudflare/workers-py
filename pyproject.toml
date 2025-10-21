@@ -64,13 +64,11 @@ lint.flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
 [tool.mypy]
 packages = ["pywrangler"]
 python_version = "3.12"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-disallow_untyped_decorators = false
-check_untyped_defs = true
-disallow_any_generics = false
+
+show_error_codes = true
+
+strict = true
+warn_unreachable = true
 no_implicit_optional = true
 
 [[tool.mypy.overrides]]

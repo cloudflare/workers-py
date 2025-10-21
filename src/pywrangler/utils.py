@@ -9,7 +9,8 @@ from typing import Literal, TypedDict, cast
 
 import click
 import pyjson5
-from rich.logging import Console, RichHandler
+from rich.console import Console
+from rich.logging import RichHandler
 from rich.theme import Theme
 
 from .metadata import PYTHON_COMPAT_VERSIONS
@@ -59,7 +60,7 @@ def write_success(msg: str) -> None:
 def run_command(
     command: list[str | Path],
     cwd: Path | None = None,
-    env: dict | None = None,
+    env: dict[str, str | Path] | None = None,
     check: bool = True,
     capture_output: bool = False,
 ) -> subprocess.CompletedProcess[str]:
@@ -215,8 +216,9 @@ def check_wrangler_config() -> None:
         raise click.exceptions.Exit(code=1)
 
 
-class WranglerConfig(TypedDict):
-    pass
+class WranglerConfig(TypedDict, total=False):
+    compatibility_date: str
+    compatibility_flags: list[str]
 
 
 def _parse_wrangler_config() -> WranglerConfig:
@@ -265,12 +267,12 @@ def get_python_version() -> Literal["3.12", "3.13"]:
         raise click.exceptions.Exit(code=1)
 
     compat_flags = config.get("compatibility_flags", [])
-
-    if "compatibility_date" not in config:
+    compat_date_str = config.get("compatibility_date", None)
+    if compat_date_str is None:
         logger.error("No compatibility_date specified in wrangler config")
         raise click.exceptions.Exit(code=1)
     try:
-        compat_date = datetime.strptime(config.get("compatibility_date"), "%Y-%m-%d")
+        compat_date = datetime.strptime(compat_date_str, "%Y-%m-%d")
     except ValueError:
         logger.error(
             f"Invalid compatibility_date format: {config.get('compatibility_date')}"
@@ -294,11 +296,7 @@ def get_python_version() -> Literal["3.12", "3.13"]:
             return py_version.version
 
         # For versions with compat_date, also check the date requirement
-        if (
-            py_version.compat_date
-            and compat_date
-            and compat_date >= py_version.compat_date
-        ):
+        if py_version.compat_date and compat_date >= py_version.compat_date:
             return py_version.version
 
     logger.error("Could not determine Python version from wrangler config")
