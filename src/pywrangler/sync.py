@@ -4,10 +4,10 @@ import re
 import shutil
 import tempfile
 from contextlib import contextmanager
+from collections.abc import Iterator
 from pathlib import Path
 
 import click
-import tomllib
 
 from .utils import (
     run_command,
@@ -16,29 +16,30 @@ from .utils import (
     get_pyodide_index,
     get_uv_pyodide_interp_name,
     get_project_root,
+    read_pyproject_toml,
 )
 
 
 logger = logging.getLogger(__name__)
 
 
-def get_venv_workers_path():
+def get_venv_workers_path() -> Path:
     return get_project_root() / ".venv-workers"
 
 
-def get_venv_workers_token_path():
+def get_venv_workers_token_path() -> Path:
     return get_venv_workers_path() / ".synced"
 
 
-def get_vendor_token_path():
+def get_vendor_token_path() -> Path:
     return get_project_root() / "python_modules/.synced"
 
 
-def get_pyodide_venv_path():
+def get_pyodide_venv_path() -> Path:
     return get_venv_workers_path() / "pyodide-venv"
 
 
-def check_requirements_txt():
+def check_requirements_txt() -> None:
     old_requirements_txt = get_project_root() / "requirements.txt"
     if old_requirements_txt.is_file():
         with open(old_requirements_txt, "r") as f:
@@ -83,7 +84,7 @@ def _get_venv_python_version() -> str | None:
     return result.stdout.strip()
 
 
-def create_workers_venv():
+def create_workers_venv() -> None:
     """
     Creates a virtual environment at `venv_workers_path` if it doesn't exist.
     """
@@ -127,7 +128,7 @@ MIN_UV_VERSION = (0, 8, 10)
 MIN_WRANGLER_VERSION = (4, 42, 1)
 
 
-def check_uv_version():
+def check_uv_version() -> None:
     res = run_command(["uv", "--version"], capture_output=True)
     ver_str = res.stdout.split(" ")[1]
     ver = tuple(int(x) for x in ver_str.split("."))
@@ -139,7 +140,7 @@ def check_uv_version():
     raise click.exceptions.Exit(code=1)
 
 
-def check_wrangler_version():
+def check_wrangler_version() -> None:
     """
     Check that the installed wrangler version is at least 4.42.1.
 
@@ -181,7 +182,7 @@ def check_wrangler_version():
     )
 
 
-def create_pyodide_venv():
+def create_pyodide_venv() -> None:
     pyodide_venv_path = get_pyodide_venv_path()
     if pyodide_venv_path.is_dir():
         logger.debug(
@@ -198,24 +199,17 @@ def create_pyodide_venv():
 
 
 def parse_requirements() -> list[str]:
-    pyproject_toml_path = find_pyproject_toml()
-    logger.debug(f"Reading dependencies from {pyproject_toml_path}...")
-    try:
-        with open(pyproject_toml_path, "rb") as f:
-            pyproject_data = tomllib.load(f)
+    pyproject_data = read_pyproject_toml()
 
-        # Extract dependencies from [project.dependencies]
-        dependencies = pyproject_data.get("project", {}).get("dependencies", [])
+    # Extract dependencies from [project.dependencies]
+    dependencies = pyproject_data.get("project", {}).get("dependencies", [])
 
-        logger.info(f"Found {len(dependencies)} dependencies.")
-        return dependencies
-    except tomllib.TOMLDecodeError as e:
-        logger.error(f"Error parsing {pyproject_toml_path}: {str(e)}")
-        raise click.exceptions.Exit(code=1)
+    logger.info(f"Found {len(dependencies)} dependencies.")
+    return dependencies
 
 
 @contextmanager
-def temp_requirements_file(requirements: list[str]):
+def temp_requirements_file(requirements: list[str]) -> Iterator[str]:
     # Write dependencies to a requirements.txt-style temp file.
     with tempfile.NamedTemporaryFile(mode="w", suffix=".txt") as temp_file:
         temp_file.write("\n".join(requirements))
@@ -223,7 +217,7 @@ def temp_requirements_file(requirements: list[str]):
         yield temp_file.name
 
 
-def _install_requirements_to_vendor(requirements: list[str]):
+def _install_requirements_to_vendor(requirements: list[str]) -> None:
     vendor_path = get_project_root() / "python_modules"
     logger.debug(f"Using vendor path: {vendor_path}")
 
@@ -272,7 +266,7 @@ def _install_requirements_to_vendor(requirements: list[str]):
     )
 
 
-def _install_requirements_to_venv(requirements: list[str]):
+def _install_requirements_to_venv(requirements: list[str]) -> None:
     # Create a requirements file for .venv-workers that includes pyodide-py
     venv_workers_path = get_venv_workers_path()
     project_root = get_project_root()
@@ -303,7 +297,7 @@ def _install_requirements_to_venv(requirements: list[str]):
     )
 
 
-def install_requirements(requirements: list[str]):
+def install_requirements(requirements: list[str]) -> None:
     _install_requirements_to_vendor(requirements)
     _install_requirements_to_venv(requirements)
 
@@ -314,7 +308,7 @@ def _is_out_of_date(token: Path, time: float) -> bool:
     return time > token.stat().st_mtime
 
 
-def is_sync_needed():
+def is_sync_needed() -> bool:
     """
     Checks if pyproject.toml has been modified since the last sync.
 

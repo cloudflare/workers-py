@@ -42,13 +42,14 @@ pywrangler = "pywrangler.cli:app"
 "Bug Tracker" = "https://github.com/cloudflare/workers-py/issues"
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py312"
 src = ["src", "tests"]
 lint.select = ["E", "F"]
 lint.ignore = ["E501"] # Line too long
 
 [tool.mypy]
-python_version = "3.8"
+packages = ["pywrangler"]
+python_version = "3.12"
 warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
