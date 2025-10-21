@@ -93,10 +93,10 @@ def run_command(
         logger.error(
             f"Error running command: {' '.join(str(arg) for arg in command)}\nExit code: {e.returncode}\nOutput:\n{e.stdout.strip() if e.stdout else ''}{e.stderr.strip() if e.stderr else ''}"
         )
-        raise click.exceptions.Exit(code=e.returncode)
+        raise click.exceptions.Exit(code=e.returncode) from None
     except FileNotFoundError:
         logger.error(f"Command not found: {command[0]}. Is it installed and in PATH?")
-        raise click.exceptions.Exit(code=1)
+        raise click.exceptions.Exit(code=1) from None
 
 
 @cache
@@ -139,7 +139,7 @@ def read_pyproject_toml() -> PyProject:
             return cast(PyProject, tomllib.load(f))
     except tomllib.TOMLDecodeError as e:
         logger.error(f"Error parsing {pyproject_toml}: {str(e)}")
-        raise click.exceptions.Exit(code=1)
+        raise click.exceptions.Exit(code=1) from None
 
 
 def get_project_root() -> Path:
@@ -236,7 +236,7 @@ def _parse_wrangler_config() -> WranglerConfig:
                 return cast(WranglerConfig, tomllib.load(f))
         except tomllib.TOMLDecodeError as e:
             logger.error(f"Error parsing {wrangler_toml}: {e}")
-            raise click.exceptions.Exit(code=1)
+            raise click.exceptions.Exit(code=1) from None
 
     if wrangler_jsonc.is_file():
         try:
@@ -245,7 +245,7 @@ def _parse_wrangler_config() -> WranglerConfig:
             return cast(WranglerConfig, pyjson5.loads(content))
         except (pyjson5.Json5DecoderException, ValueError) as e:
             logger.error(f"Error parsing {wrangler_jsonc}: {e}")
-            raise click.exceptions.Exit(code=1)
+            raise click.exceptions.Exit(code=1) from None
 
     return {}
 
@@ -275,7 +275,7 @@ def get_python_version() -> Literal["3.12", "3.13"]:
         logger.error(
             f"Invalid compatibility_date format: {config.get('compatibility_date')}"
         )
-        raise click.exceptions.Exit(code=1)
+        raise click.exceptions.Exit(code=1) from None
 
     # Check if python_workers base flag is present (required for Python workers)
     if "python_workers" not in compat_flags:

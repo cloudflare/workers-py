@@ -45,7 +45,7 @@ pywrangler = "pywrangler.cli:app"
 target-version = "py312"
 lint.select = [
   "B0",     # bugbear (all B0* checks enabled by default)
-  # "B904",   # bugbear (Within an except clause, raise exceptions with raise ... from err)
+  "B904",   # bugbear (Within an except clause, raise exceptions with raise ... from err)
   "B905",   # bugbear (zip() without an explicit strict= parameter set.)
   "C4",     # flake8-comprehensions
   "C9",     # mccabe complexity
