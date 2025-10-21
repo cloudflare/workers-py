@@ -1,6 +1,5 @@
 import logging
 import os
-import re
 import shutil
 import tempfile
 from contextlib import contextmanager
@@ -10,6 +9,8 @@ from pathlib import Path
 import click
 
 from .utils import (
+    check_wrangler_config,
+    check_uv_version,
     run_command,
     find_pyproject_toml,
     get_python_version,
@@ -121,64 +122,6 @@ def create_workers_venv() -> None:
             "--python",
             f"python{wanted_python_version}",
         ]
-    )
-
-
-MIN_UV_VERSION = (0, 8, 10)
-MIN_WRANGLER_VERSION = (4, 42, 1)
-
-
-def check_uv_version() -> None:
-    res = run_command(["uv", "--version"], capture_output=True)
-    ver_str = res.stdout.split(" ")[1]
-    ver = tuple(int(x) for x in ver_str.split("."))
-    if ver >= MIN_UV_VERSION:
-        return
-    min_version_str = ".".join(str(x) for x in MIN_UV_VERSION)
-    logger.error(f"uv version at least {min_version_str} required, have {ver_str}.")
-    logger.error("Update uv with `uv self update`.")
-    raise click.exceptions.Exit(code=1)
-
-
-def check_wrangler_version() -> None:
-    """
-    Check that the installed wrangler version is at least 4.42.1.
-
-    Raises:
-        click.exceptions.Exit: If wrangler is not installed or version is too old.
-    """
-    result = run_command(
-        ["npx", "--yes", "wrangler", "--version"], capture_output=True, check=False
-    )
-    if result.returncode != 0:
-        logger.error("Failed to get wrangler version. Is wrangler installed?")
-        logger.error("Install wrangler with: npm install wrangler@latest")
-        raise click.exceptions.Exit(code=1)
-
-    # Parse version from output like "wrangler 4.42.1" or " ⛅️ wrangler 4.42.1"
-    version_line = result.stdout.strip()
-    # Extract version number using regex
-    version_match = re.search(r"(\d+)\.(\d+)\.(\d+)", version_line)
-
-    if not version_match:
-        logger.error(f"Could not parse wrangler version from: {version_line}")
-        logger.error("Install wrangler with: npm install wrangler@latest")
-        raise click.exceptions.Exit(code=1)
-
-    major, minor, patch = map(int, version_match.groups())
-    current_version = (major, minor, patch)
-
-    if current_version < MIN_WRANGLER_VERSION:
-        min_version_str = ".".join(str(x) for x in MIN_WRANGLER_VERSION)
-        current_version_str = ".".join(str(x) for x in current_version)
-        logger.error(
-            f"wrangler version at least {min_version_str} required, have {current_version_str}."
-        )
-        logger.error("Update wrangler with: npm install wrangler@latest")
-        raise click.exceptions.Exit(code=1)
-
-    logger.debug(
-        f"wrangler version {'.'.join(str(x) for x in current_version)} is sufficient"
     )
 
 
@@ -324,3 +267,34 @@ def is_sync_needed() -> bool:
     return _is_out_of_date(get_vendor_token_path(), pyproject_mtime) or _is_out_of_date(
         get_venv_workers_token_path(), pyproject_mtime
     )
+
+
+def sync(force: bool = False, directly_requested: bool = False) -> None:
+    # Check if requirements.txt does not exist.
+    check_requirements_txt()
+
+    # Check if sync is needed based on file timestamps
+    sync_needed = force or is_sync_needed()
+    if not sync_needed:
+        if directly_requested:
+            logger.warning(
+                "pyproject.toml hasn't changed since last sync, use --force to ignore timestamp check"
+            )
+        return
+
+    # Check to make sure a wrangler config file exists.
+    check_wrangler_config()
+
+    # Create .venv-workers if it doesn't exist
+    create_workers_venv()
+
+    # Set up Pyodide virtual env
+    create_pyodide_venv()
+
+    # Generate requirements.txt from pyproject.toml by directly parsing the TOML file then install into vendor folder.
+    requirements = parse_requirements()
+    if not requirements:
+        logger.warning(
+            "No dependencies found in [project.dependencies] section of pyproject.toml."
+        )
+    install_requirements(requirements)

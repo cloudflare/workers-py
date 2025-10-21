@@ -6,11 +6,12 @@ import click
 
 from .utils import (
     setup_logging,
+    check_wrangler_version,
     write_success,
     WRANGLER_COMMAND,
     WRANGLER_CREATE_COMMAND,
-    check_wrangler_config,
 )
+from .sync import sync
 from typing import Never
 
 setup_logging()
@@ -60,11 +61,9 @@ class ProxyToWranglerGroup(click.Group):
                 remaining_args = []
 
             if cmd_name in ["dev", "publish", "deploy", "versions"]:
-                ctx.invoke(sync_command, force=False, directly_requested=False)
+                sync(force=False)
 
             if cmd_name == "dev":
-                from .sync import check_wrangler_version
-
                 check_wrangler_version()
 
             if cmd_name == "init":
@@ -128,51 +127,13 @@ def types_command(outdir: str | None, config: str | None) -> Never:
 
 @app.command("sync")
 @click.option("--force", is_flag=True, help="Force sync even if no changes detected")
-def sync_command(force: bool = False, directly_requested: bool = True) -> None:
+def sync_command(force: bool = False) -> None:
     """
     Installs Python packages from pyproject.toml into src/vendor.
 
     Also creates a virtual env for Workers that you can use for testing.
     """
-    # This module is imported locally because it searches for pyproject.toml at the top-level.
-    from .sync import (
-        check_requirements_txt,
-        is_sync_needed,
-        create_pyodide_venv,
-        create_workers_venv,
-        parse_requirements,
-        install_requirements,
-    )
-
-    # Check if requirements.txt does not exist.
-    check_requirements_txt()
-
-    # Check if sync is needed based on file timestamps
-    sync_needed = force or is_sync_needed()
-    if not sync_needed:
-        if directly_requested:
-            logger.warning(
-                "pyproject.toml hasn't changed since last sync, use --force to ignore timestamp check"
-            )
-        return
-
-    # Check to make sure a wrangler config file exists.
-    check_wrangler_config()
-
-    # Create .venv-workers if it doesn't exist
-    create_workers_venv()
-
-    # Set up Pyodide virtual env
-    create_pyodide_venv()
-
-    # Generate requirements.txt from pyproject.toml by directly parsing the TOML file then install into vendor folder.
-    requirements = parse_requirements()
-    if not requirements:
-        logger.warning(
-            "No dependencies found in [project.dependencies] section of pyproject.toml."
-        )
-    install_requirements(requirements)
-
+    sync(force, directly_requested=True)
     write_success("Sync process completed successfully.")
 
 

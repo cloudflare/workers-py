@@ -371,9 +371,9 @@ def test_proxy_to_wrangler_unknown_command(mock_proxy_to_wrangler):
     )
 
 
-@patch("pywrangler.sync.check_wrangler_version")
+@patch("pywrangler.utils.check_wrangler_version")
 @patch("pywrangler.cli._proxy_to_wrangler")
-@patch("pywrangler.cli.sync_command")
+@patch("pywrangler.cli.sync")
 @patch("sys.argv", ["pywrangler", "dev", "--local"])
 def test_proxy_auto_sync_commands(
     mock_sync_command, mock_proxy_to_wrangler, mock_check_wrangler_version
@@ -494,10 +494,10 @@ def test_sync_recreates_venv_on_python_version_mismatch(test_dir):
 
 
 # Wrangler version check tests
-@patch("pywrangler.sync.run_command")
+@patch("pywrangler.utils.run_command")
 def test_check_wrangler_version_sufficient(mock_run_command):
     """Test that check_wrangler_version passes with sufficient version."""
-    from pywrangler.sync import check_wrangler_version
+    from pywrangler.utils import check_wrangler_version
 
     # Mock successful wrangler version output
     mock_result = Mock()
@@ -514,10 +514,10 @@ def test_check_wrangler_version_sufficient(mock_run_command):
     )
 
 
-@patch("pywrangler.sync.run_command")
+@patch("pywrangler.utils.run_command")
 def test_check_wrangler_version_insufficient(mock_run_command):
     """Test that check_wrangler_version fails with insufficient version."""
-    from pywrangler.sync import check_wrangler_version
+    from pywrangler.utils import check_wrangler_version
 
     # Mock wrangler version output with old version
     mock_result = Mock()
