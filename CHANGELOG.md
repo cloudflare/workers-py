@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.6.2 (2025-10-22)
+
+### Bug Fixes
+
+- Add workers-runtime-sdk as a dependency, update type test
+  ([#41](https://github.com/cloudflare/workers-py/pull/41),
+  [`f381505`](https://github.com/cloudflare/workers-py/commit/f381505e4c9b40ddb602928d964aa3fe38936e5c))
+
+
 ## v1.6.1 (2025-10-15)
 
 ### Bug Fixes
