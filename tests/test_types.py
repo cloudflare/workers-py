@@ -17,6 +17,7 @@ PYPROJECT_TOML = """
 dev = [
     "mypy>=1.17.1",
     "pyodide-py",
+    "workers-runtime-sdk",
 ]
 
 [tool.mypy]
@@ -26,16 +27,18 @@ files = [
 """
 
 WORKER = """
-from typing import TYPE_CHECKING
-if TYPE_CHECKING:
-    from js import Env
+from workers import WorkerEntrypoint, Response, Request
 
-class Default:
-    env: "Env"
-    async def fetch(self) -> None:
-        reveal_type(self.env.FOO) # Revealed type is "js.KVNamespace_iface"
+
+class Default(WorkerEntrypoint):
+    async def fetch(self, request: Request) -> Response:
+        reveal_type(self.env)
+        reveal_type(self.env.FOO)
+        await self.env.FOO.put("bar", "baz")
         bar = await self.env.FOO.get("bar")
-        reveal_type(bar) # Revealed type is "builtins.str | None"
+        assert bar
+        reveal_type(bar)
+        return Response(bar)
 """
 
 
@@ -53,7 +56,7 @@ def test_types(tmp_path):
     with chdir(tmp_path):
         wrangler_types(None, None)
         result = run(["uv", "run", "mypy"], capture_output=True, text=True, check=False)
-
+        assert 'Revealed type is "js.Env"' in result.stdout
         assert 'Revealed type is "js.KVNamespace_iface"' in result.stdout
-        assert 'Revealed type is "builtins.str | None"' in result.stdout
+        assert 'Revealed type is "builtins.str"' in result.stdout
         assert "Success: no issues found" in result.stdout

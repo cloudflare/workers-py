@@ -7,7 +7,7 @@ name = "workers-py"
 version = "1.6.1"
 description = "A set of libraries and tools for Python Workers"
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -19,6 +19,7 @@ dependencies = [
     "pyodide-cli",
     "pyjson5>=1.6.0",
     "pyodide-py",
+    "workers-runtime-sdk>=0.1.0",
 ]
 
 [dependency-groups]
