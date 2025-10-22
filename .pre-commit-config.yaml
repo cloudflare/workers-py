@@ -44,5 +44,6 @@ repos:
         exclude: (.*test.*)
         additional_dependencies:
           - click
+          - types-requests
 ci:
   autoupdate_schedule: "quarterly"

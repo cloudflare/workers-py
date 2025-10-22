@@ -1,3 +1,4 @@
+import json
 import logging
 import os
 import shutil
@@ -5,15 +6,19 @@ import tempfile
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import TypedDict, cast
 
 import click
+import requests
 
 from .utils import (
     check_uv_version,
     check_wrangler_config,
     find_pyproject_toml,
     get_project_root,
+    get_pyodide_base_url,
     get_pyodide_index,
+    get_pyodide_lock_url,
     get_python_version,
     get_uv_pyodide_interp_name,
     read_pyproject_toml,
@@ -31,8 +36,12 @@ def get_venv_workers_token_path() -> Path:
     return get_venv_workers_path() / ".synced"
 
 
+def get_vendor_path() -> Path:
+    return get_project_root() / "python_modules"
+
+
 def get_vendor_token_path() -> Path:
-    return get_project_root() / "python_modules/.synced"
+    return get_vendor_path() / ".synced"
 
 
 def get_pyodide_venv_path() -> Path:
@@ -160,7 +169,7 @@ def temp_requirements_file(requirements: list[str]) -> Iterator[str]:
 
 
 def _install_requirements_to_vendor(requirements: list[str]) -> None:
-    vendor_path = get_project_root() / "python_modules"
+    vendor_path = get_vendor_path()
     logger.debug(f"Using vendor path: {vendor_path}")
 
     if len(requirements) == 0:
@@ -239,9 +248,51 @@ def _install_requirements_to_venv(requirements: list[str]) -> None:
     )
 
 
+class PyodidePackageMetadata(TypedDict):
+    depends: list[str]
+    package_type: str
+    file_name: str
+
+
+def _get_pyodide_lock() -> dict[str, PyodidePackageMetadata]:
+    lock_path = get_venv_workers_path() / "pyodide-lock.json"
+    if not lock_path.exists():
+        url = get_pyodide_lock_url()
+        logger.info(f"Fetching pyodide lock from {url}")
+        req = requests.get(url)
+        req.raise_for_status()
+        lock_path.write_bytes(req.content)
+    with lock_path.open() as f:
+        res = json.load(f)
+    return cast(dict[str, PyodidePackageMetadata], res["packages"])
+
+
+def _maybe_install_dylibs() -> None:
+    vendor_path = get_vendor_path()
+    # TODO: Remove hacks, make this work for all shared_library deps
+    if not (vendor_path / "scipy").exists():
+        return
+    libdir = vendor_path / "lib"
+    logger.info("Installing dylibs for scipy")
+    libdir.mkdir(exist_ok=True)
+    lock = _get_pyodide_lock()
+    for depname in lock["scipy"]["depends"]:
+        dep = lock[depname]
+        if dep["package_type"] == "shared_library":
+            file_name = dep["file_name"]
+            url = get_pyodide_base_url() + file_name
+            req = requests.get(url)
+            req.raise_for_status()
+            with tempfile.TemporaryDirectory() as d:
+                p = Path(d) / file_name
+                p.write_bytes(req.content)
+                shutil.unpack_archive(filename=p, extract_dir=libdir)
+
+
 def install_requirements(requirements: list[str]) -> None:
     _install_requirements_to_vendor(requirements)
     _install_requirements_to_venv(requirements)
+    _maybe_install_dylibs()
 
 
 def _is_out_of_date(token: Path, time: float) -> bool:
