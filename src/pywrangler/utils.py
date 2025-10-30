@@ -79,20 +79,24 @@ def run_command(
     """
     logger.log(RUNNING_LEVEL, f"{' '.join(str(arg) for arg in command)}")
     try:
+        kwargs = {}
+        if capture_output:
+            kwargs = dict(stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+
         process = subprocess.run(
             command,
             cwd=cwd,
             env=env,
             check=check,
-            capture_output=capture_output,
             text=True,
-        )
+            **kwargs,
+        )  # type: ignore[call-overload]
         if process.stdout and not capture_output:
             logger.log(OUTPUT_LEVEL, f"{process.stdout.strip()}")
-        return process
+        return process  # type: ignore[no-any-return]
     except subprocess.CalledProcessError as e:
         logger.error(
-            f"Error running command: {' '.join(str(arg) for arg in command)}\nExit code: {e.returncode}\nOutput:\n{e.stdout.strip() if e.stdout else ''}{e.stderr.strip() if e.stderr else ''}"
+            f"Error running command: {' '.join(str(arg) for arg in command)}\nExit code: {e.returncode}\nOutput:\n{e.stdout.strip() if e.stdout else ''}"
         )
         raise click.exceptions.Exit(code=e.returncode) from None
     except FileNotFoundError:
