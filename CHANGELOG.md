@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.7.0 (2025-10-31)
+
+### Features
+
+- Better errors when unsupported packages are requested
+  ([`e5000ed`](https://github.com/cloudflare/workers-py/commit/e5000eded90fb89c8f1a46dfb107f6d246f53e89))
+
+
 ## v1.6.2 (2025-10-22)
 
 ### Bug Fixes
