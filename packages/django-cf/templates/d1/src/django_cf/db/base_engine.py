@@ -122,7 +122,7 @@ class CFDatabaseFeatures(SQLiteDatabaseFeatures):
     minimum_database_version = (4,)
 
 
-class D1Result:
+class CFResult:
     lastrowid = None
     rowcount = -1
 
@@ -138,220 +138,9 @@ class D1Result:
     def set_rowcount(self, value):
         self.rowcount = value
 
-    @staticmethod
-    def from_dict(data):
-        result = []
-
-        for row in data:
-            row_items = ()
-            for k, v in row.items():
-                row_items += (v,)
-
-            result.append(row_items)
-
-        return D1Result(result)
-
-
-class CFDatabase:
-    def __init__(self, binding):
-        self.binding = binding
-
-        try:
-            from workers import import_from_javascript
-            from pyodide.ffi import run_sync
-            self.import_from_javascript = import_from_javascript
-            self.run_sync = run_sync
-        except ImportError as e:
-            print(e)
-            raise Exception("Code not running inside a worker, please change to django_cf.d1_api database backend")
-
-    DataError = DataError
-
-    OperationalError = OperationalError
-
-    IntegrityError = IntegrityError
-
-    InternalError = InternalError
-
-    ProgrammingError = ProgrammingError
-
-    NotSupportedError = NotSupportedError
-    DatabaseError = DatabaseError
-    InterfaceError = InterfaceError
-    Error = Error
-
-    lastrowid = None
-
-    def set_lastrowid(self, value):
-        self.lastrowid = value
-
-    rowcount = None
-
-    def set_rowcount(self, value):
-        self.rowcount = value
-
-    _defer_foreign_keys = False
-
-    def defer_foreign_keys(self, state):
-        _defer_foreign_keys = state
-
-    @staticmethod
-    def connect(binding):
-        return CFDatabase(binding)
-
-    def cursor(self):
-        return self
-
-    def commit(self):
-        return  # No commits allowed
-
-    def rollback(self):
-        return  # No commits allowed
-
-    def process_query(self, query, params=None):
-        if params is None:
-            query = query.replace('%s', '?')
-        else:
-            new_params = []
-            for param in params:
-                if param is None:
-                    query = query.replace('%s', 'null', 1)
-                else:
-                    new_params.append(param)
-                    query = query.replace('%s', '?', 1)
-
-            params = new_params
-
-        if self._defer_foreign_keys:
-            return f'''
-            PRAGMA defer_foreign_keys = on
-
-            {query}
-
-            PRAGMA defer_foreign_keys = off
-            '''
-
-        return query, params
-
-    def run_query(self, query, params=None):
-        proc_query, params = self.process_query(query, params)
-
-        cf_workers = self.import_from_javascript("cloudflare:workers")
-        db = getattr(cf_workers.env, self.binding)
-
-        if params:
-            stmt = db.prepare(proc_query).bind(*params);
-        else:
-            stmt = db.prepare(proc_query);
-
-        read_only = is_read_only_query(proc_query)
-        print('----')
-        print(proc_query)
-        try:
-            print(0)
-            if read_only:
-                resp = self.run_sync(stmt.raw())
-                print(1)
-                print(resp)
-            else:
-                resp = self.run_sync(stmt.all())
-                print(2)
-                print(resp)
-        except:
-            from js import Error
-            Error.stackTraceLimit = 1e10
-            raise Error(Error.new().stack)
-
-        # this is a hack, because D1 Raw method (required for reading rows) doesn't return metadata
-        if read_only:
-            results = self._convert_results_list(resp.to_py())
-            rows_read = len(results)
-            rows_written = 0
-        else:
-            results = self._convert_results_dict(resp.results.to_py())
-            rows_read = resp.meta.rows_read
-            rows_written = resp.meta.rows_written
-        print(results)
-
-        return results, {
-            "rows_read": rows_read,
-            "rows_written": rows_written,
-        }
-
-
-
-    def _convert_results_dict(self, data):
-        from pyodide.ffi import jsnull
-        print(jsnull)
-        print(dir(jsnull))
-        result = []
-
-        for row in data:
-            row_items = ()
-            for k, v in row.items():
-                if v is jsnull:
-                    print(3)
-                    row_items += (None,)
-                else:
-                    row_items += (v,)
-
-            result.append(row_items)
-
-        return result
-
-    def _convert_results_list(self, data):
-        from pyodide.ffi import jsnull
-        print(jsnull)
-        print(dir(jsnull))
-        result = []
-
-        for row in data:
-            row_items = ()
-            for v in row:
-                if v is jsnull:
-                    print(3)
-                    row_items += (None,)
-                else:
-                    row_items += (v,)
-
-            result.append(row_items)
-
-        return result
-
-    query = None
-    params = None
-
-    def execute(self, query, params=None):
-        if params:
-            newParams = []
-            for v in list(params):
-                if v is True:
-                    v = 1
-                elif v is False:
-                    v = 0
-
-                newParams.append(v)
-
-            params = tuple(newParams)
-
-        result, meta = self.run_query(query, params)
-
-        self.results = result
-
-        if meta:
-            if "INSERT" in query.upper():
-                self.rowcount = meta.get("rows_written", 0)
-                # self.connection.ops.last_insert_id = meta.get("last_insert_id")  # TODO: implement last insert id
-            elif "UPDATE" in query.upper() or "DELETE" in query.upper():
-                self.rowcount = meta.get("rows_written", 0)
-            else:
-                self.rowcount = meta.get("rows_read", 0)
-
-        return self
-
     def fetchone(self):
-        if len(self.results) > 0:
-            return self.results.pop()
+        if len(self.data) > 0:
+            return self.data.pop()
         return None
 
     def fetchall(self):
@@ -374,6 +163,121 @@ class CFDatabase:
                 size -= 1
 
         return ret
+
+    @staticmethod
+    def from_dict(query, params, data, rows_read=None, rows_written=None, last_row_id=None):
+        try:
+            from pyodide.ffi import jsnull
+        except ImportError:
+            jsnull = None
+
+        result = []
+
+        for row in data:
+            row_items = ()
+            if isinstance(row, list):
+                for v in row:
+                    if v is jsnull:
+                        row_items += (None,)
+                    else:
+                        row_items += (v,)
+            else:
+                for k, v in row.items():
+                    if v is jsnull:
+                        row_items += (None,)
+                    else:
+                        row_items += (v,)
+
+            result.append(row_items)
+
+        instance = CFResult(result)
+
+        if rows_read or rows_written:
+            if "INSERT" in query.upper():
+                instance.set_rowcount(rows_written or 0)
+            elif "UPDATE" in query.upper() or "DELETE" in query.upper():
+                instance.set_rowcount(rows_written or 0)
+            else:
+                instance.set_rowcount(rows_read or 0)
+
+        if last_row_id is not None:
+            instance.set_lastrowid(last_row_id)
+
+        return instance
+
+
+class CFDatabase:
+    def __init__(self, database_wrapper):
+        self.databaseWrapper = database_wrapper
+
+    DataError = DataError
+
+    OperationalError = OperationalError
+
+    IntegrityError = IntegrityError
+
+    InternalError = InternalError
+
+    ProgrammingError = ProgrammingError
+
+    NotSupportedError = NotSupportedError
+    DatabaseError = DatabaseError
+    InterfaceError = InterfaceError
+    Error = Error
+
+    _defer_foreign_keys = False
+
+    lastResult: CFResult = None
+
+    def defer_foreign_keys(self, state):
+        _defer_foreign_keys = state
+
+    @staticmethod
+    def connect(binding):
+        return CFDatabase(binding)
+
+    def cursor(self):
+        return self
+
+    def commit(self):
+        return  # No commits allowed
+
+    def rollback(self):
+        return  # No commits allowed
+
+    def fetchone(self):
+        return self.lastResult.fetchone()
+
+    def fetchall(self):
+        return self.lastResult.fetchall()
+
+    def fetchmany(self, size=1):
+        return self.lastResult.fetchmany(size)
+
+    @property
+    def lastrowid(self):
+        return self.lastResult.lastrowid
+
+    @property
+    def rowcount(self):
+        return self.lastResult.rowcount
+
+    def execute(self, query, params=None) -> None:
+        if params:
+            newParams = []
+            for v in list(params):
+                if v is True:
+                    v = 1
+                elif v is False:
+                    v = 0
+
+                newParams.append(v)
+
+            params = tuple(newParams)
+
+        self.lastResult = self.databaseWrapper.run_query(query, params)
+
+        return self
 
     def close(self):
         return
@@ -399,6 +303,7 @@ def is_read_only_query(query: str) -> bool:
 
 
 class CFDatabaseWrapper(SQLiteDatabaseWrapper):
+    # this is defined in the class extending this one
     # vendor = "cloudflare_d1"
     # display_name = "D1"
 
@@ -420,8 +325,8 @@ class CFDatabaseWrapper(SQLiteDatabaseWrapper):
     def get_connection_params(self):
         raise NotImplementedError()
 
-    def get_new_connection(self, conn_params):
-        conn = CFDatabase.connect(**conn_params)
+    def get_new_connection(self):
+        conn = CFDatabase.connect(self)
         return conn
 
     def create_cursor(self, name=None):
@@ -450,3 +355,6 @@ class CFDatabaseWrapper(SQLiteDatabaseWrapper):
 
     def is_usable(self):
         return True
+
+    def run_query(self, query, params=None) -> CFResult:
+        raise NotImplementedError()

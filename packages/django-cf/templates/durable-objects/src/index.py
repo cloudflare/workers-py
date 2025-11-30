@@ -11,6 +11,7 @@ class DjangoDO(DjangoCFDurableObject, DurableObject):
 
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
+        # Pick a DO name based on the request
         id = self.env.DO_STORAGE.idFromName("A")
         obj = self.env.DO_STORAGE.get(id)
         return await obj.fetch(request)

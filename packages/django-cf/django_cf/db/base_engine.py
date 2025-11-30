@@ -397,6 +397,7 @@ def is_read_only_query(query: str) -> bool:
 
 
 class CFDatabaseWrapper(SQLiteDatabaseWrapper):
+    # this is defined in the class extending this one
     # vendor = "cloudflare_d1"
     # display_name = "D1"
 

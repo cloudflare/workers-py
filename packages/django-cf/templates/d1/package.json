@@ -3,11 +3,12 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "deploy": "npm run dependencies && wrangler deploy",
-    "dev": "wrangler dev",
-    "start": "wrangler dev"
+    "dependencies": "uv pip install --system workers-py",
+    "deploy": "npm run dependencies && uv run pywrangler deploy",
+    "dev": "uv run pywrangler dev",
+    "start": "uv run pywrangler dev"
   },
   "devDependencies": {
-    "wrangler": "file:../../../workers-sdk/packages/wrangler"
+    "wrangler": "^4.51.0"
   }
 }
