@@ -41,7 +41,7 @@ dev = [
 "Source" = "https://github.com/G4brym/django-cf"
 
 [tool.setuptools]
-packages = ["django_cf", "django_cf.d1_api", "django_cf.d1_binding", "django_cf.do_binding", "django_cf.middleware"]
+packages = ["django_cf", "django_cf.db.backends.d1", "django_cf.db.backends.do", "django_cf.middleware"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
