@@ -1,44 +1,45 @@
 {
-    "name": "django-on-workers-with-durable-objects",
-    "main": "src/worker.py",
-    "compatibility_flags": [
-        "python_workers"
-    ],
-    "compatibility_date": "2025-09-05",
-    "assets": {
-      "directory": "./staticfiles"
-    },
-    "build": {
-      "command": "python src/manage.py collectstatic --noinput"
-    },
-    "rules": [
-        {
-            "globs": [
-                "vendor/**/*.txt.gz",
-                // "vendor/**/*.mo",  only required for enabling translations, but requires workers paid plan
-                "vendor/tzdata/**/"
-            ],
-            "type": "Data",
-            "fallthrough": true
-        }
-    ],
-    "durable_objects": {
-        "bindings": [
-            {
-                "name": "DO_STORAGE",
-                "class_name": "DjangoDO"
-            }
-        ]
-    },
-    "migrations": [
-        {
-            "tag": "v1",
-            "new_sqlite_classes": [
-                "DjangoDO"
-            ]
-        }
-    ],
-    "observability": {
-        "enabled": true
+  "name": "django-on-workers-with-durable-objects",
+  "main": "src/index.py",
+  "compatibility_flags": [
+    "python_workers"
+  ],
+  "compatibility_date": "2025-11-30",
+  "assets": {
+    "directory": "./staticfiles"
+  },
+  "build": {
+    "command": "WORKERS_CI=1 python src/manage.py collectstatic --noinput"
+  },
+  "python_modules": {
+    "exclude": [
+      "**/*.pyc",
+      "**/__pycache__",
+      "**/*.po",
+      "**/*.css",
+      "**/*.js",
+      "**/*.svg",
+      "**/*.png",
+      "**/*.jpg"
+    ]
+  },
+  "observability": {
+    "enabled": true
+  },
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "DO_STORAGE",
+        "class_name": "DjangoDO"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": [
+        "DjangoDO"
+      ]
     }
+  ]
 }

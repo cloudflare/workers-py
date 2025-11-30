@@ -44,7 +44,7 @@ def run_migrations_view(request):
         call_command("migrate")
         return JsonResponse({"status": "success", "message": "Migrations applied."})
     except Exception as e:
-        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+        return JsonResponse({"status": "error", "message": e.__str__()}, status=500)
 
 
 urlpatterns = [

@@ -6,10 +6,6 @@ async def handle_wsgi(request, app):
     os.environ.setdefault('DJANGO_ALLOW_ASYNC_UNSAFE', 'false')
     from js import Object, Response, URL, console
 
-    headers = []
-    for header in request.headers:
-        headers.append(tuple([header[0], header[1]]))
-
     url = URL.new(request.url)
     assert url.protocol[-1] == ":"
     scheme = url.protocol[:-1]
@@ -24,7 +20,6 @@ async def handle_wsgi(request, app):
         'REQUEST_METHOD': method,
         'PATH_INFO': path,
         'QUERY_STRING': query_string,
-        'HTTP_HOST': host,
         'SERVER_NAME': host,
         'SERVER_PORT': url.port,
         'SERVER_PROTOCOL': 'HTTP/1.1',
@@ -43,12 +38,11 @@ async def handle_wsgi(request, app):
     if request.headers.get('content-length'):
         wsgi_request['CONTENT_LENGTH'] = request.headers.get('content-length')
 
-    for header in request.headers:
+    for header in request.headers.items():
         wsgi_request[f'HTTP_{header[0].upper()}'] = header[1]
-    print(wsgi_request)
 
     if method in ['POST', 'PUT', 'PATCH']:
-        body = (await request.arrayBuffer()).to_bytes()
+        body = (await request._js_request.arrayBuffer()).to_bytes()
         wsgi_request['wsgi.input'] = BytesIO(body)
 
     def start_response(status_str, response_headers):
