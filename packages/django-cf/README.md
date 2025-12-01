@@ -131,7 +131,7 @@ Utilize Durable Objects for stateful data persistence directly within your Cloud
     ```python
     DATABASES = {
         'default': {
-            'ENGINE': 'django_cf.do_binding',
+            'ENGINE': 'django_cf.db.backends.do',
         }
     }
     ```

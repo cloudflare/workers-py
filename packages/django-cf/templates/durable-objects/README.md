@@ -8,7 +8,7 @@ This template provides a starting point for running a Django application on Clou
 
 This template is pre-configured to:
 - Use `django-cf` to bridge Django with Cloudflare's environment.
-- Employ Durable Objects as the primary data store through the `django_cf.do_binding` database engine.
+- Employ Durable Objects as the primary data store through the `django_cf.db.backends.do` database engine.
 - Include a basic Django project structure within the `src/` directory.
 - Provide example worker entrypoint (`src/worker.py`) and Durable Object class.
 
@@ -37,48 +37,28 @@ template-root/
 ## Setup and Deployment
 
 1.  **Install Dependencies:**
-    *   **Node.js & Wrangler:** Ensure you have Node.js and npm installed. Then install dependencies with this command:
-        ```bash
-        npm install
-        ```
-    *   **Python Dependencies (Vendoring):**
-        List your Python dependencies (including `django` and `django-cf`) in `vendor.txt`.
-        ```txt
-        # vendor.txt
-        django~=5.0
-        django-cf
-        tzdata # For timezone support
-        # Add other dependencies here
-        ```
-        Install them into the `src/vendor` directory:
-        ```bash
-        pip install -t src/vendor -r vendor.txt
-        ```
-        
-    *   **Python Dependencies (Local Development):**
-        List your Python dev dependencies (including `django` and `django-cf`) in `requirements-dev.txt`.
-        ```txt
-        # requirements-dev.txt
-        django==5.1.2
-        django-cf
-        ```
-        Install them:
-        ```bash
-        pip install -r requirements-dev.txt
-        ```
+    Ensure you have Node.js, npm, and Python installed. Then:
+    
+    ```bash
+    # Install Node.js dependencies
+    npm install
+    
+    # Install Python dependencies
+    uv sync
+    ```
+    
+    If you don't have `uv` installed, install it first:
+    ```bash
+    pip install uv
+    ```
 
 2.  **Configure `wrangler.jsonc`:**
     Review and update `wrangler.jsonc` for your project. Key sections:
     *   `name`: Your worker's name.
-    *   `main`: Should point to `src/worker.py`.
     *   `compatibility_date`: Keep this up-to-date.
     *   `durable_objects`:
         *   `bindings`: Ensure `name` (e.g., "DO_STORAGE") and `class_name` (e.g., "DjangoDO") are correctly set.
         *   `migrations`: Define migrations for your Durable Object classes if you add or change them.
-    *   `site`:
-        *   `bucket`: Points to `./staticfiles` for serving static assets.
-    *   `build`: (To be added if not present)
-        *   `command`: `"python src/manage.py collectstatic --noinput"` to automatically collect static files during deployment.
 
 3.  **Django Settings (`src/app/settings.py`):**
     The template is pre-configured to use Durable Objects:
@@ -86,17 +66,9 @@ template-root/
     # src/app/settings.py
     DATABASES = {
         'default': {
-            'ENGINE': 'django_cf.do_binding',
+            'ENGINE': 'django_cf.db.backends.do',
         }
     }
-
-    # Static files
-    import os
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    STATIC_URL = '/static/'
-    # STATIC_ROOT should point to the 'bucket' directory in wrangler.jsonc,
-    # often one level above the 'src' directory.
-    STATIC_ROOT = os.path.join(os.path.dirname(BASE_DIR), 'staticfiles', 'static')
     ```
 
 4.  **Worker Entrypoint (`src/worker.py`):**
@@ -122,11 +94,17 @@ template-root/
         return await stub.fetch(request) # Forward the request to the Durable Object
     ```
 
-5.  **Deploy to Cloudflare:**
+5.  **Run Development Server:**
     ```bash
-    npx wrangler deploy
+    npm run dev
     ```
-    This command will also run the `collectstatic` command if configured in `wrangler.jsonc`.
+    This starts the local development server using Wrangler.
+
+6.  **Deploy to Cloudflare:**
+    ```bash
+    npm run deploy
+    ```
+    This command installs system dependencies and deploys your worker to Cloudflare.
 
 ## Running Management Commands
 
