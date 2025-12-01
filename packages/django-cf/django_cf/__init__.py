@@ -81,7 +81,7 @@ class DjangoCFDurableObject:
         self.ctx = ctx
         self.env = env
 
-        from django_cf.do_binding.storage import set_storage
+        from django_cf.db.backends.do.storage import set_storage
         set_storage(self.ctx.storage.sql)
 
     async def fetch(self, request):

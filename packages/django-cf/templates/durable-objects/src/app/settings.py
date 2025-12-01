@@ -83,7 +83,7 @@ if os.getenv('WORKERS_CI') == "1":
 else:
     DATABASES = {
         'default': {
-            'ENGINE': 'django_cf.do_binding',
+            'ENGINE': 'django_cf.db.backends.do',
         }
     }
 

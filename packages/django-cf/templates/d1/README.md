@@ -8,9 +8,9 @@ This template provides a starting point for running a Django application on Clou
 
 This template is pre-configured to:
 - Use `django-cf` to bridge Django with Cloudflare's environment.
-- Employ Cloudflare D1 as the primary data store through the `django_cf.d1_binding` database engine.
+- Employ Cloudflare D1 as the primary data store through the `django_cf.db.backends.d1` database engine.
 - Include a basic Django project structure within the `src/` directory.
-- Provide example worker entrypoint (`src/worker.py`).
+- Provide example worker entrypoint (`src/index.py`).
 
 ## Project Structure
 
@@ -18,7 +18,7 @@ This template is pre-configured to:
 template-root/
  |-> src/
  |    |-> manage.py             # Django management script
- |    |-> worker.py             # Cloudflare Worker entrypoint
+ |    |-> index.py              # Cloudflare Worker entrypoint
  |    |-> app/                  # Your Django project (rename as needed)
  |    |    |-> settings.py       # Django settings, configured for D1
  |    |    |-> urls.py           # Django URLs, includes management endpoints
@@ -28,72 +28,49 @@ template-root/
  |-> staticfiles/              # Collected static files (after build)
  |-> .gitignore
  |-> package.json              # For Node.js dependencies like wrangler
- |-> package-lock.json
- |-> requirements-dev.txt      # Python dev dependencies
- |-> vendor.txt                # Pip requirements for vendoring
+ |-> uv.lock                   # Python dependencies lock file
+ |-> pyproject.toml            # Python project configuration
  |-> wrangler.jsonc            # Wrangler configuration
 ```
 
 ## Setup and Deployment
 
 1.  **Install Dependencies:**
-    *   **Node.js & Wrangler:** Ensure you have Node.js and npm installed. Then install dependencies with this command:
-        ```bash
-        npm install
-        ```
-    *   **Python Dependencies (Vendoring):**
-        List your Python dependencies (including `django` and `django-cf`) in `vendor.txt`.
-        ```txt
-        # vendor.txt
-        django~=5.0
-        django-cf
-        tzdata # For timezone support
-        # Add other dependencies here
-        ```
-        Install them into the `src/vendor` directory:
-        ```bash
-        pip install -t src/vendor -r vendor.txt
-        ```
-
-    *   **Python Dependencies (Local Development):**
-        List your Python dev dependencies (including `django` and `django-cf`) in `requirements-dev.txt`.
-        ```txt
-        # requirements-dev.txt
-        django==5.1.2
-        django-cf
-        # For local D1 API access during development (e.g., running migrations)
-        # Add other dev dependencies here
-        ```
-        Install them:
-        ```bash
-        pip install -r requirements-dev.txt
-        ```
+    Ensure you have Node.js, npm, and Python installed. Then:
+    
+    ```bash
+    # Install Node.js dependencies
+    npm install
+    
+    # Install Python dependencies
+    uv sync
+    ```
+    
+    If you don't have `uv` installed, install it first:
+    ```bash
+    pip install uv
+    ```
 
 2.  **Configure `wrangler.jsonc`:**
     Review and update `wrangler.jsonc` for your project. Key sections:
     *   `name`: Your worker's name.
-    *   `main`: Should point to `src/worker.py`.
     *   `compatibility_date`: Keep this up-to-date.
     *   `d1_databases`:
         *   `binding`: The name used to access the D1 database in your worker (e.g., "DB").
         *   `database_name`: The name of your D1 database in the Cloudflare dashboard.
         *   `database_id`: The ID of your D1 database.
-    *   `site`:
-        *   `bucket`: Points to `./staticfiles` for serving static assets.
-    *   `build`:
-        *   `command`: `"python src/manage.py collectstatic --noinput"` to automatically collect static files during deployment.
 
     Example `d1_databases` configuration in `wrangler.jsonc`:
     ```jsonc
-    // ... other wrangler.jsonc configurations
-    "d1_databases": [
-      {
-        "binding": "DB", // Must match CLOUDFLARE_BINDING in Django settings
-        "database_name": "my-django-db",
-        "database_id": "your-d1-database-id-here"
-      }
-    ],
-    // ...
+    {
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "my-django-db",
+          "database_id": "your-d1-database-id-here"
+        }
+      ]
+    }
     ```
 
 3.  **Django Settings (`src/app/settings.py`):**
@@ -102,103 +79,55 @@ template-root/
     # src/app/settings.py
     DATABASES = {
         'default': {
-            'ENGINE': 'django_cf.d1_binding',
+            'ENGINE': 'django_cf.db.backends.d1',
             # This name 'DB' must match the 'binding' in your wrangler.jsonc d1_databases section
             'CLOUDFLARE_BINDING': 'DB',
         }
     }
-
-    # Static files
-    import os
-    BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    STATIC_URL = '/static/'
-    # STATIC_ROOT should point to the 'bucket' directory in wrangler.jsonc,
-    # often one level above the 'src' directory.
-    STATIC_ROOT = os.path.join(os.path.dirname(BASE_DIR), 'staticfiles', 'static')
-
-    # Optional: Settings for local development using D1 API
-    # You can create a separate settings_dev.py or use environment variables
-    # DATABASES_DEV = {
-    #     'default': {
-    #         'ENGINE': 'django_cf.d1_api',
-    #         'CLOUDFLARE_DATABASE_ID': '<your_database_id>',
-    #         'CLOUDFLARE_ACCOUNT_ID': '<your_account_id>',
-    #         'CLOUDFLARE_TOKEN': '<your_d1_api_token>',
-    #     }
-    # }
     ```
 
-4.  **Worker Entrypoint (`src/worker.py`):**
-    This file contains the main `on_fetch` handler for your Django application.
+4.  **Worker Entrypoint (`src/index.py`):**
+    This file contains the main worker handler for your Django application.
     ```python
-    from django_cf import DjangoCFAdapter
+    from workers import WorkerEntrypoint
+    from django_cf import DjangoCF
 
-    async def on_fetch(request, env):
-        # Ensure your Django project's WSGI application is importable
-        # For example, if your project is 'app' inside 'src':
-        from app.wsgi import application # Import application inside on_fetch
-
-        # The DjangoCFAdapter requires the Django application and the environment (for D1 binding)
-        adapter = DjangoCFAdapter(application, env)
-        return await adapter.handle_request(request)
+    class Default(DjangoCF, WorkerEntrypoint):
+        async def get_app(self):
+            from app.wsgi import application
+            return application
     ```
 
-5.  **Deploy to Cloudflare:**
+5.  **Run Development Server:**
     ```bash
-    npx wrangler deploy
+    npm run dev
     ```
-    This command will also run the `collectstatic` command if configured in `wrangler.jsonc`.
+    This starts the local development server using Wrangler.
+
+6.  **Deploy to Cloudflare:**
+    ```bash
+    npm run deploy
+    ```
+    This command installs system dependencies and deploys your worker to Cloudflare.
 
 ## Running Management Commands
 
-*   **Migrations & `createsuperuser` (Local Development - Recommended for D1):**
-    For D1, it's often easiest and safest to run migrations and `createsuperuser` from your local machine by configuring your development Django settings to use the D1 API.
+For D1, you can use the special management endpoints provided in the template:
 
-    1.  Ensure you have `django-cf` and your other dependencies installed in your local Python environment (`pip install -r requirements-dev.txt`).
-    2.  Set up your Django settings for local D1 API access. You can do this by:
-        *   Creating a `settings_dev.py` and using `python src/manage.py migrate --settings=app.settings_dev`.
-        *   Or, by temporarily modifying your main `settings.py` (ensure you don't commit API keys).
-        *   Or, by using environment variables to supply D1 API credentials to your settings.
+*   **`/__run_migrations__/`**: Triggers the `migrate` command.
+*   **`/__create_admin__/`**: Creates a superuser (username: 'admin', password: 'password').
 
-        Example local D1 API settings in `settings_dev.py` (place it alongside your main `settings.py`):
-        ```python
-        # app/settings_dev.py
-        from .settings import * # Inherit base settings
+These endpoints are defined in `src/app/urls.py` and are protected by `user_passes_test(is_superuser)`. This means you must first create an admin user and be logged in as that user to access these endpoints.
 
-        DATABASES = {
-            'default': {
-                'ENGINE': 'django_cf.d1_api',
-                'CLOUDFLARE_DATABASE_ID': 'your-actual-d1-database-id',
-                'CLOUDFLARE_ACCOUNT_ID': 'your-cloudflare-account-id',
-                'CLOUDFLARE_TOKEN': 'your-cloudflare-d1-api-token', # Ensure this token has D1 Read/Write permissions
-            }
-        }
-        ```
-    3.  Run commands:
-        ```bash
-        # From the template root directory
-        python src/manage.py migrate --settings=app.settings_dev
-        python src/manage.py createsuperuser --settings=app.settings_dev
-        ```
+**Initial Admin User Creation:**
+For the very first admin user creation, you might need to temporarily remove the `@user_passes_test(is_superuser)` decorator from `create_admin_view` in `src/app/urls.py`, deploy, access `/__create_admin__/`, and then reinstate the decorator and redeploy. Alternatively, modify the `create_admin_view` to accept a secure token or other mechanism for the initial setup if direct unauthenticated access is undesirable.
 
-    *   **Making Migrations (`makemigrations`):**
-        When you need to generate new migration files based on your model changes, you should run `makemigrations`. However, because the D1 database engine (`django_cf.d1_binding` or `django_cf.d1_api`) requires a live connection to introspect the database schema (which might not be available or desirable during the `makemigrations` phase, especially in CI environments or when you only want to generate files without querying D1), you can use the `WORKERS_CI=1` environment variable. This variable signals `django-cf` to use a dummy database engine for schema-related operations that don't strictly need a live D1 connection, allowing `makemigrations` to run.
+**Accessing the Endpoints:**
+Once deployed and an admin user exists (and you are logged in as them):
+- Visit `https://your-worker-url.com/__run_migrations__/` to apply migrations.
+- Visit `https://your-worker-url.com/__create_admin__/` to create the admin user if needed.
 
-        ```bash
-        # From the template root directory
-        WORKERS_CI=1 python src/manage.py makemigrations --settings=app.settings_dev
-        # Or, if you are not using settings_dev for this and your default settings.py is configured
-        # WORKERS_CI=1 python src/manage.py makemigrations
-        ```
-        After generating migration files, you can apply them using the `migrate` command as shown above (locally with D1 API access) or via a secured worker endpoint if you have one.
-
-*   **Via a Worker Endpoint (Use with Extreme Caution):**
-    While possible, running migrations or creating users directly via a worker endpoint is generally **not recommended for D1** due to the direct database access available locally via the D1 API. If you absolutely must, you can adapt the management command endpoints from the Durable Objects template (`src/app/urls.py`), but ensure they are **extremely well-secured**.
-    The main risk is exposing sensitive operations over HTTP and potential complexities with the worker environment.
-
-    If you choose this path, remember:
-    *   The worker needs the D1 binding (`env`) passed to the `DjangoCFAdapter` and accessible to your management command functions.
-    *   Secure the endpoints robustly (e.g., IP restrictions, strong authentication tokens, not just Django's `is_superuser` if the admin user might not exist yet).
+Check the JSON response in your browser to see the status of the command.
 
 ## Development Notes
 
@@ -208,10 +137,9 @@ template-root/
     *   Django Admin functionality might be limited.
 *   **Local Testing with D1:**
     *   Wrangler allows local development and can simulate D1 access. `npx wrangler dev --remote` can connect to your actual D1 database for more accurate testing.
-    *   Using the D1 API for local management tasks (as described above) is the most common workflow.
 *   **Security:**
-    *   If you implement management command endpoints on your worker, secure them rigorously.
-    *   Protect your Cloudflare API tokens and credentials.
+    *   The management command endpoints are protected by Django's `user_passes_test(is_superuser)`. Ensure they are properly secured before deploying to production.
+    *   Protect your Cloudflare credentials and API tokens.
 
 ---
 *For more details on `django-cf` features and configurations, refer to the main [django-cf GitHub repository](https://github.com/G4brym/django-cf).*
