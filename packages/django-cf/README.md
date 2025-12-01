@@ -8,6 +8,9 @@
 pip install django-cf
 ```
 
+**Note on Cloudflare Workers Plan:**
+This package requires a **Cloudflare Workers Paid Plan** for production use. Django loads many modules which can exceed the CPU time limits included in free accounts. However, if you're interested in experimenting on the free account, feel free to try it out! If you manage to get it working on the free plan, please [open an issue](https://github.com/G4brym/django-cf/issues) describing your setup so other users can benefit from your solution.
+
 ## Features
 
 This package provides integration with the following Cloudflare products:
@@ -17,165 +20,18 @@ This package provides integration with the following Cloudflare products:
 *   **Cloudflare Durable Objects**: Leverage stateful objects for applications requiring persistent state within Cloudflare Workers.
 *   **Cloudflare Access Authentication**: Seamless authentication middleware for Cloudflare Access protected applications.
 
-## Cloudflare Workers Integration
+## Table of Contents
 
-Run your Django application directly on Cloudflare Workers for edge performance and scalability.
+- [Database Backends](#database-backends)
+  - [Cloudflare D1](#cloudflare-d1-integration)
+  - [Cloudflare Durable Objects](#cloudflare-durable-objects-integration)
+- [Middleware](#cloudflare-access-authentication)
+- [Examples](#examples)
+- [Limitations](#limitations)
 
-**Suggested Project Structure:**
+## Database Backends
 
-```
-root
- |-> src/
- |    |-> manage.py
- |    |-> worker.py               <-- Wrangler entrypoint
- |    |-> your_django_project/
- |    |-> your_django_apps/
- |    |-> vendor/                 <-- Project dependencies
- |-> staticfiles/                <-- Collected static files
- |-> vendor.txt                  <-- Pip requirements for vendoring
- |-> wrangler.toml               <-- Wrangler configuration (or wrangler.jsonc)
-```
-
-**Configuration Steps:**
-
-1.  **`vendor.txt` (Dependencies):**
-    List your project dependencies, including `django-cf`.
-    ```txt
-    django~=5.0 # Or your desired Django version
-    django-cf
-    tzdata # Often required for timezone support
-    ```
-
-2.  **Vendor Dependencies:**
-    Install dependencies into the `src/vendor` directory.
-    ```bash
-    pip install -t src/vendor -r vendor.txt
-    ```
-
-3.  **`wrangler.toml` (or `wrangler.jsonc`):**
-    Configure your Cloudflare Worker. Below is an example using `wrangler.toml`.
-    ```toml
-    name = "django-on-workers"
-    main = "src/worker.py"
-    compatibility_date = "2024-03-20" # Update to a recent date
-
-    compatibility_flags = [ "python_workers" ]
-
-    # Configuration for serving static assets
-    [assets]
-    directory = "./staticfiles"
-
-    # Rules for including vendored Python packages
-    # Optionally add a glob rule for "vendor/**/*.mo" to get django translations, but this will require workers paid plan
-    [[rules]]
-    globs = ["vendor/**/*.py", "vendor/tzdata/**/", "vendor/**/*.txt.gz"]
-    type = "Data"
-    fallthrough = true
-
-    # Example: D1 Database binding (if using D1)
-    [[d1_databases]]
-    binding = "DB" # Name used to access the DB in your worker
-    database_name = "my-django-db"
-    database_id = "your-d1-database-id" # Replace with your actual D1 DB ID
-
-    [build]
-    command = "python src/manage.py collectstatic --noinput"
-    ```
-
-4.  **`src/worker.py` (Worker Entrypoint):**
-    Use `DjangoCFAdapter` to handle requests.
-    ```python
-    from django_cf import DjangoCFAdapter
-
-    async def on_fetch(request, env):
-        # Ensure your Django project's WSGI application is importable
-        # For example, if your project is 'myproject' inside 'src':
-        from myproject.wsgi import application # Import application inside on_fetch
-        adapter = DjangoCFAdapter(application)
-        return await adapter.handle_request(request)
-    ```
-
-5.  **Django Settings (`settings.py`):**
-    *   **Static Files:** Configure Django to collect static files into the directory specified in `wrangler.toml`.
-        ```python
-        # settings.py
-        import os
-        BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-        STATIC_URL = '/static/'
-        # STATIC_ROOT should point to the 'assets' directory in wrangler.toml,
-        # often one level above the 'src' directory.
-        STATIC_ROOT = os.path.join(os.path.dirname(BASE_DIR), 'staticfiles', 'static')
-        ```
-    *   **Database (if using D1 or Durable Objects):** See the respective sections below.
-
-6.  **Collect Static Files & Deploy:**
-    ```bash
-    python src/manage.py collectstatic
-    npx wrangler deploy
-    ```
-
-**Running Management Commands (including Migrations):**
-
-*   **Local Development (Recommended for D1):**
-    For D1, it's often easier to run migrations from your local machine by configuring your development Django settings to use the D1 API.
-    ```python
-    # settings_dev.py (example for local D1 API access)
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django_cf.d1_api',
-            'CLOUDFLARE_DATABASE_ID': '<your_database_id>',
-            'CLOUDFLARE_ACCOUNT_ID': '<your_account_id>',
-            'CLOUDFLARE_TOKEN': '<your_d1_api_token>',
-        }
-    }
-    ```
-    Then run: `python src/manage.py migrate --settings=myproject.settings_dev`
-
-*   **Via a Worker Endpoint (Use with Caution):**
-    You can create a special endpoint in your Django app to trigger migrations on the deployed worker. **Secure this endpoint properly!**
-    ```python
-    # urls.py
-    from django.urls import path
-    from django.http import JsonResponse
-    from django.core.management import call_command
-    from django.contrib.auth.decorators import user_passes_test # Example for security
-    from django.contrib.auth import get_user_model # For create_admin_view
-
-    def is_superuser(user):
-        return user.is_superuser
-
-    @user_passes_test(is_superuser) # Protect this endpoint!
-    def run_migrations_view(request):
-        try:
-            call_command("migrate")
-            return JsonResponse({"status": "success", "message": "Migrations applied."})
-        except Exception as e:
-            return JsonResponse({"status": "error", "message": str(e)}, status=500)
-
-    @user_passes_test(is_superuser) # Protect this endpoint!
-    def create_admin_view(request):
-        User = get_user_model()
-        username = 'admin' # Or get from request, config, etc.
-        email = 'admin@example.com' # Or get from request, config, etc.
-        password = 'yoursecurepassword' # Ideally, generate or get from a secure source
-
-        if not User.objects.filter(username=username).exists():
-            User.objects.create_superuser(username, email, password)
-            return JsonResponse({"status": "success", "message": f"Admin user '{username}' created."})
-        else:
-            return JsonResponse({"status": "info", "message": f"Admin user '{username}' already exists."})
-
-    urlpatterns = [
-        # ... your other urls
-        path('__run_migrations__/', run_migrations_view, name='run_migrations'),
-        path('__create_admin__/', create_admin_view, name='create_admin'), # Add this
-    ]
-    ```
-    Access `https://your-worker-url.com/__run_migrations__/` to trigger migrations.
-    Access `https://your-worker-url.com/__create_admin__/` to trigger admin creation.
-
-## Cloudflare D1 Integration
+### Cloudflare D1 Integration
 
 Use Cloudflare D1, a serverless SQL database, as your Django application's database.
 
@@ -185,7 +41,7 @@ Use Cloudflare D1, a serverless SQL database, as your Django application's datab
 
 There are two ways to connect to D1:
 
-### a) D1 Binding (Recommended for Workers)
+#### a) D1 Binding (Recommended for Workers)
 
 When your Django application is running on Cloudflare Workers, use D1 Bindings for the fastest access. The D1 database is made available to your worker via an environment binding.
 
@@ -199,9 +55,16 @@ DATABASES = {
     }
 }
 ```
-Ensure your `wrangler.toml` includes the D1 database binding (as shown in the Cloudflare Workers section).
 
-### b) D1 API (For Local Development or External Access)
+Ensure your `wrangler.toml` includes the D1 database binding:
+```toml
+[[d1_databases]]
+binding = "DB"
+database_name = "my-django-db"
+database_id = "your-d1-database-id"
+```
+
+#### b) D1 API (For Local Development or External Access)
 
 Connect to D1 via its HTTP API. This method is suitable for local development (e.g., running migrations) or when accessing D1 from outside Cloudflare Workers.
 
@@ -219,63 +82,42 @@ DATABASES = {
 }
 ```
 
-A simple tutorial for getting started with Django and D1 is [available here](https://massadas.com/posts/django-meets-cloudflare-d1/).
+For a complete working example, see the [D1 template](templates/d1/).
 
-## Cloudflare Durable Objects Integration
+### Cloudflare Durable Objects Integration
 
 Utilize Durable Objects for stateful data persistence directly within your Cloudflare Workers. This is useful for applications requiring low-latency access to state associated with specific objects or instances.
 
-**Note:** Durable Objects offer a unique model for state. Understand its consistency and scalability characteristics before implementing.
+**Important:**
+*   **Transactions are disabled** for Durable Objects. All queries are committed immediately, and rollbacks are not available.
+*   Durable Objects offer a unique model for state. Understand its consistency and scalability characteristics before implementing.
 
-**Configuration:**
-
-1.  **`wrangler.toml` (or `wrangler.jsonc`):**
-    Define your Durable Object class and binding.
-    ```toml
-    # In your wrangler.toml
-    [[durable_objects.bindings]]
-    name = "DO_STORAGE" # Name to access the DO namespace in your worker
-    class_name = "DjangoDO" # The class name in your worker.py
-
-    # You also need to declare the new class for migrations
-    [[migrations]]
-    tag = "v1" # Or any other tag
-    new_classes = ["DjangoDO"]
-    ```
-
-2.  **`src/worker.py` (Worker Entrypoint & Durable Object Class):**
-    ```python
-    from django_cf import DjangoCFDurableObject
-    from PythonWorker import DurableObject # Standard Cloudflare DurableObject base
-
-    # Your Django project's WSGI application
-    from myproject.wsgi import application
-
-    class DjangoDO(DjangoCFDurableObject, DurableObject):
-        def get_app(self):
-            # This method provides the Django WSGI app to the Durable Object
-            return application
-        # You can add custom methods to your Durable Object here
-
-    # Main fetch handler for the worker
-    async def on_fetch(request, env):
-        # Example: Route all requests to a single DO instance (singleton)
-        # For multi-tenant apps, derive 'name' from the request (e.g., user, path)
-        do_id = env.DO_STORAGE.idFromName("singleton_instance")
-        stub = env.DO_STORAGE.get(do_id)
-        return await stub.fetch(request) # Forward the request to the Durable Object
-    ```
-
-3.  **Django Settings (`settings.py`):**
-    Configure Django to use the Durable Object backend.
-    ```python
-    DATABASES = {
-        'default': {
-            'ENGINE': 'django_cf.do_binding',
-        }
+**Django Settings (`settings.py`):**
+```python
+DATABASES = {
+    'default': {
+        'ENGINE': 'django_cf.do_binding',
     }
-    ```
-    The `django_cf.do_binding` engine will automatically use the Durable Object binding specified in your `wrangler.toml` that is associated with the `DjangoCFDurableObject` class. Ensure your `wrangler.toml` correctly binds a name to your `DjangoCFDurableObject` subclass.
+}
+```
+
+The `django_cf.do_binding` engine will automatically use the Durable Object binding specified in your `wrangler.toml` that is associated with the `DjangoCFDurableObject` class.
+
+For a complete working example with worker configuration and Durable Object setup, see the [Durable Objects template](templates/durable-objects/).
+
+## Examples
+
+Complete, production-ready examples are available in the `templates/` directory:
+
+- **[D1 Template](templates/d1/)** - Django on Cloudflare Workers with D1 database
+- **[Durable Objects Template](templates/durable-objects/)** - Django on Cloudflare Workers with Durable Objects
+
+Each template includes:
+- Pre-configured `wrangler.toml` (or `wrangler.jsonc`)
+- Worker entrypoint setup
+- Django settings configured for the respective backend
+- Management command endpoints for migrations and admin creation
+- Complete deployment instructions
 
 ## Cloudflare Access Authentication
 
@@ -558,7 +400,9 @@ For local development without Cloudflare Access:
     *   When using the **D1 API engine**, queries can be slower compared to the D1 Binding engine due to the overhead of HTTP requests.
     *   A number of Django ORM features, particularly those relying on specific SQL functions (e.g., some used by the Django Admin), may not work as expected or at all. Django Admin functionality will be limited.
     *   Always refer to the official [Django limitations for SQLite databases](https://docs.djangoproject.com/en/stable/ref/databases/#sqlite-notes), as D1 is SQLite-compatible but has its own serverless characteristics.
-*   **Durable Objects:** While powerful for stateful serverless applications, ensure you understand the consistency model and potential data storage costs associated with Durable Objects.
+*   **Durable Objects:**
+    *   **Transactions are disabled.** All queries are final, and rollbacks are not available.
+    *   While powerful for stateful serverless applications, ensure you understand the consistency model and potential data storage costs associated with Durable Objects.
 
 ## Contributing
 
@@ -579,4 +423,4 @@ This project is licensed under the MIT License. See the [LICENSE](LICENSE) file 
 
 ---
 
-*For a more detailed example of a Django project structured for Cloudflare Workers with D1, check out relevant community projects or the `django-cf` examples if available.*
+*For complete, working examples of Django projects on Cloudflare Workers, refer to the templates in the `templates/` directory.*
