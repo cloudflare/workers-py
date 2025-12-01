@@ -34,7 +34,7 @@ class DatabaseWrapper(CFDatabaseWrapper):
             self.run_sync = run_sync
         except ImportError as e:
             print(e)
-            raise Exception("Code not running inside a worker, please change to django_cf.db.backends.d1_api database backend")
+            raise Exception("Code not running inside a worker!")
 
 
     def process_query(self, query, params=None):

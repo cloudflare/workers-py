@@ -39,50 +39,44 @@ Use Cloudflare D1, a serverless SQL database, as your Django application's datab
 *   **Transactions are disabled** for all D1 database engines. Every query is committed immediately.
 *   The D1 backend has some limitations compared to traditional SQLite or other SQL databases. Many advanced ORM features or direct SQL functions (especially those used in Django Admin) might not be fully supported. Refer to the "Limitations" section.
 
-There are two ways to connect to D1:
+**Configuration:**
 
-#### a) D1 Binding (Recommended for Workers)
-
-When your Django application is running on Cloudflare Workers, use D1 Bindings for the fastest access. The D1 database is made available to your worker via an environment binding.
-
-**Django Settings (`settings.py`):**
-```python
-DATABASES = {
-    'default': {
-        'ENGINE': 'django_cf.d1_binding',
-        # 'CLOUDFLARE_BINDING' should match the binding name in your wrangler.toml
-        'CLOUDFLARE_BINDING': 'DB',
+1.  **`wrangler.jsonc` (or `wrangler.toml`):**
+    ```jsonc
+    {
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "my-django-db",
+          "database_id": "your-d1-database-id"
+        }
+      ]
     }
-}
-```
+    ```
 
-Ensure your `wrangler.toml` includes the D1 database binding:
-```toml
-[[d1_databases]]
-binding = "DB"
-database_name = "my-django-db"
-database_id = "your-d1-database-id"
-```
+2.  **Worker Entrypoint (`src/index.py`):**
+    ```python
+    from workers import WorkerEntrypoint
+    from django_cf import DjangoCF
 
-#### b) D1 API (For Local Development or External Access)
+    class Default(DjangoCF, WorkerEntrypoint):
+        async def get_app(self):
+            from app.wsgi import application
+            return application
+    ```
 
-Connect to D1 via its HTTP API. This method is suitable for local development (e.g., running migrations) or when accessing D1 from outside Cloudflare Workers.
-
-**Note:** Accessing D1 via the API can be slower than using bindings due to the nature of HTTP requests for each query.
-
-**Django Settings (`settings.py`):**
-```python
-DATABASES = {
-    'default': {
-        'ENGINE': 'django_cf.d1_api',
-        'CLOUDFLARE_DATABASE_ID': '<your_database_id>',
-        'CLOUDFLARE_ACCOUNT_ID': '<your_account_id>',
-        'CLOUDFLARE_TOKEN': '<your_d1_api_token>', # Ensure this token has D1 Read/Write permissions
+3.  **Django Settings (`settings.py`):**
+    ```python
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django_cf.db.backends.d1',
+            # 'CLOUDFLARE_BINDING' should match the binding name in your wrangler.jsonc
+            'CLOUDFLARE_BINDING': 'DB',
+        }
     }
-}
-```
+    ```
 
-For a complete working example, see the [D1 template](templates/d1/).
+For a complete working example with full configuration and management endpoints, see the [D1 template](templates/d1/).
 
 ### Cloudflare Durable Objects Integration
 
@@ -92,18 +86,57 @@ Utilize Durable Objects for stateful data persistence directly within your Cloud
 *   **Transactions are disabled** for Durable Objects. All queries are committed immediately, and rollbacks are not available.
 *   Durable Objects offer a unique model for state. Understand its consistency and scalability characteristics before implementing.
 
-**Django Settings (`settings.py`):**
-```python
-DATABASES = {
-    'default': {
-        'ENGINE': 'django_cf.do_binding',
+**Configuration:**
+
+1.  **`wrangler.jsonc` (or `wrangler.toml`):**
+    Define your Durable Object class and binding.
+    ```jsonc
+    {
+      "durable_objects": {
+        "bindings": [
+          {
+            "name": "DO_STORAGE",
+            "class_name": "DjangoDO"
+          }
+        ]
+      },
+      "migrations": [
+        {
+          "tag": "v1",
+          "new_sqlite_classes": ["DjangoDO"]
+        }
+      ]
     }
-}
-```
+    ```
 
-The `django_cf.do_binding` engine will automatically use the Durable Object binding specified in your `wrangler.toml` that is associated with the `DjangoCFDurableObject` class.
+2.  **Worker Entrypoint (`src/index.py`):**
+    ```python
+    from workers import DurableObject, WorkerEntrypoint
+    from django_cf import DjangoCFDurableObject
 
-For a complete working example with worker configuration and Durable Object setup, see the [Durable Objects template](templates/durable-objects/).
+    class DjangoDO(DjangoCFDurableObject, DurableObject):
+        def get_app(self):
+            from app.wsgi import application
+            return application
+
+    class Default(WorkerEntrypoint):
+        async def fetch(self, request):
+            # Route requests to a DO instance
+            id = self.env.DO_STORAGE.idFromName("singleton_instance")
+            obj = self.env.DO_STORAGE.get(id)
+            return await obj.fetch(request)
+    ```
+
+3.  **Django Settings (`settings.py`):**
+    ```python
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django_cf.do_binding',
+        }
+    }
+    ```
+
+For a complete working example with full configuration and management endpoints, see the [Durable Objects template](templates/durable-objects/).
 
 ## Examples
 
