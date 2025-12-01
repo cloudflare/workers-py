@@ -66,15 +66,15 @@ async def handle_wsgi(request, app):
 
 
 class DjangoCF:
-    async def get_app(self):
+    def get_app(self):
         raise NotImplementedError("Please implement implement get_app in your django_cf worker")
 
     async def fetch(self, request):
-        return await handle_wsgi(request, await self.get_app())
+        return await handle_wsgi(request, self.get_app())
 
 
 class DjangoCFDurableObject:
-    async def get_app(self):
+    def get_app(self):
         raise NotImplementedError("Please implement implement get_app in your django_cf worker")
 
     def __init__(self, ctx, env):
@@ -84,5 +84,5 @@ class DjangoCFDurableObject:
         from django_cf.db.backends.do.storage import set_storage
         set_storage(self.ctx.storage.sql)
 
-    async def fetch(self, request):
-        return await handle_wsgi(request, await self.get_app())
+    def fetch(self, request):
+        return handle_wsgi(request, self.get_app())
