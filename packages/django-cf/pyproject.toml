@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-cf"
-version = "0.1.5"
+version = "0.2.0"
 authors = [
   { name="Gabriel Massadas" },
 ]
@@ -14,7 +14,7 @@ dependencies = [
 description = "django-cf is a package that integrates Django with Cloudflare products"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Framework :: Django",
@@ -22,8 +22,6 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12"
 ]
 
