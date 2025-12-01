@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "django-cf"
-version = "0.2.1"
+version = "0.2.3"
 authors = [
   { name="Gabriel Massadas" },
 ]
@@ -38,8 +38,10 @@ dev = [
 "Bug Reports" = "https://github.com/G4brym/django-cf/issues"
 "Source" = "https://github.com/G4brym/django-cf"
 
-[tool.setuptools]
-packages = ["django_cf", "django_cf.db.backends.d1", "django_cf.db.backends.do", "django_cf.middleware"]
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["django_cf", "django_cf.*"]
+exclude = ["tests*", "docs*", "templates*", ".github*", "*.__pycache__"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"

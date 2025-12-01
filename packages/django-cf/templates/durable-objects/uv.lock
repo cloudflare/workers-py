@@ -52,14 +52,14 @@ wheels = [
 
 [[package]]
 name = "django-cf"
-version = "0.2.0"
+version = "0.2.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "sqlparse" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/39/c1/48f4dd7d663825da4fa4c981e342f882407412c3748a149727f0cc7d0cc5/django_cf-0.2.0.tar.gz", hash = "sha256:f3fe90655b6fc383077780efde8e041d2aae887ce71caf64d8d2a94a95234834", size = 20675, upload-time = "2025-12-01T11:19:34.406Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2c/5d/e5f4a19e2f8147119201795c8f0afd21f4c0e40d601fac506d8054abad19/django_cf-0.2.3.tar.gz", hash = "sha256:69a3bd3acddee5f4cd9ed117308a450ac14ef0f2341ab9de3690990ce6c53f51", size = 23676, upload-time = "2025-12-01T15:02:49.054Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/60/ad/29aa14bf7be97d86345bdb02ef6ba11fcc653ff92b06c70b83ca98aa9446/django_cf-0.2.0-py3-none-any.whl", hash = "sha256:6bf72d05cc6823ace642c67147f6e41b8d213772dcacab585cfc5f6458a1c51d", size = 16794, upload-time = "2025-12-01T11:19:33.337Z" },
+    { url = "https://files.pythonhosted.org/packages/ba/36/e8b4d021869d0eccdffa0204835b4fc5b9e5d2e76f0ed9dd9d2ded3aaf65/django_cf-0.2.3-py3-none-any.whl", hash = "sha256:d63b3dd60e00a1985eb6720a42028c563728208abd708cd9f9ce6bb2520cddbc", size = 20444, upload-time = "2025-12-01T15:02:48.028Z" },
 ]
 
 [[package]]
