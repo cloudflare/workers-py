@@ -94,7 +94,7 @@ class CloudflareAccessMiddleware:
                 # Path is exempt, continue with anonymous user
 
         except Exception as e:
-            logger.error(f"Cloudflare Access authentication error: {str(e)}")
+            logger.error(f"Cloudflare Access authentication error: {repr(e)}")
             # Only return 500 for non-exempt paths
             if not self._is_exempt_path(request.path):
                 return JsonResponse(
@@ -135,6 +135,9 @@ class CloudflareAccessMiddleware:
         if not public_keys:
             logger.error("Failed to retrieve Cloudflare public keys")
             return None
+
+        email = None
+        name = None
 
         # Validate and decode JWT
         try:
@@ -187,13 +190,13 @@ class CloudflareAccessMiddleware:
                 logger.warning("No email found in JWT token")
                 return None
 
-            # Get or create user
-            user = self._get_or_create_user(email, name)
-            return user
-
         except Exception as e:
-            logger.warning(f"JWT token validation error: {str(e)}")
+            logger.warning(f"JWT token validation error: {repr(e)}")
             return None
+
+        # Get or create user
+        user = self._get_or_create_user(email, name)
+        return user
 
     def _extract_jwt_token(self, request):
         """Extract JWT token from CF-Access-Jwt-Assertion header or cf_authorization cookie."""
