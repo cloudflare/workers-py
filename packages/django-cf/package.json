@@ -13,8 +13,8 @@
   },
   "license": "MIT",
   "scripts": {
-    "setup-durable-objects": "cd templates/durable-objects && npm run dependencies && cp -r ../../django_cf src/vendor/django_cf",
-    "setup-d1": "cd templates/d1 && npm run dependencies && cp -r ../../django_cf src/vendor/django_cf",
+    "setup-durable-objects": "cd templates/durable-objects && npm run dependencies && rm -rf python_modules/django_cf && cp -r ../../django_cf python_modules/django_cf",
+    "setup-d1": "cd templates/d1 && npm run dependencies && rm -rf python_modules/django_cf && cp -r ../../django_cf python_modules/django_cf",
     "setup-test": "pip install -e .[dev] && npm run setup-durable-objects && npm run setup-d1",
     "test": "pytest"
   },
