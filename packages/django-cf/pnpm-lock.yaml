@@ -24,6 +24,12 @@ importers:
         specifier: ^4.51.0
         version: 4.51.0
 
+  tests/servers/r2:
+    devDependencies:
+      wrangler:
+        specifier: ^4.51.0
+        version: 4.51.0
+
 packages:
 
   '@cloudflare/kv-asset-handler@0.4.0':

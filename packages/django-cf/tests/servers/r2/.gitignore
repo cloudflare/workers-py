@@ -1,0 +1,7 @@
+.venv
+.venv-workers
+python_modules
+node_modules
+.wrangler
+staticfiles
+src/django_cf
