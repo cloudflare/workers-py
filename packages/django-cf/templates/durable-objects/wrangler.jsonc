@@ -1,4 +1,5 @@
 {
+  "$schema": "node_modules/wrangler/config-schema.json",
   "name": "django-on-workers-with-durable-objects",
   "main": "src/index.py",
   "compatibility_flags": [
