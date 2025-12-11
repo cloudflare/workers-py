@@ -1,0 +1,14 @@
+{
+  "name": "django-on-workers",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "dependencies": "uv pip install --system workers-py --upgrade && uv run pywrangler sync",
+    "deploy": "npm run dependencies && uv run pywrangler deploy",
+    "dev": "uv run pywrangler dev",
+    "start": "uv run pywrangler dev"
+  },
+  "devDependencies": {
+    "wrangler": "^4.51.0"
+  }
+}

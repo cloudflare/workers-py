@@ -16,10 +16,11 @@ def get_free_port():
 
 
 class WorkerFixture:
-    def __init__(self):
+    def __init__(self, migrate=True):
         self.process = None
         self.port = None
         self.base_url = None
+        self.migrate = migrate
 
     def start(self, worker_dir):
         """Start the worker in a subprocess."""
@@ -41,8 +42,9 @@ class WorkerFixture:
         # Wait for server to start
         self._wait_for_server()
 
-        requests.get(f"{self.base_url}/__run_migrations__/")
-        requests.get(f"{self.base_url}/__create_admin__/")
+        if self.migrate:
+            requests.get(f"{self.base_url}/__run_migrations__/")
+            requests.get(f"{self.base_url}/__create_admin__/")
 
         return self
 
@@ -86,6 +88,17 @@ def d1_web_server():
     """Pytest fixture that starts the worker for the entire test session."""
     worker_dir = os.path.join(os.path.dirname(__file__), '..', 'templates', 'd1')
     server = WorkerFixture()
+    server.start(worker_dir)
+
+    yield server
+    server.stop()
+
+
+@pytest.fixture(scope="session")
+def r2_web_server():
+    """Pytest fixture that starts the R2 test server for the entire test session."""
+    worker_dir = os.path.join(os.path.dirname(__file__), 'servers', 'r2')
+    server = WorkerFixture(False)
     server.start(worker_dir)
 
     yield server
