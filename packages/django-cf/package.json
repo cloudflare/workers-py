@@ -18,7 +18,9 @@
     "setup-test-servers": "cd tests/servers/r2 && npm run dependencies && rm -rf python_modules/django_cf && cp -r ../../../django_cf python_modules/django_cf",
     "setup-test": "pip install -e .[dev] && npm run setup-durable-objects && npm run setup-d1 && npm run setup-test-servers",
     "test": "pytest",
-    "upgrade-templates": "cd templates/durable-objects && uv add django-cf --upgrade && cd ../d1 && uv add django-cf --upgrade"
+    "upgrade-templates": "cd templates/durable-objects && uv add django-cf --upgrade && cd ../d1 && uv add django-cf --upgrade",
+    "build": "rm -rf dist/ && python3 -m build",
+    "publish": "python3 -m twine upload dist/*"
   },
   "devDependencies": {
     "wrangler": "^4.22.0"
