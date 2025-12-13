@@ -206,13 +206,21 @@ class R2Storage(Storage):
     def url(self, name):
         """
         Return the URL for accessing the file.
-        R2 objects are not publicly accessible by default.
-        You'll need to set up R2 public buckets or use signed URLs.
+        
+        Uses Django's MEDIA_URL setting to construct the file URL.
+        Ensure your web server is configured to serve files from R2 at the MEDIA_URL path.
         """
-        raise NotImplementedError(
-            "R2Storage does not support public URLs by default. "
-            "Configure R2 public buckets or implement signed URLs."
-        )
+        from django.conf import settings
+        
+        if not hasattr(settings, 'MEDIA_URL') or not settings.MEDIA_URL:
+            raise ValueError(
+                "MEDIA_URL must be configured in Django settings to use R2Storage. "
+                "Configure your web server to proxy requests from MEDIA_URL to your R2 bucket."
+            )
+        
+        full_path = self._full_path(name)
+        media_url = settings.MEDIA_URL.rstrip('/')
+        return f"{media_url}/{full_path}"
 
     def get_accessed_time(self, name):
         """
