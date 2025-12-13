@@ -171,7 +171,9 @@ Use Cloudflare R2, a global object storage service, as your Django storage backe
     ```
 
 2.  **Django Settings (`settings.py`):**
-    ```python
+    ```python 
+    MEDIA_URL = 'https://pub-xxxxx.r2.dev/'
+
     STORAGES = {
         "default": {
             "BACKEND": "django_cf.storage.R2Storage",
@@ -179,18 +181,13 @@ Use Cloudflare R2, a global object storage service, as your Django storage backe
                 # The binding name must match the one in wrangler.jsonc
                 "binding": "BUCKET",
                 # Optional: prefix for all files
-                "location": "",
+                "location": "media",
                 # Optional: allow overwriting existing files (default: False)
                 "allow_overwrite": False,
             }
         },
-        # Optional: separate storage for static files
         "staticfiles": {
-            "BACKEND": "django_cf.storage.R2Storage",
-            "OPTIONS": {
-                "binding": "BUCKET",
-                "location": "static",
-            }
+            "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
         },
     }
     ```
