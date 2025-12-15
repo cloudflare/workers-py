@@ -1,11 +1,11 @@
 from workers import DurableObject, WorkerEntrypoint
 
 from django_cf import DjangoCFDurableObject
+from app.wsgi import application
 
 
 class DjangoDO(DjangoCFDurableObject, DurableObject):
     def get_app(self):
-        from app.wsgi import application  # Update according to your project structure
         return application
 
 
