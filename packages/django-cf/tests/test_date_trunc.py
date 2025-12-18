@@ -165,3 +165,24 @@ def test_date_trunc_create_and_clear_transactions(r2_web_server):
     response = requests.get(f"{base_url}/__date_trunc_test__/", params={'type': 'month'}, timeout=10)
     assert response.status_code == 200
     assert len(response.json()['results']) == 0
+
+
+def test_decimal_transaction(r2_web_server):
+    """Test inserting and retrieving a transaction with decimal values."""
+    base_url = r2_web_server.base_url
+    
+    # Test decimal transaction creation and retrieval
+    response = requests.post(f"{base_url}/__test_decimal_transaction__/", timeout=10)
+    
+    assert response.status_code == 200
+    result = response.json()
+    assert result['status'] == 'success'
+    assert 'transaction' in result
+    
+    transaction = result['transaction']
+    assert transaction['description'] == 'Decimal Test Transaction'
+    assert transaction['balance'] == '1234.56'
+    assert transaction['credit'] == '500.75'
+    assert transaction['debit'] == '250.19'
+    assert transaction['value_date'] == '2025-01-15'
+    assert transaction['movement_date'] == '2025-01-15'

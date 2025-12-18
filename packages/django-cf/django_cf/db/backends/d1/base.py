@@ -1,6 +1,6 @@
 from django.core.exceptions import ImproperlyConfigured
 
-from ...base_engine import CFDatabaseWrapper, is_read_only_query, CFResult
+from ...base_engine import CFDatabaseWrapper, is_read_only_query, CFResult, replace_date_trunc_in_sql
 
 
 class DatabaseWrapper(CFDatabaseWrapper):
@@ -38,6 +38,9 @@ class DatabaseWrapper(CFDatabaseWrapper):
 
 
     def process_query(self, query, params=None):
+        # Replace django_date_trunc and django_datetime_trunc with SQLite equivalents
+        query = replace_date_trunc_in_sql(query)
+
         if params is None:
             query = query.replace('%s', '?')
         else:
