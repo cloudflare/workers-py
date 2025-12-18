@@ -9,6 +9,7 @@ class BankTransactionAdmin(admin.ModelAdmin):
     list_filter = ('movement_date', 'created_at')
     search_fields = ('description',)
     readonly_fields = ('created_at', 'updated_at')
+    date_hierarchy = 'movement_date'
 
     fieldsets = (
         (_('Transaction Info'), {
