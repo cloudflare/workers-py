@@ -14,78 +14,43 @@ from django.db.models.sql.compiler import SQLCompiler
 
 
 def replace_date_trunc_in_sql(sql):
-    """Replace django_date_trunc function calls with SQLite equivalents."""
-    if 'django_date_trunc' not in sql:
+    """Replace django_date_trunc and django_datetime_trunc function calls with SQLite equivalents."""
+    if 'django_date_trunc' not in sql and 'django_datetime_trunc' not in sql:
         return sql
     
-    result = []
-    i = 0
-    while i < len(sql):
-        # Look for django_date_trunc function
-        if sql[i:].startswith('django_date_trunc('):
-            # Find the opening quote after django_date_trunc(
-            start = i + len('django_date_trunc(')
-            if start < len(sql) and sql[start] == "'":
-                # Find the closing quote for the kind parameter
-                kind_start = start + 1
-                kind_end = sql.find("'", kind_start)
-                if kind_end != -1:
-                    kind = sql[kind_start:kind_end]
-                    
-                    # Find the comma after the kind
-                    comma_pos = sql.find(',', kind_end)
-                    if comma_pos != -1:
-                        # Now find the matching closing parenthesis
-                        paren_count = 1
-                        field_start = comma_pos + 1
-                        # Skip whitespace
-                        while field_start < len(sql) and sql[field_start] in ' \t':
-                            field_start += 1
-                        
-                        # Find the matching closing paren
-                        paren_pos = field_start
-                        paren_count = 1
-                        in_quotes = False
-                        in_double_quotes = False
-                        
-                        while paren_pos < len(sql) and paren_count > 0:
-                            if sql[paren_pos] == "'" and not in_double_quotes:
-                                in_quotes = not in_quotes
-                            elif sql[paren_pos] == '"' and not in_quotes:
-                                in_double_quotes = not in_double_quotes
-                            elif sql[paren_pos] == '(' and not in_quotes and not in_double_quotes:
-                                paren_count += 1
-                            elif sql[paren_pos] == ')' and not in_quotes and not in_double_quotes:
-                                paren_count -= 1
-                            paren_pos += 1
-                        
-                        if paren_count == 0:
-                            # Extract the field
-                            field = sql[field_start:paren_pos-1].strip()
-                            
-                            # Generate the replacement SQL
-                            templates = {
-                                'year': f'STRFTIME("%Y-01-01", {field})',
-                                'quarter': f'CASE CAST(STRFTIME("%m", {field}) AS INTEGER) WHEN 1 THEN STRFTIME("%Y-01-01", {field}) WHEN 2 THEN STRFTIME("%Y-04-01", {field}) WHEN 3 THEN STRFTIME("%Y-07-01", {field}) WHEN 4 THEN STRFTIME("%Y-10-01", {field}) END',
-                                'month': f'STRFTIME("%Y-%m-01", {field})',
-                                'week': f'DATE({field}, "-" || CAST((CAST(STRFTIME("%w", {field}) AS INTEGER) + 6) % 7 AS TEXT) || " days")',
-                                'day': f'DATE({field})',
-                                'hour': f'STRFTIME("%Y-%m-%d %H:00:00", {field})',
-                                'minute': f'STRFTIME("%Y-%m-%d %H:%M:00", {field})',
-                                'second': f'STRFTIME("%Y-%m-%d %H:%M:%S", {field})',
-                                'date': f'DATE({field})',
-                                'time': f'TIME({field})',
-                            }
-                            
-                            replacement = templates.get(kind, '')
-                            result.append(replacement)
-                            i = paren_pos
-                            continue
-        
-        result.append(sql[i])
-        i += 1
+    import re
     
-    return ''.join(result)
+    # Pattern to match django_datetime_trunc(%s, field, %s, %s) or django_date_trunc(%s, field, %s, %s)
+    # The kind is passed as a parameter (%s), so we need to replace the entire function call
+    # with a CASE statement that handles all possible kinds
+    pattern = r"django_(?:date|datetime)_trunc\(%s,\s*([^,]+),\s*%s,\s*%s\)"
+    
+    def replace_func(match):
+        field = match.group(1).strip()
+        
+        # Since the kind is a parameter, we need to use a CASE statement
+        # that handles all truncation types
+        replacement = (
+            f"CASE %s "
+            f"WHEN 'year' THEN STRFTIME('%Y-01-01', {field}) "
+            f"WHEN 'quarter' THEN CASE CAST(STRFTIME('%m', {field}) AS INTEGER) "
+            f"  WHEN 1 THEN STRFTIME('%Y-01-01', {field}) "
+            f"  WHEN 2 THEN STRFTIME('%Y-04-01', {field}) "
+            f"  WHEN 3 THEN STRFTIME('%Y-07-01', {field}) "
+            f"  WHEN 4 THEN STRFTIME('%Y-10-01', {field}) END "
+            f"WHEN 'month' THEN STRFTIME('%Y-%m-01', {field}) "
+            f"WHEN 'week' THEN DATE({field}, '-' || CAST((CAST(STRFTIME('%w', {field}) AS INTEGER) + 6) % 7 AS TEXT) || ' days') "
+            f"WHEN 'day' THEN DATE({field}) "
+            f"WHEN 'hour' THEN STRFTIME('%Y-%m-%d %H:00:00', {field}) "
+            f"WHEN 'minute' THEN STRFTIME('%Y-%m-%d %H:%M:00', {field}) "
+            f"WHEN 'second' THEN STRFTIME('%Y-%m-%d %H:%M:%S', {field}) "
+            f"WHEN 'date' THEN DATE({field}) "
+            f"WHEN 'time' THEN TIME({field}) "
+            f"END"
+        )
+        return replacement
+    
+    return re.sub(pattern, replace_func, sql)
 
 
 class CFDatabaseIntrospection(SQLiteDatabaseIntrospection):
@@ -343,6 +308,8 @@ class CFDatabase:
         return self.lastResult.rowcount
 
     def execute(self, query, params=None) -> None:
+        from decimal import Decimal
+        
         # Transform django_date_trunc function calls to SQLite equivalents
         query = replace_date_trunc_in_sql(query)
         
@@ -353,6 +320,8 @@ class CFDatabase:
                     v = 1
                 elif v is False:
                     v = 0
+                elif isinstance(v, Decimal):
+                    v = str(v)
 
                 newParams.append(v)
 

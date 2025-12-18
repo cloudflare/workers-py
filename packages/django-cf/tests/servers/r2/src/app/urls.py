@@ -225,6 +225,49 @@ def date_trunc_clear_transactions_view(request):
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
 
+def test_decimal_transaction_view(request):
+    """Test inserting and retrieving a transaction with decimal values."""
+    try:
+        if request.method == 'POST':
+            from decimal import Decimal
+            
+            # Clear existing transactions
+            BankTransaction.objects.all().delete()
+            
+            # Create a transaction with decimal values using Decimal type
+            transaction = BankTransaction.objects.create(
+                description='Decimal Test Transaction',
+                balance=Decimal('1234.56'),
+                credit=Decimal('500.75'),
+                debit=Decimal('250.19'),
+                value_date='2025-01-15',
+                movement_date='2025-01-15'
+            )
+            
+            # Retrieve and verify the values
+            retrieved = BankTransaction.objects.get(id=transaction.id)
+            
+            return JsonResponse({
+                "status": "success",
+                "message": "Transaction created and retrieved successfully",
+                "transaction": {
+                    "id": retrieved.id,
+                    "description": retrieved.description,
+                    "balance": str(retrieved.balance),
+                    "credit": str(retrieved.credit),
+                    "debit": str(retrieved.debit),
+                    "value_date": str(retrieved.value_date),
+                    "movement_date": str(retrieved.movement_date),
+                }
+            })
+        
+        return JsonResponse({"status": "error", "message": "Method not allowed"}, status=405)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+
 urlpatterns = [
     path('admin/', admin.site.urls),
 
@@ -244,4 +287,5 @@ urlpatterns = [
     path('__date_trunc_test__/', date_trunc_test_view, name='date_trunc_test'),
     path('__date_trunc_create_transaction__/', date_trunc_create_transaction_view, name='date_trunc_create_transaction'),
     path('__date_trunc_clear_transactions__/', date_trunc_clear_transactions_view, name='date_trunc_clear_transactions'),
+    path('__test_decimal_transaction__/', test_decimal_transaction_view, name='test_decimal_transaction'),
 ]
