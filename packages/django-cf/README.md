@@ -64,10 +64,10 @@ Use Cloudflare D1, a serverless SQL database, as your Django application's datab
     ```python
     from workers import WorkerEntrypoint
     from django_cf import DjangoCF
+    from app.wsgi import application
 
     class Default(DjangoCF, WorkerEntrypoint):
         async def get_app(self):
-            from app.wsgi import application
             return application
     ```
 
@@ -119,10 +119,10 @@ Utilize Durable Objects for stateful data persistence directly within your Cloud
     ```python
     from workers import DurableObject, WorkerEntrypoint
     from django_cf import DjangoCFDurableObject
+    from app.wsgi import application
 
     class DjangoDO(DjangoCFDurableObject, DurableObject):
         def get_app(self):
-            from app.wsgi import application
             return application
 
     class Default(WorkerEntrypoint):
@@ -243,6 +243,9 @@ STORAGES = {
             "location": "media",
         }
     },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
 }
 ```
 
@@ -293,6 +296,9 @@ STORAGES = {
             "location": "media",
         }
     },
+    "staticfiles": {
+        "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+    },
 }
 ```
 
@@ -305,20 +311,6 @@ When you reference a file in a template (e.g., `{{ object.image.url }}`), Django
 *   You must configure `MEDIA_URL` in your Django settings for the `url()` method to work.
 *   Your web server needs to be configured to serve files from R2 at the `MEDIA_URL` path (e.g., using a reverse proxy or Cloudflare Workers route).
 *   All file operations use the Workers R2 API, which provides low-latency access to your objects.
-
-## Examples
-
-Complete, production-ready examples are available in the `templates/` directory:
-
-- **[D1 Template](templates/d1/)** - Django on Cloudflare Workers with D1 database
-- **[Durable Objects Template](templates/durable-objects/)** - Django on Cloudflare Workers with Durable Objects
-
-Each template includes:
-- Pre-configured `wrangler.jsonc`
-- Worker entrypoint setup
-- Django settings configured for the respective backend
-- Management command endpoints for migrations and admin creation
-- Complete deployment instructions
 
 ## Middleware
 
@@ -595,6 +587,21 @@ For local development without Cloudflare Access:
 1. Set exempt paths to include your development URLs
 2. Use Django's built-in authentication for local testing
 3. Consider using environment variables to toggle the middleware
+
+
+## Examples
+
+Complete, production-ready examples are available in the `templates/` directory:
+
+- **[D1 Template](templates/d1/)** - Django on Cloudflare Workers with D1 database
+- **[Durable Objects Template](templates/durable-objects/)** - Django on Cloudflare Workers with Durable Objects
+
+Each template includes:
+- Pre-configured `wrangler.jsonc`
+- Worker entrypoint setup
+- Django settings configured for the respective backend
+- Management command endpoints for migrations and admin creation
+- Complete deployment instructions
 
 ## Limitations
 

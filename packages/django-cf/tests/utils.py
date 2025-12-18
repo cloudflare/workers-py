@@ -98,7 +98,7 @@ def d1_web_server():
 def r2_web_server():
     """Pytest fixture that starts the R2 test server for the entire test session."""
     worker_dir = os.path.join(os.path.dirname(__file__), 'servers', 'r2')
-    server = WorkerFixture(False)
+    server = WorkerFixture()
     server.start(worker_dir)
 
     yield server
