@@ -50,7 +50,15 @@ async def handle_wsgi(request, app):
         status = status_str
         headers = response_headers
 
-    resp = app(wsgi_request, start_response)
+    try:
+        resp = app(wsgi_request, start_response)
+    except Exception as exc:
+        # library should always print or console log the exception, because a production django should not show end users errors
+        print('Caught exception while loading application:', exc.__str__())
+        print(exc)
+
+        raise exc
+
     status = resp.status_code
     headers = resp.headers
 
