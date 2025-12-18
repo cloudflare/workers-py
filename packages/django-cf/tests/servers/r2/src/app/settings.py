@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'app',
 ]
 
 MIDDLEWARE = [
@@ -76,12 +77,16 @@ WSGI_APPLICATION = 'app.wsgi.application'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 # Workers CI is missing the sqlite3 module, to build the staticfiles, we must disable the engine
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': ':memory:',
-    },
-}
+if os.getenv('WORKERS_CI') == "1":
+    DATABASES = {}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django_cf.db.backends.d1',
+            # 'CLOUDFLARE_BINDING' should match the binding name in your wrangler.toml
+            'CLOUDFLARE_BINDING': 'DB',
+        }
+    }
 
 # Storage configuration
 # https://docs.djangoproject.com/en/5.1/ref/settings/#std:setting-STORAGES
