@@ -1,5 +1,8 @@
+import sys
 from contextlib import chdir
 from subprocess import run
+
+import pytest
 
 # Import the full module so we can patch constants
 from pywrangler.types import wrangler_types
@@ -42,7 +45,9 @@ class Default(WorkerEntrypoint):
 """
 
 
+@pytest.mark.skipif(sys.version_info < (3, 13), reason="We create Python 3.13+ syntax")
 def test_types(tmp_path):
+    """Test that types are correctly revealed in a worker."""
     config_path = tmp_path / "wrangler.toml"
     pyproject_path = tmp_path / "pyproject.toml"
     worker_dir = tmp_path / "src/worker"
