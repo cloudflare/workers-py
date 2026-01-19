@@ -31,8 +31,12 @@ def get_venv_workers_token_path() -> Path:
     return get_venv_workers_path() / ".synced"
 
 
+def get_vendor_modules_path() -> Path:
+    return get_project_root() / "python_modules"
+
+
 def get_vendor_token_path() -> Path:
-    return get_project_root() / "python_modules/.synced"
+    return get_vendor_modules_path() / ".synced"
 
 
 def get_pyodide_venv_path() -> Path:
@@ -160,7 +164,7 @@ def temp_requirements_file(requirements: list[str]) -> Iterator[str]:
 
 
 def _install_requirements_to_vendor(requirements: list[str]) -> None:
-    vendor_path = get_project_root() / "python_modules"
+    vendor_path = get_vendor_modules_path()
     logger.debug(f"Using vendor path: {vendor_path}")
 
     if len(requirements) == 0:
@@ -231,29 +235,24 @@ def _install_requirements_to_vendor(requirements: list[str]) -> None:
     )
 
 
-def _install_requirements_to_venv(requirements: list[str]) -> None:
-    # Create a requirements file for .venv-workers that includes pyodide-py
-    venv_workers_path = get_venv_workers_path()
+def _pip_install_to_venv(
+    requirements: list[str],
+    venv_path: Path,
+    action_name: str,
+) -> None:
+    """Install packages to a venv."""
     project_root = get_project_root()
-    relative_venv_workers_path = venv_workers_path.relative_to(project_root)
-    requirements = requirements.copy()
-    requirements.append("pyodide-py")
+    relative_venv_path = venv_path.relative_to(project_root)
 
     logger.info(
-        f"Installing packages into [bold]{relative_venv_workers_path}[/bold]...",
+        f"{action_name} [bold]{relative_venv_path}[/bold]...",
         extra={"markup": True},
     )
     with temp_requirements_file(requirements) as requirements_file:
         result = run_command(
-            [
-                "uv",
-                "pip",
-                "install",
-                "-r",
-                requirements_file,
-            ],
+            ["uv", "pip", "install", "-r", requirements_file],
             check=False,
-            env=os.environ | {"VIRTUAL_ENV": venv_workers_path},
+            env=os.environ | {"VIRTUAL_ENV": venv_path},
             capture_output=True,
         )
         if result.returncode != 0:
@@ -263,10 +262,54 @@ def _install_requirements_to_venv(requirements: list[str]) -> None:
             )
             raise click.exceptions.Exit(code=result.returncode)
 
-    get_venv_workers_token_path().touch()
     logger.info(
-        f"Packages installed in [bold]{relative_venv_workers_path}[/bold].",
+        f"Packages installed in [bold]{relative_venv_path}[/bold].",
         extra={"markup": True},
+    )
+
+
+def _install_requirements_to_venv(requirements: list[str]) -> None:
+    requirements = requirements.copy()
+    requirements.append("pyodide-py")
+
+    _pip_install_to_venv(
+        requirements,
+        get_venv_workers_path(),
+        action_name="Installing packages into",
+    )
+    get_venv_workers_token_path().touch()
+
+
+def _get_vendor_package_versions() -> list[str]:
+    """Get pinned package versions from pyodide venv (e.g., ["shapely==2.0.7"])."""
+    result = run_command(
+        ["uv", "pip", "freeze", "--path", get_vendor_modules_path()],
+        env=os.environ | {"VIRTUAL_ENV": get_pyodide_venv_path()},
+        capture_output=True,
+    )
+    if result.returncode != 0:
+        logger.warning("Failed to get package versions from pyodide venv")
+        return []
+
+    packages = []
+    for line in result.stdout.strip().split("\n"):
+        # filter out empty lines and comments that we cannot handle just in case
+        line = line.strip()
+        if line and not line.startswith("#") and "==" in line:
+            packages.append(line)
+    return packages
+
+
+def _sync_venv_to_vendor_versions() -> None:
+    """Re-sync .venv-workers to match python_modules versions for prod consistency."""
+    pinned_packages = _get_vendor_package_versions()
+    if not pinned_packages:
+        return
+
+    _pip_install_to_venv(
+        pinned_packages,
+        get_venv_workers_path(),
+        action_name="Syncing package versions in",
     )
 
 
@@ -279,6 +322,9 @@ def install_requirements(requirements: list[str]) -> None:
     # fails while the above succeeded, it implies that Pyodide does not support these package
     # requirements which allows us to give a nicer error message to the user.
     _install_requirements_to_vendor(requirements)
+    # Finally, re-sync the venv to use the same package versions as the vendor directory.
+    # This ensures that host packages accurately reflect what will run in production.
+    _sync_venv_to_vendor_versions()
 
 
 def _is_out_of_date(token: Path, time: float) -> bool:
