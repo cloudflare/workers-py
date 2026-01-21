@@ -1,4 +1,4 @@
-# Based on https://python-semantic-release.readthedocs.io/en/latest/configuration/automatic-releases/github-actions.html#examples
+# Based on https://python-semantic-release.readthedocs.io/en/latest/configuration/configuration-guides/monorepos.html
 
 name: Continuous Delivery
 
@@ -12,14 +12,15 @@ permissions:
   contents: read
 
 jobs:
-  release:
+  release-sdk:
     runs-on: ubuntu-latest
     concurrency:
-      group: ${{ github.workflow }}-release-${{ github.ref_name }}
+      group: ${{ github.workflow }}-release-sdk-${{ github.ref_name }}
       cancel-in-progress: false
 
     outputs:
       released: ${{ steps.release.outputs.released }}
+      tag: ${{ steps.release.outputs.tag }}
 
     permissions:
       contents: write
@@ -43,13 +44,6 @@ jobs:
           git reset --hard ${{ github.sha }}
 
       - name: Evaluate | Verify upstream has NOT changed
-        # Last chance to abort before causing an error as another PR/push was applied to
-        # the upstream branch while this workflow was running. This is important
-        # because we are committing a version change (--commit). You may omit this step
-        # if you have 'commit: false' in your configuration.
-        #
-        # You may consider moving this to a repo script and call it from this step instead
-        # of writing it in-line.
         shell: bash
         run: |
           set +o pipefail
@@ -83,35 +77,83 @@ jobs:
 
       - name: Action | Semantic Version Release
         id: release
-        uses: python-semantic-release/python-semantic-release@v10.2.0
+        uses: python-semantic-release/python-semantic-release@v10.5.3
         with:
           github_token: ${{ secrets.DEVPROD_PAT }}
           git_committer_name: "Workers DevProd"
           git_committer_email: "workers-devprod@cloudflare.com"
+          directory: packages/workers-runtime-sdk
 
       - name: Publish | Upload to GitHub Release Assets
-        uses: python-semantic-release/publish-action@v10.2.0
+        uses: python-semantic-release/publish-action@v10.5.3
         if: steps.release.outputs.released == 'true'
         with:
           github_token: ${{ secrets.DEVPROD_PAT }}
           tag: ${{ steps.release.outputs.tag }}
+          directory: packages/workers-runtime-sdk
 
       - name: Upload | Distribution Artifacts
         uses: actions/upload-artifact@v4
         if: steps.release.outputs.released == 'true'
         with:
-          name: distribution-artifacts
-          path: dist
+          name: distribution-artifacts-workers-runtime-sdk
+          path: packages/workers-runtime-sdk/dist
+          if-no-files-found: error
+
+  release-py:
+    runs-on: ubuntu-latest
+    needs: release-sdk
+    # Run even if SDK had nothing to release (but not if it errored)
+    if: always() && (needs.release-sdk.result == 'success')
+    concurrency:
+      group: ${{ github.workflow }}-release-py-${{ github.ref_name }}
+      cancel-in-progress: false
+
+    outputs:
+      released: ${{ steps.release.outputs.released }}
+      tag: ${{ steps.release.outputs.tag }}
+
+    permissions:
+      contents: write
+
+    steps:
+      # Checkout latest ref (may include SDK's version commit)
+      - name: Setup | Checkout Repository on Release Branch
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.DEVPROD_PAT }}
+          ref: main
+          fetch-depth: 0
+
+      - name: Action | Semantic Version Release
+        id: release
+        uses: python-semantic-release/python-semantic-release@v10.5.3
+        with:
+          github_token: ${{ secrets.DEVPROD_PAT }}
+          git_committer_name: "Workers DevProd"
+          git_committer_email: "workers-devprod@cloudflare.com"
+          directory: packages/workers-py
+
+      - name: Publish | Upload to GitHub Release Assets
+        uses: python-semantic-release/publish-action@v10.5.3
+        if: steps.release.outputs.released == 'true'
+        with:
+          github_token: ${{ secrets.DEVPROD_PAT }}
+          tag: ${{ steps.release.outputs.tag }}
+          directory: packages/workers-py
+
+      - name: Upload | Distribution Artifacts
+        uses: actions/upload-artifact@v4
+        if: steps.release.outputs.released == 'true'
+        with:
+          name: distribution-artifacts-workers-py
+          path: packages/workers-py/dist
           if-no-files-found: error
 
   deploy:
-    # 1. Separate out the deploy step from the publish step to run each step at
-    #    the least amount of token privilege
-    # 2. Also, deployments can fail, and its better to have a separate job if you need to retry
-    #    and it won't require reversing the release.
     runs-on: ubuntu-latest
-    needs: release
-    if: ${{ needs.release.outputs.released == 'true' }}
+    needs: [release-sdk, release-py]
+    if: always() && (needs.release-sdk.outputs.released == 'true' || needs.release-py.outputs.released == 'true')
 
     permissions:
       contents: read
@@ -122,8 +164,9 @@ jobs:
         uses: actions/download-artifact@v4
         id: artifact-download
         with:
-          name: distribution-artifacts
+          pattern: distribution-artifacts-*
           path: dist
+          merge-multiple: true
 
       # see https://docs.pypi.org/trusted-publishers/
       - name: Publish package distributions to PyPI

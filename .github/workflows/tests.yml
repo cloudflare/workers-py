@@ -28,11 +28,12 @@ jobs:
 
     - name: Install project
       run: |
-        uv pip install --system -e .
+        uv pip install --system -e packages/workers-runtime-sdk -e packages/workers-py pytest
 
     - name: Run tests
+      working-directory: packages/workers-py
       run: |
-        uv run pytest
+        pytest tests
 
     - name: Verify that pywrangler can be run globally
       run: |

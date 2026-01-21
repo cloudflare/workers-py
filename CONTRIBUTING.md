@@ -23,11 +23,21 @@ Thank you for your interest in contributing to workers-py! This document provide
 
 ## Development Setup
 
-Follow the [Development section](https://github.com/cloudflare/workers-py#development) of the README for setting up your development environment.
+This is a monorepo containing multiple Python packages. Each package is located in the `packages/` directory:
+
+- `packages/workers-py/` - The main workers-py package
+- `packages/workers-runtime-sdk/` - Python SDK for Cloudflare Workers
+
+### Working with a specific package
+
+```bash
+cd packages/<package-name>
+uv sync
+```
 
 ### Development Dependencies
 
-The project includes these development tools:
+Each package includes these development tools:
 - **pytest**: Testing framework
 - **ruff**: Fast Python linter
 - **mypy**: Static type checking
@@ -39,33 +49,52 @@ The project includes these development tools:
    git checkout -b your-username/your-change-name
    ```
 
-2. Run our code formatter via `uvx ruff format` and linter via `uvx ruff fix .`
+2. Navigate to the package you're modifying:
+   ```bash
+   cd packages/<package-name>
+   ```
 
-3. Add or update tests as needed
+3. Run our code formatter via `uvx ruff format` and linter via `uvx ruff fix .`
 
-4. Run the test suite: `uv clean cache && uv run pytest`
+4. Add or update tests as needed
+
+5. Run the test suite: `uv run pytest`
 
 ## Commit Message Guidelines
 
-This project uses automated semantic versioning via `python-semantic-release` which relies on
-tags in the commit message to determine whether a release should be made.
+This project uses automated semantic versioning via `python-semantic-release` with the
+**conventional-monorepo** parser, which relies on tags and scopes in the commit message
+to determine whether a release should be made for each package.
 
 ### Commit Format
 
 The format parsed by python-semantic-release is https://www.conventionalcommits.org/en/v1.0.0/#summary.
-It looks something like this:
+For monorepo support, use the package-specific scope prefix:
 
 ```
-<tag>(<optional scope>): <subject>
+<tag>(<package-prefix>): <subject>
 
 <body>
 
 <footer>
 ```
 
+### Package Scope Prefixes
+
+- `workers-py-` - For changes to the workers-py package
+- `workers-runtime-sdk-` - For changes to the workers-runtime-sdk package
+
+### Examples
+
+```
+feat(workers-py-): add new CLI command for syncing
+fix(workers-runtime-sdk-): handle edge case in API client
+docs(workers-py-): update README with new usage examples
+```
+
 ### Commit Tags
 
-Including "BREAKING CHANGE" in the commit message (either in the body or footer) will trigger a release.
+Including "BREAKING CHANGE" in the commit message (either in the body or footer) will trigger a major release.
 
 The following tags will trigger a release:
 
@@ -83,7 +112,7 @@ The following tags will not trigger a release:
 
 ## Release Process
 
-This project uses **python-semantic-release** for automated versioning and releases. Here's how it works:
+This project uses **python-semantic-release** with monorepo support for automated versioning and releases. Each package is released independently.
 
 ### Automated Releases
 
@@ -94,11 +123,20 @@ This project uses **python-semantic-release** for automated versioning and relea
 
 2. **Release Trigger**: Releases are created automatically when changes are pushed to the `main` branch
 
-3. **Release Artifacts**:
-   - Git tag (format: `v{version}`)
+3. **Release Artifacts** (per package):
+   - Git tag (format: `<package-name>-v{version}`, e.g., `workers-py-v1.7.0`)
    - Updated `pyproject.toml` version
    - Changelog generation
    - PyPI package publication (via GitHub Actions)
+
+### Manual Release
+
+To manually release a specific package:
+
+```bash
+cd packages/<package-name>
+semantic-release version
+```
 
 ## Submitting Changes
 
@@ -108,7 +146,7 @@ This project uses **python-semantic-release** for automated versioning and relea
    ```
 
 2. **Create a Pull Request** on GitHub with:
-   - Clear title following conventional commit format
+   - Clear title following conventional commit format with package scope
    - Description of changes made
    - Any breaking changes clearly documented
    - Explanation of how you tested your changes under a "Test Plan" section
@@ -125,4 +163,4 @@ This project uses **python-semantic-release** for automated versioning and relea
 - Check existing issues before creating new ones
 - For questions, use GitHub Discussions or open an issue
 
-Thank you for contributing to workers-py! 🚀
+Thank you for contributing to workers-py!
