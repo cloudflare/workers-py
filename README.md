@@ -1,69 +1,54 @@
-# workers-py
+# workers-py Monorepo
 
-A set of libraries and tools for Python Workers.
+A monorepo containing Python libraries and tools for Cloudflare Workers.
 
+## Packages
 
-## Pywrangler
+| Package | Description |
+|---------|-------------|
+| [workers-py](./packages/workers-py/) | A set of libraries and tools for Python Workers |
+| [workers-runtime-sdk](./packages/workers-runtime-sdk/) | Python SDK for Cloudflare Workers |
 
-A CLI tool for managing vendored packages in a Python Workers project.
+## Development
 
-### Installation
+### Prerequisites
 
-On Linux, you may be able to install the tool globally by running:
+- Python 3.12+
+- [uv](https://github.com/astral-sh/uv) for package management
 
-```
-uv tool install workers-py
-```
+### Working with packages
 
-Alternatively, you can add `workers-py` to your pyproject.toml:
-
-```
-[dependency-groups]
-dev = ["workers-py"]
-```
-
-Then run via `uv run pywrangler`.
-
-### Usage
+Each package is self-contained with its own `pyproject.toml`. To work on a specific package:
 
 ```bash
-uv run pywrangler --help
-uv run pywrangler sync
+cd packages/<package-name>
+uv sync
+uv run pytest
 ```
 
-### Development
+### Releasing
 
-To run the CLI tool while developing it, install it globally:
+This project uses [python-semantic-release](https://python-semantic-release.readthedocs.io/) with the monorepo configuration. Each package is released independently.
 
-```
-uv tool install -e .
-```
+To release a specific package:
 
-Then run it via `pywrangler`.
-
-Alternatively, you can add `workers-py` to your pyproject.toml:
-
-```
-[dependency-groups]
-dev = ["workers-py"]
-
-[tool.uv.sources]
-workers-py = { path = "../workers-py" }
+```bash
+cd packages/<package-name>
+semantic-release version
 ```
 
-Then run via `uv run pywrangler`.
+### Commit Conventions
 
-#### Lint
+This project uses [Conventional Commits](https://www.conventionalcommits.org/) with package-scoped commits for the monorepo. For package-specific changes, use the scope prefix:
 
-```
-uv run ruff check --fix
-uv run ruff format
-```
+- `feat(workers-py-): add new feature` - Feature for workers-py
+- `fix(workers-runtime-sdk-): fix bug` - Bug fix for workers-runtime-sdk
 
-#### Tests
+Tags:
+- `feat`: New feature (triggers minor version bump)
+- `fix`: Bug fix (triggers patch version bump)
+- `docs`, `style`, `refactor`, `test`, `chore`, `ci`: Non-release commits
 
-```
-$ uv cache clean
-$ uv run pytest
-$ uv run pytest tests/test_cli.py::test_sync_command_handles_missing_pyproject -v # Specific test
-```
+## License
+
+MIT
