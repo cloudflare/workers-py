@@ -1,6 +1,9 @@
 name: Run Pytest
 
-on: [pull_request]
+on:
+  push:
+    branches:
+      - '**'
 
 jobs:
   test:
