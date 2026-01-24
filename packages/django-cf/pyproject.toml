@@ -28,6 +28,8 @@ classifiers = [
 [project.optional-dependencies]
 dev = [
     "pytest",
+    "pytest-cov",
+    "pytest-asyncio",
     "requests",
     "ruff",
     "django",
@@ -48,4 +50,16 @@ minversion = "6.0"
 addopts = "-ra -q"
 testpaths = [
     "tests",
+]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["django_cf"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
 ]
