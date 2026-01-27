@@ -71,60 +71,71 @@ class TestGetVendorPackageVersions:
         assert result == ["shapely==2.0.7", "numpy==1.26.4"]
 
 
-class TestSyncVenvToVendorVersions:
-    @patch.object(pywrangler_sync, "_pip_install_to_venv")
-    @patch.object(pywrangler_sync, "_get_vendor_package_versions")
-    @patch.object(pywrangler_sync, "get_venv_workers_path")
-    @patch.object(pywrangler_sync, "get_project_root")
-    def test_syncs_packages(
-        self, mock_root, mock_venv_path, mock_get_versions, mock_pip_install
-    ):
-        mock_root.return_value = Path("/fake/project")
-        mock_venv_path.return_value = Path("/fake/project/.venv-workers")
-        mock_get_versions.return_value = [
-            "shapely==2.0.7",
-            "numpy==1.26.4",
-        ]
-
-        pywrangler_sync._sync_venv_to_vendor_versions()
-
-        mock_pip_install.assert_called_once()
-        call_args = mock_pip_install.call_args
-        packages = call_args[0][0]
-        assert "shapely==2.0.7" in packages
-        assert "numpy==1.26.4" in packages
-
-    @patch.object(pywrangler_sync, "_pip_install_to_venv")
-    @patch.object(pywrangler_sync, "_get_vendor_package_versions")
-    @patch.object(pywrangler_sync, "get_venv_workers_path")
-    @patch.object(pywrangler_sync, "get_project_root")
-    def test_skips_when_no_packages(
-        self, mock_root, mock_venv_path, mock_get_versions, mock_pip_install
-    ):
-        mock_root.return_value = Path("/fake/project")
-        mock_venv_path.return_value = Path("/fake/project/.venv-workers")
-        mock_get_versions.return_value = []
-
-        pywrangler_sync._sync_venv_to_vendor_versions()
-
-        mock_pip_install.assert_not_called()
-
-
 class TestInstallRequirements:
-    @patch.object(pywrangler_sync, "_sync_venv_to_vendor_versions")
     @patch.object(pywrangler_sync, "_install_requirements_to_vendor")
+    @patch.object(pywrangler_sync, "_get_vendor_package_versions")
     @patch.object(pywrangler_sync, "_install_requirements_to_venv")
-    def test_calls_all_three_functions_in_order(
-        self, mock_venv, mock_vendor, mock_sync
-    ):
+    def test_calls_vendor_then_venv(self, mock_venv, mock_get_vendor, mock_vendor):
         call_order = []
-        mock_venv.side_effect = lambda r: call_order.append("venv")
         mock_vendor.side_effect = lambda r: call_order.append("vendor")
-        mock_sync.side_effect = lambda: call_order.append("sync")
+        mock_get_vendor.side_effect = lambda: ["shapely==2.0.7", "numpy==1.26.4"]
+        mock_venv.side_effect = lambda r: call_order.append("venv")
 
         pywrangler_sync.install_requirements(["click", "numpy"])
 
-        assert call_order == ["venv", "vendor", "sync"]
-        mock_venv.assert_called_once_with(["click", "numpy"])
+        assert call_order == ["vendor", "venv"]
         mock_vendor.assert_called_once_with(["click", "numpy"])
-        mock_sync.assert_called_once()
+        mock_venv.assert_called_once_with(["shapely==2.0.7", "numpy==1.26.4"])
+
+    @patch.object(pywrangler_sync, "_install_requirements_to_vendor")
+    @patch.object(pywrangler_sync, "_get_vendor_package_versions")
+    @patch.object(pywrangler_sync, "_install_requirements_to_venv")
+    def test_native_error_shown_before_pyodide_error(
+        self, mock_venv, mock_get_vendor, mock_vendor, caplog
+    ):
+        mock_vendor.return_value = "Pyodide install failed: no solution found"
+        mock_get_vendor.return_value = []
+        mock_venv.return_value = "Native install failed: package not found"
+
+        import click
+        import pytest
+
+        with pytest.raises(click.exceptions.Exit):
+            pywrangler_sync.install_requirements(["nonexistent-package"])
+
+        log_messages = [record.message for record in caplog.records]
+        native_idx = next(
+            i for i, msg in enumerate(log_messages) if "Native install failed" in msg
+        )
+        pyodide_idx = next(
+            (
+                i
+                for i, msg in enumerate(log_messages)
+                if "Pyodide install failed" in msg
+            ),
+            None,
+        )
+        assert pyodide_idx is None, (
+            "Pyodide error should not be shown when native error occurs"
+        )
+        assert native_idx is not None
+
+    @patch.object(pywrangler_sync, "_install_requirements_to_vendor")
+    @patch.object(pywrangler_sync, "_get_vendor_package_versions")
+    @patch.object(pywrangler_sync, "_install_requirements_to_venv")
+    def test_only_pyodide_error_shown_when_native_succeeds(
+        self, mock_venv, mock_get_vendor, mock_vendor, caplog
+    ):
+        mock_vendor.return_value = "Pyodide install failed: no solution found"
+        mock_get_vendor.return_value = []
+        mock_venv.return_value = None
+
+        import click
+        import pytest
+
+        with pytest.raises(click.exceptions.Exit):
+            pywrangler_sync.install_requirements(["some-package"])
+
+        log_messages = [record.message for record in caplog.records]
+        assert any("Pyodide install failed" in msg for msg in log_messages)
+        assert any("Python Worker failed" in msg for msg in log_messages)
