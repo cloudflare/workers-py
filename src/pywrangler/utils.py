@@ -1,5 +1,6 @@
 import logging
 import re
+import shutil
 import subprocess
 import tomllib
 from datetime import datetime
@@ -78,6 +79,15 @@ def run_command(
         A subprocess.CompletedProcess instance.
     """
     logger.log(RUNNING_LEVEL, f"{' '.join(str(arg) for arg in command)}")
+
+    # Some tools like `npm` may be a batch file on Windows (npm.cmd), and calling them only by
+    # name may fails in subprocess.run. Use shutil.which to find the real name.
+    abspath = shutil.which(str(command[0]))
+    if not abspath:
+        logger.error(f"Command not found: {command[0]}. Is it installed and in PATH?")
+        raise click.exceptions.Exit(code=1)
+
+    command = [Path(abspath).name] + command[1:]
     try:
         kwargs = {}
         if capture_output:
@@ -89,6 +99,7 @@ def run_command(
             env=env,
             check=check,
             text=True,
+            encoding="utf-8",
             **kwargs,
         )  # type: ignore[call-overload]
         if process.stdout and not capture_output:

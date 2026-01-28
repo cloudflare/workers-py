@@ -13,6 +13,7 @@ from .utils import (
     check_wrangler_version,
     setup_logging,
     write_success,
+    run_command,
 )
 
 setup_logging()
@@ -143,7 +144,7 @@ def _proxy_to_wrangler(command_name: str, args_list: list[str]) -> Never:
     command_to_run = WRANGLER_COMMAND + [command_name] + args_list
     logger.info(f"Passing command to npx wrangler: {' '.join(command_to_run)}")
     try:
-        process = subprocess.run(command_to_run, check=False, cwd=".")
+        process = run_command(command_to_run, check=False, cwd=".")
         click.get_current_context().exit(process.returncode)
     except FileNotFoundError as e:
         logger.error(
@@ -156,7 +157,7 @@ def _proxy_to_create_cloudflare(args_list: list[str]) -> Never:
     command_to_run = WRANGLER_CREATE_COMMAND + args_list
     logger.info(f"Passing command to npx create-cloudflare: {' '.join(command_to_run)}")
     try:
-        process = subprocess.run(command_to_run, check=False, cwd=".")
+        process = run_command(command_to_run, check=False, cwd=".")
         click.get_current_context().exit(process.returncode)
     except FileNotFoundError as e:
         logger.error(
