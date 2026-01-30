@@ -62,3 +62,5 @@ docs/_build/
 # OS specific
 .DS_Store
 Thumbs.db
+
+tests/test_workspace

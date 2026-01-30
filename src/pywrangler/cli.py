@@ -11,6 +11,7 @@ from .utils import (
     WRANGLER_COMMAND,
     WRANGLER_CREATE_COMMAND,
     check_wrangler_version,
+    log_startup_info,
     setup_logging,
     write_success,
 )
@@ -106,6 +107,8 @@ def app(debug: bool = False) -> None:
     if debug:
         logger.setLevel(logging.DEBUG)
 
+    log_startup_info()
+
 
 @app.command("types")
 @click.option(
@@ -135,6 +138,7 @@ def sync_command(force: bool = False) -> None:
 
     Also creates a virtual env for Workers that you can use for testing.
     """
+
     sync(force, directly_requested=True)
     write_success("Sync process completed successfully.")
 
