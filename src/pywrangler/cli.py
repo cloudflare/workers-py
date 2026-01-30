@@ -72,6 +72,7 @@ class ProxyToWranglerGroup(click.Group):
                 check_wrangler_version()
 
             if cmd_name == "init":
+                # explicitly call `create-cloudflare` so we can instruct it to only show Python templates
                 _proxy_to_create_cloudflare(
                     ["--lang=python", "--no-deploy"] + remaining_args
                 )
