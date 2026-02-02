@@ -148,7 +148,8 @@ def run_command(
         logger.error(f"Command not found: {command[0]}. Is it installed and in PATH?")
         raise click.exceptions.Exit(code=1)
 
-    command = [Path(abspath).name] + command[1:]
+    realname = str(Path(command[0]).with_name(Path(abspath).name))
+    command = [realname] + command[1:]
     try:
         kwargs = {}
         if capture_output:
