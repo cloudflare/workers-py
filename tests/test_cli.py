@@ -51,7 +51,11 @@ def test_dir(monkeypatch):
     monkeypatch.setattr(
         pywrangler_utils, "find_pyproject_toml", lambda: test_dir / "pyproject.toml"
     )
-    yield test_dir.absolute()
+
+    try:
+        yield test_dir.absolute()
+    finally:
+        shutil.rmtree(test_dir, ignore_errors=True)
 
 
 def create_test_pyproject(test_dir: Path, dependencies=None):
