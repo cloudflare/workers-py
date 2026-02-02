@@ -6,6 +6,7 @@ import shutil
 import subprocess
 import sys
 import tomllib
+from collections.abc import Mapping
 from datetime import datetime
 from functools import cache
 from pathlib import Path
@@ -119,9 +120,9 @@ def write_success(msg: str) -> None:
 
 
 def run_command(
-    command: list[str | Path],
+    command: list[str],
     cwd: Path | None = None,
-    env: dict[str, str | Path] | None = None,
+    env: Mapping[str, str | Path] | None = None,
     check: bool = True,
     capture_output: bool = False,
 ) -> subprocess.CompletedProcess[str]:

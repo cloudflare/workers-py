@@ -39,8 +39,10 @@ def wrangler_types(outdir_arg: str | None, config: str | None, /) -> None:
     stubs_dir.mkdir(parents=True, exist_ok=True)
     with TemporaryDirectory() as tmp_str:
         tmp = Path(tmp_str)
-        run_command(WRANGLER_COMMAND + args + [tmp / "worker-configuration.d.ts"])
+        run_command(WRANGLER_COMMAND + args + [str(tmp / "worker-configuration.d.ts")])
         (tmp / "tsconfig.json").write_text(TSCONFIG)
         (tmp / "package.json").write_text(PACKAGE_JSON)
-        run_command(["npm", "-C", tmp, "install"])
-        run_command(["npx", "@pyodide/ts-to-python", tmp, stubs_dir / "__init__.pyi"])
+        run_command(["npm", "-C", str(tmp), "install"])
+        run_command(
+            ["npx", "@pyodide/ts-to-python", str(tmp), str(stubs_dir / "__init__.pyi")]
+        )
