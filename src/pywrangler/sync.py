@@ -147,6 +147,9 @@ def parse_requirements() -> list[str]:
     dependencies = pyproject_data.get("project", {}).get("dependencies", [])
 
     logger.info(f"Found {len(dependencies)} dependencies.")
+    if dependencies:
+        for dep in dependencies:
+            logger.debug(f"  - {dep}")
     return dependencies
 
 
@@ -215,6 +218,9 @@ def _install_requirements_to_vendor(requirements: list[str]) -> None:
                     "Installation of packages into the Python Worker failed. Possibly because these packages are not currently supported. See above for details."
                 )
             raise click.exceptions.Exit(code=result.returncode)
+
+        _log_installed_packages(get_pyodide_venv_path())
+
         pyv = get_python_version()
         shutil.rmtree(vendor_path)
 
@@ -231,6 +237,20 @@ def _install_requirements_to_vendor(requirements: list[str]) -> None:
         f"Packages installed in [bold]{relative_vendor_path}[/bold].",
         extra={"markup": True},
     )
+
+
+def _log_installed_packages(venv_path: Path) -> None:
+    result = run_command(
+        ["uv", "pip", "list", "--format=freeze"],
+        env=os.environ | {"VIRTUAL_ENV": venv_path},
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode == 0 and result.stdout.strip():
+        logger.debug("Installed packages:")
+        for line in result.stdout.strip().split("\n"):
+            if line.strip():
+                logger.debug(f"  {line.strip()}")
 
 
 def _install_requirements_to_venv(requirements: list[str]) -> None:
@@ -314,11 +334,14 @@ def sync(force: bool = False, directly_requested: bool = False) -> None:
     # Check if sync is needed based on file timestamps
     sync_needed = force or is_sync_needed()
     if not sync_needed:
+        logger.debug("Sync not needed - no changes detected")
         if directly_requested:
             logger.warning(
                 "pyproject.toml hasn't changed since last sync, use --force to ignore timestamp check"
             )
         return
+
+    logger.debug("Sync needed - proceeding with installation")
 
     # Check to make sure a wrangler config file exists.
     check_wrangler_config()
