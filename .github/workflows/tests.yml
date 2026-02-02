@@ -32,6 +32,7 @@ jobs:
 
     - name: Run tests
       run: |
+        export PYWRANGLER_LOG=debug
         uv run pytest
 
     - name: Verify that pywrangler can be run globally
