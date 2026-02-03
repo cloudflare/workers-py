@@ -6,16 +6,7 @@
 
 ### Bug Fixes
 
-- Address comment ([#62](https://github.com/cloudflare/workers-py/pull/62),
-  [`53ce7be`](https://github.com/cloudflare/workers-py/commit/53ce7be9385f2aa07d8c43d5d3296d6328aafca7))
-
 - Better windows platform support ([#62](https://github.com/cloudflare/workers-py/pull/62),
-  [`53ce7be`](https://github.com/cloudflare/workers-py/commit/53ce7be9385f2aa07d8c43d5d3296d6328aafca7))
-
-- Ensure to cleanup the test directory ([#62](https://github.com/cloudflare/workers-py/pull/62),
-  [`53ce7be`](https://github.com/cloudflare/workers-py/commit/53ce7be9385f2aa07d8c43d5d3296d6328aafca7))
-
-- Fix incorrect abspath ([#62](https://github.com/cloudflare/workers-py/pull/62),
   [`53ce7be`](https://github.com/cloudflare/workers-py/commit/53ce7be9385f2aa07d8c43d5d3296d6328aafca7))
 
 
