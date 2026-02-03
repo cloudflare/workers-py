@@ -51,7 +51,11 @@ def test_dir(monkeypatch):
     monkeypatch.setattr(
         pywrangler_utils, "find_pyproject_toml", lambda: test_dir / "pyproject.toml"
     )
-    yield test_dir.absolute()
+
+    try:
+        yield test_dir.absolute()
+    finally:
+        shutil.rmtree(test_dir, ignore_errors=True)
 
 
 def create_test_pyproject(test_dir: Path, dependencies=None):
@@ -410,7 +414,12 @@ def test_proxy_to_wrangler_handles_subprocess_error(mock_subprocess_run):
 
     # Verify the error was attempted to be called
     mock_subprocess_run.assert_called_once_with(
-        ["npx", "--yes", "wrangler", "unknown_command"], check=False, cwd="."
+        ["npx", "--yes", "wrangler", "unknown_command"],
+        check=False,
+        cwd=Path("."),
+        env=None,
+        text=True,
+        encoding="utf-8",
     )
 
 

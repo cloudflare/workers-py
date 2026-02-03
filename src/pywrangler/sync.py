@@ -137,7 +137,7 @@ def create_pyodide_venv() -> None:
     pyodide_venv_path.parent.mkdir(parents=True, exist_ok=True)
     interp_name = get_uv_pyodide_interp_name()
     run_command(["uv", "python", "install", interp_name])
-    run_command(["uv", "venv", pyodide_venv_path, "--python", interp_name])
+    run_command(["uv", "venv", str(pyodide_venv_path), "--python", interp_name])
 
 
 def parse_requirements() -> list[str]:
@@ -195,7 +195,7 @@ def _install_requirements_to_vendor(requirements: list[str]) -> None:
             ],
             capture_output=True,
             check=False,
-            env=os.environ | {"VIRTUAL_ENV": get_pyodide_venv_path()},
+            env=os.environ | {"VIRTUAL_ENV": str(get_pyodide_venv_path())},
         )
         if result.returncode != 0:
             logger.warning(result.stdout.strip())
@@ -223,9 +223,11 @@ def _install_requirements_to_vendor(requirements: list[str]) -> None:
 
         pyv = get_python_version()
         shutil.rmtree(vendor_path)
-        shutil.copytree(
-            get_pyodide_venv_path() / f"lib/python{pyv}/site-packages", vendor_path
+
+        site_packages_path = (
+            f"lib/python{pyv}/site-packages" if os.name != "nt" else "Lib/site-packages"
         )
+        shutil.copytree(get_pyodide_venv_path() / site_packages_path, vendor_path)
 
     # Create a pyvenv.cfg file in python_modules to mark it as a virtual environment
     (vendor_path / "pyvenv.cfg").touch()
@@ -273,7 +275,7 @@ def _install_requirements_to_venv(requirements: list[str]) -> None:
                 requirements_file,
             ],
             check=False,
-            env=os.environ | {"VIRTUAL_ENV": venv_workers_path},
+            env=os.environ | {"VIRTUAL_ENV": str(venv_workers_path)},
             capture_output=True,
         )
         if result.returncode != 0:

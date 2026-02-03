@@ -2,6 +2,7 @@ import logging
 import subprocess
 import sys
 import textwrap
+from pathlib import Path
 from typing import Never
 
 import click
@@ -12,6 +13,7 @@ from .utils import (
     WRANGLER_CREATE_COMMAND,
     check_wrangler_version,
     log_startup_info,
+    run_command,
     setup_logging,
     write_success,
 )
@@ -149,7 +151,7 @@ def _proxy_to_wrangler(command_name: str, args_list: list[str]) -> Never:
     command_to_run = WRANGLER_COMMAND + [command_name] + args_list
     logger.info(f"Passing command to npx wrangler: {' '.join(command_to_run)}")
     try:
-        process = subprocess.run(command_to_run, check=False, cwd=".")
+        process = run_command(command_to_run, check=False, cwd=Path("."))
         click.get_current_context().exit(process.returncode)
     except FileNotFoundError as e:
         logger.error(
@@ -162,7 +164,7 @@ def _proxy_to_create_cloudflare(args_list: list[str]) -> Never:
     command_to_run = WRANGLER_CREATE_COMMAND + args_list
     logger.info(f"Passing command to npx create-cloudflare: {' '.join(command_to_run)}")
     try:
-        process = subprocess.run(command_to_run, check=False, cwd=".")
+        process = run_command(command_to_run, check=False, cwd=Path("."))
         click.get_current_context().exit(process.returncode)
     except FileNotFoundError as e:
         logger.error(
