@@ -143,7 +143,7 @@ def run_command(
 
     # Some tools like `npm` may be a batch file on Windows (npm.cmd), and calling them only by
     # name may fails in subprocess.run. Use shutil.which to find the real name.
-    abspath = shutil.which(str(command[0]))
+    abspath = shutil.which(command[0])
     if not abspath:
         logger.error(f"Command not found: {command[0]}. Is it installed and in PATH?")
         raise click.exceptions.Exit(code=1)
