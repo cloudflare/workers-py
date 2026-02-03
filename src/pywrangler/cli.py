@@ -2,6 +2,7 @@ import logging
 import subprocess
 import sys
 import textwrap
+from pathlib import Path
 from typing import Never
 
 import click
@@ -11,6 +12,8 @@ from .utils import (
     WRANGLER_COMMAND,
     WRANGLER_CREATE_COMMAND,
     check_wrangler_version,
+    log_startup_info,
+    run_command,
     setup_logging,
     write_success,
 )
@@ -56,6 +59,8 @@ class ProxyToWranglerGroup(click.Group):
         command = super().get_command(ctx, cmd_name)
 
         if command is None:
+            log_startup_info()
+
             try:
                 cmd_index = sys.argv.index(cmd_name)
                 remaining_args = sys.argv[cmd_index + 1 :]
@@ -106,6 +111,8 @@ def app(debug: bool = False) -> None:
     if debug:
         logger.setLevel(logging.DEBUG)
 
+    log_startup_info()
+
 
 @app.command("types")
 @click.option(
@@ -135,6 +142,7 @@ def sync_command(force: bool = False) -> None:
 
     Also creates a virtual env for Workers that you can use for testing.
     """
+
     sync(force, directly_requested=True)
     write_success("Sync process completed successfully.")
 
@@ -143,7 +151,7 @@ def _proxy_to_wrangler(command_name: str, args_list: list[str]) -> Never:
     command_to_run = WRANGLER_COMMAND + [command_name] + args_list
     logger.info(f"Passing command to npx wrangler: {' '.join(command_to_run)}")
     try:
-        process = subprocess.run(command_to_run, check=False, cwd=".")
+        process = run_command(command_to_run, check=False, cwd=Path("."))
         click.get_current_context().exit(process.returncode)
     except FileNotFoundError as e:
         logger.error(
@@ -156,7 +164,7 @@ def _proxy_to_create_cloudflare(args_list: list[str]) -> Never:
     command_to_run = WRANGLER_CREATE_COMMAND + args_list
     logger.info(f"Passing command to npx create-cloudflare: {' '.join(command_to_run)}")
     try:
-        process = subprocess.run(command_to_run, check=False, cwd=".")
+        process = run_command(command_to_run, check=False, cwd=Path("."))
         click.get_current_context().exit(process.returncode)
     except FileNotFoundError as e:
         logger.error(

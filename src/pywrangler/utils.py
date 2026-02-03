@@ -1,7 +1,12 @@
 import logging
+import os
+import platform
 import re
+import shutil
 import subprocess
+import sys
 import tomllib
+from collections.abc import Mapping
 from datetime import datetime
 from functools import cache
 from pathlib import Path
@@ -20,12 +25,47 @@ WRANGLER_CREATE_COMMAND = ["npx", "--yes", "create-cloudflare"]
 
 logger = logging.getLogger(__name__)
 
-SUCCESS_LEVEL = 100
-RUNNING_LEVEL = 15
-OUTPUT_LEVEL = 16
+SUCCESS_LEVEL = logging.CRITICAL + 50
+RUNNING_LEVEL = logging.DEBUG + 5
+OUTPUT_LEVEL = logging.DEBUG + 6
+
+# Valid log levels for PYWRANGLER_LOG environment variable
+_LOG_LEVEL_MAP = {
+    "debug": logging.DEBUG,
+    "info": logging.INFO,
+    "warning": logging.WARNING,
+    "warn": logging.WARNING,  # alias
+    "error": logging.ERROR,
+}
 
 
-def setup_logging() -> None:
+def setup_logging() -> int:
+    """
+    Configure logging with Rich handler.
+
+    Reads PYWRANGLER_LOG environment variable to set log level.
+    Valid values: debug, info, warning, warn, error (case-insensitive).
+    Defaults to INFO if not set or invalid.
+
+    Returns:
+        The configured logging level (e.g., logging.DEBUG, logging.INFO).
+    """
+    # Determine log level from environment variable
+    env_level = os.environ.get("PYWRANGLER_LOG", "").lower().strip()
+    if env_level and env_level not in _LOG_LEVEL_MAP:
+        # Print warning to stderr for invalid value (before logging is configured)
+        print(
+            f"Warning: Invalid PYWRANGLER_LOG value '{env_level}'. "
+            f"Valid values: {', '.join(sorted(set(_LOG_LEVEL_MAP.keys())))}. "
+            "Defaulting to 'info'.",
+            file=sys.stderr,
+        )
+        log_level = logging.INFO
+    elif env_level:
+        log_level = _LOG_LEVEL_MAP[env_level]
+    else:
+        log_level = logging.INFO
+
     console = Console(
         theme=Theme(
             {
@@ -39,7 +79,7 @@ def setup_logging() -> None:
 
     # Configure Rich logger
     logging.basicConfig(
-        level=logging.INFO,
+        level=log_level,
         format="%(message)s",
         force=True,  # Ensure this configuration is applied
         handlers=[
@@ -52,15 +92,37 @@ def setup_logging() -> None:
     logging.addLevelName(RUNNING_LEVEL, "RUNNING")
     logging.addLevelName(OUTPUT_LEVEL, "OUTPUT")
 
+    return log_level
+
+
+def _get_pywrangler_version() -> str:
+    """Get the version of pywrangler."""
+    try:
+        from importlib.metadata import version
+
+        return version("workers-py")
+    except Exception:
+        return "unknown"
+
+
+def log_startup_info() -> None:
+    """
+    Log startup information for debugging.
+    """
+    logger.debug(f"pywrangler version: {_get_pywrangler_version()}")
+    logger.debug(f"Python: {platform.python_version()}")
+    logger.debug(f"Platform: {sys.platform}")
+    logger.debug(f"Working directory: {Path.cwd()}")
+
 
 def write_success(msg: str) -> None:
     logging.log(SUCCESS_LEVEL, msg)
 
 
 def run_command(
-    command: list[str | Path],
+    command: list[str],
     cwd: Path | None = None,
-    env: dict[str, str | Path] | None = None,
+    env: Mapping[str, str | Path] | None = None,
     check: bool = True,
     capture_output: bool = False,
 ) -> subprocess.CompletedProcess[str]:
@@ -78,6 +140,16 @@ def run_command(
         A subprocess.CompletedProcess instance.
     """
     logger.log(RUNNING_LEVEL, f"{' '.join(str(arg) for arg in command)}")
+
+    # Some tools like `npm` may be a batch file on Windows (npm.cmd), and calling them only by
+    # name may fails in subprocess.run. Use shutil.which to find the real name.
+    abspath = shutil.which(command[0])
+    if not abspath:
+        logger.error(f"Command not found: {command[0]}. Is it installed and in PATH?")
+        raise click.exceptions.Exit(code=1)
+
+    realname = str(Path(command[0]).with_name(Path(abspath).name))
+    command = [realname] + command[1:]
     try:
         kwargs = {}
         if capture_output:
@@ -89,6 +161,7 @@ def run_command(
             env=env,
             check=check,
             text=True,
+            encoding="utf-8",
             **kwargs,
         )  # type: ignore[call-overload]
         if process.stdout and not capture_output:

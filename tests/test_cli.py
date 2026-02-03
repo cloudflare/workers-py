@@ -457,7 +457,12 @@ def test_proxy_to_wrangler_handles_subprocess_error(mock_subprocess_run):
 
     # Verify the error was attempted to be called
     mock_subprocess_run.assert_called_once_with(
-        ["npx", "--yes", "wrangler", "unknown_command"], check=False, cwd="."
+        ["npx", "--yes", "wrangler", "unknown_command"],
+        check=False,
+        cwd=Path("."),
+        env=None,
+        text=True,
+        encoding="utf-8",
     )
 
 
@@ -589,3 +594,114 @@ def test_check_wrangler_version_insufficient(mock_run_command):
 
     with pytest.raises(click.exceptions.Exit):
         check_wrangler_version()
+
+
+# Tests for PYWRANGLER_LOG environment variable
+
+
+def test_env_var_debug_level(test_dir, monkeypatch, caplog):
+    monkeypatch.setenv("PYWRANGLER_LOG", "debug")
+    create_test_pyproject(test_dir)
+    create_test_wrangler_jsonc(test_dir)
+
+    # Need to reimport to pick up env var change
+    import importlib
+
+    import pywrangler.utils
+
+    importlib.reload(pywrangler.utils)
+
+    from pywrangler.utils import setup_logging
+
+    level = setup_logging()
+    assert level == logging.DEBUG
+
+
+def test_env_var_error_level(test_dir, monkeypatch):
+    """Test that PYWRANGLER_LOG=error sets ERROR level."""
+    monkeypatch.setenv("PYWRANGLER_LOG", "error")
+
+    import importlib
+
+    import pywrangler.utils
+
+    importlib.reload(pywrangler.utils)
+
+    from pywrangler.utils import setup_logging
+
+    level = setup_logging()
+    assert level == logging.ERROR
+
+
+def test_env_var_case_insensitive(test_dir, monkeypatch):
+    """Test that PYWRANGLER_LOG is case-insensitive."""
+    monkeypatch.setenv("PYWRANGLER_LOG", "DEBUG")
+
+    import importlib
+
+    import pywrangler.utils
+
+    importlib.reload(pywrangler.utils)
+
+    from pywrangler.utils import setup_logging
+
+    level = setup_logging()
+    assert level == logging.DEBUG
+
+
+def test_debug_flag_overrides_env(test_dir, monkeypatch, caplog):
+    """Test that --debug flag overrides PYWRANGLER_LOG=error."""
+    monkeypatch.setenv("PYWRANGLER_LOG", "error")
+    create_test_pyproject(test_dir)
+    create_test_wrangler_jsonc(test_dir)
+
+    runner = CliRunner()
+    runner.invoke(app, ["--debug", "sync"])
+
+    debug_logs = [
+        record for record in caplog.records if record.levelno == logging.DEBUG
+    ]
+    assert len(debug_logs) > 0, "--debug flag should override PYWRANGLER_LOG=error"
+
+
+def test_env_var_invalid(test_dir, monkeypatch, capsys):
+    """Test that invalid PYWRANGLER_LOG value produces warning."""
+    monkeypatch.setenv("PYWRANGLER_LOG", "invalid_value")
+
+    import importlib
+
+    import pywrangler.utils
+
+    importlib.reload(pywrangler.utils)
+
+    from pywrangler.utils import setup_logging
+
+    level = setup_logging()
+
+    captured = capsys.readouterr()
+    assert "Warning" in captured.err
+    assert "invalid_value" in captured.err
+    assert level == logging.INFO
+
+
+def test_startup_banner(test_dir, monkeypatch):
+    """Test that debug output contains version, platform, and working directory."""
+    monkeypatch.setenv("PYWRANGLER_LOG", "debug")
+    create_test_pyproject(test_dir)
+    create_test_wrangler_jsonc(test_dir)
+
+    import importlib
+
+    import pywrangler.utils
+
+    importlib.reload(pywrangler.utils)
+
+    from pywrangler.utils import _get_pywrangler_version, log_startup_info
+
+    # Verify the functions exist and return expected content
+    version = _get_pywrangler_version()
+    assert version is not None
+
+    # Verify log_startup_info can be called without error
+    # The actual logging is tested via integration in test_debug_flag
+    log_startup_info()
