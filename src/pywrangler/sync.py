@@ -260,6 +260,7 @@ def _install_requirements_to_venv(requirements: list[str]) -> None:
     relative_venv_workers_path = venv_workers_path.relative_to(project_root)
     requirements = requirements.copy()
     requirements.append("pyodide-py")
+    requirements.append("workers-runtime-sdk")
 
     logger.info(
         f"Installing packages into [bold]{relative_venv_workers_path}[/bold]...",
