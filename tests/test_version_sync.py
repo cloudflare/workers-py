@@ -103,6 +103,13 @@ class TestInstallRequirements:
         with pytest.raises(click.exceptions.Exit):
             pywrangler_sync.install_requirements(["nonexistent-package"])
 
+        assert mock_vendor.call_count == 1
+        assert mock_venv.call_count == 1
+        assert mock_get_vendor.call_count == 0
+
+        assert mock_vendor.call_args_list[0][0][0] == ["nonexistent-package"]
+        assert mock_venv.call_args_list[0][0][0] == ["nonexistent-package"]
+
         log_messages = [record.message for record in caplog.records]
         native_idx = next(
             i for i, msg in enumerate(log_messages) if "Native install failed" in msg
@@ -136,6 +143,47 @@ class TestInstallRequirements:
         with pytest.raises(click.exceptions.Exit):
             pywrangler_sync.install_requirements(["some-package"])
 
+        assert mock_vendor.call_count == 1
+        assert mock_venv.call_count == 1
+        # Pyodide installation failed, so _get_vendor_package_versions should not be called
+        assert mock_get_vendor.call_count == 0
+
+        assert mock_vendor.call_args_list[0][0][0] == ["some-package"]
+
+        # native installation should be called with the original requirements
+        assert mock_venv.call_args_list[0][0][0] == ["some-package"]
+
         log_messages = [record.message for record in caplog.records]
         assert any("Pyodide install failed" in msg for msg in log_messages)
         assert any("Python Worker failed" in msg for msg in log_messages)
+
+    @patch.object(pywrangler_sync, "_install_requirements_to_vendor")
+    @patch.object(pywrangler_sync, "_get_vendor_package_versions")
+    @patch.object(pywrangler_sync, "_install_requirements_to_venv")
+    def test_pyodide_install_succeeds_but_native_installation_fail(
+        self, mock_venv, mock_get_vendor, mock_vendor, caplog
+    ):
+        mock_vendor.return_value = None
+        mock_get_vendor.return_value = ["some-package==1.0.0"]
+        mock_venv.return_value = "Native install failed: package not found"
+
+        import click
+        import pytest
+
+        with pytest.raises(click.exceptions.Exit):
+            pywrangler_sync.install_requirements(["some-package"])
+
+        assert mock_vendor.call_count == 1
+        assert mock_venv.call_count == 1
+        assert mock_get_vendor.call_count == 1
+
+        assert mock_vendor.call_args_list[0][0][0] == ["some-package"]
+        assert mock_venv.call_args_list[0][0][0] == ["some-package==1.0.0"]
+
+        log_messages = [record.message for record in caplog.records]
+        assert any("Native install failed" in msg for msg in log_messages)
+        assert any(
+            "Failed to install the requirements defined in your pyproject.toml file"
+            in msg
+            for msg in log_messages
+        )

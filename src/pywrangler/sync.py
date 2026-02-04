@@ -295,7 +295,12 @@ def install_requirements(requirements: list[str]) -> None:
 
     # Then install to .venv-workers using the pinned versions from vendor.
     # This ensures host packages accurately reflect what will run in production.
-    native_error = _install_requirements_to_venv(_get_vendor_package_versions())
+    # If the installation to the Pyodide vendor directory fails, use the original requirements
+    # to see if it fails in the native venv as well.
+    host_requirements = (
+        requirements if pyodide_error else _get_vendor_package_versions()
+    )
+    native_error = _install_requirements_to_venv(host_requirements)
 
     # Show the native error first (more likely to be actionable), then the Pyodide error.
     if native_error:
