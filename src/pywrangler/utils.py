@@ -122,7 +122,7 @@ def write_success(msg: str) -> None:
 def run_command(
     command: list[str],
     cwd: Path | None = None,
-    env: Mapping[str, str | Path] | None = None,
+    env: Mapping[str, str] | None = None,
     check: bool = True,
     capture_output: bool = False,
 ) -> subprocess.CompletedProcess[str]:
