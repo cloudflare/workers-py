@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.7.2 (2026-02-05)
+
+### Bug Fixes
+
+- Always pass string for subprocess env ([#65](https://github.com/cloudflare/workers-py/pull/65),
+  [`7a62ed6`](https://github.com/cloudflare/workers-py/commit/7a62ed6cd9518b404c8b6813f609e23b0d0c5621))
+
+
 ## v1.7.1 (2026-02-03)
 
 ### Bug Fixes
