@@ -242,7 +242,7 @@ def _install_requirements_to_vendor(requirements: list[str]) -> None:
 def _log_installed_packages(venv_path: Path) -> None:
     result = run_command(
         ["uv", "pip", "list", "--format=freeze"],
-        env=os.environ | {"VIRTUAL_ENV": venv_path},
+        env=os.environ | {"VIRTUAL_ENV": str(venv_path)},
         capture_output=True,
         check=False,
     )
