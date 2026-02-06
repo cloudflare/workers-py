@@ -187,3 +187,29 @@ class TestInstallRequirements:
             in msg
             for msg in log_messages
         )
+
+    @patch.object(pywrangler_sync, "_install_requirements_to_vendor")
+    @patch.object(pywrangler_sync, "_get_vendor_package_versions")
+    @patch.object(pywrangler_sync, "_install_requirements_to_venv")
+    def test_known_pyodide_errors(
+        self, mock_venv, mock_get_vendor, mock_vendor, caplog
+    ):
+        common_errors = {
+            "invalid peer certificate": "Are your systems certificates correctly installed? Do you have an Enterprise VPN enabled?",
+            "failed to fetch": "Is your network connection working?",
+            "no solution found when resolving dependencies": "the packages you requested are not supported by Python Workers. See above for details.",
+        }
+
+        for error, message in common_errors.items():
+            mock_vendor.return_value = error
+            mock_get_vendor.return_value = []
+            mock_venv.return_value = None
+
+            import click
+            import pytest
+
+            with pytest.raises(click.exceptions.Exit):
+                pywrangler_sync.install_requirements(["some-package"])
+
+            log_messages = [record.message for record in caplog.records]
+            assert any(message in msg for msg in log_messages)
