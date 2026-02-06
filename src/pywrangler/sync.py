@@ -268,6 +268,20 @@ def _install_requirements_to_venv(requirements: list[str]) -> str | None:
     return None
 
 
+def _log_installed_packages(venv_path: Path) -> None:
+    result = run_command(
+        ["uv", "pip", "list", "--format=freeze"],
+        env=os.environ | {"VIRTUAL_ENV": str(venv_path)},
+        capture_output=True,
+        check=False,
+    )
+    if result.returncode == 0 and result.stdout.strip():
+        logger.debug("Installed packages:")
+        for line in result.stdout.strip().split("\n"):
+            if line.strip():
+                logger.debug(f"  {line.strip()}")
+
+
 def _get_vendor_package_versions() -> list[str]:
     """Get pinned package versions from pyodide venv (e.g., ["shapely==2.0.7"])."""
     result = run_command(
@@ -331,6 +345,8 @@ def install_requirements(requirements: list[str]) -> None:
                 "Installation of packages into the Python Worker failed. Possibly because these packages are not currently supported. See above for details."
             )
         raise click.exceptions.Exit(code=1)
+    
+    _log_installed_packages(get_venv_workers_path())
 
 
 def _is_out_of_date(token: Path, time: float) -> bool:
