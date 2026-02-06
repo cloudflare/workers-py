@@ -345,7 +345,7 @@ def install_requirements(requirements: list[str]) -> None:
                 "Installation of packages into the Python Worker failed. Possibly because these packages are not currently supported. See above for details."
             )
         raise click.exceptions.Exit(code=1)
-    
+
     _log_installed_packages(get_venv_workers_path())
 
 
