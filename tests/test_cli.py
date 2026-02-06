@@ -51,7 +51,6 @@ def test_dir(monkeypatch):
     monkeypatch.setattr(
         pywrangler_utils, "find_pyproject_toml", lambda: test_dir / "pyproject.toml"
     )
-
     try:
         yield test_dir.absolute()
     finally:
@@ -147,7 +146,7 @@ def create_test_wrangler_toml(
         [],  # Empty dependency list
     ],
 )
-def test_sync_command_integration(dependencies, test_dir):
+def test_sync_command_integration(dependencies, test_dir):  # noqa: C901 (test complexity)
     """Test the sync command with real commands running on the system."""
     # Create a test pyproject.toml with dependencies
     test_deps = create_test_pyproject(test_dir, dependencies)
@@ -224,6 +223,50 @@ def test_sync_command_integration(dependencies, test_dir):
         assert is_package_installed(site_packages_path, dep), (
             f"Package {dep} was not installed in .venv-workers"
         )
+
+    if test_deps:
+        vendor_freeze_result = subprocess.run(
+            ["uv", "pip", "freeze", "--path", str(TEST_SRC_VENDOR)],
+            capture_output=True,
+            text=True,
+            cwd=test_dir,
+            check=True,
+            env=os.environ
+            | {"VIRTUAL_ENV": str(test_dir / ".venv-workers" / "pyodide-venv")},
+        )
+        vendor_packages = {
+            line.split("==")[0]: line.split("==")[1]
+            for line in vendor_freeze_result.stdout.strip().split("\n")
+            if line and "==" in line
+        }
+
+        venv_freeze_result = subprocess.run(
+            ["uv", "pip", "freeze", "--path", str(site_packages_path)],
+            capture_output=True,
+            text=True,
+            cwd=test_dir,
+            check=True,
+            env=os.environ | {"VIRTUAL_ENV": str(TEST_VENV_WORKERS)},
+        )
+        venv_packages = {
+            line.split("==")[0]: line.split("==")[1]
+            for line in venv_freeze_result.stdout.strip().split("\n")
+            if line and "==" in line
+        }
+
+        for pkg_name, vendor_version in vendor_packages.items():
+            if pkg_name.lower().startswith("pyodide"):
+                continue
+
+            assert pkg_name in venv_packages, (
+                f"Package {pkg_name} found in vendor but not in venv"
+            )
+            venv_version = venv_packages[pkg_name]
+            assert vendor_version == venv_version, (
+                f"Version mismatch for {pkg_name}: "
+                f"vendor has {vendor_version}, "
+                f"venv has {venv_version}"
+            )
 
 
 def test_sync_command_handles_missing_pyproject():
