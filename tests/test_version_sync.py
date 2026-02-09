@@ -1,5 +1,4 @@
-from pathlib import Path
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pywrangler.sync as pywrangler_sync
 
@@ -22,6 +21,7 @@ def test_parse_pip_freeze():
     )
 
     assert result == ["shapely==2.0.7", "numpy==1.26.4"]
+
 
 class TestInstallRequirements:
     @patch.object(pywrangler_sync, "_install_requirements_to_vendor")
@@ -54,11 +54,7 @@ class TestInstallRequirements:
             i for i, msg in enumerate(log_messages) if mocked_native_error in msg
         )
         pyodide_idx = next(
-            (
-                i
-                for i, msg in enumerate(log_messages)
-                if mocked_pyodide_error in msg
-            ),
+            (i for i, msg in enumerate(log_messages) if mocked_pyodide_error in msg),
             None,
         )
         assert pyodide_idx is None, (
@@ -95,7 +91,11 @@ class TestInstallRequirements:
 
         log_messages = [record.message for record in caplog.records]
         assert any(mocked_pyodide_error in msg for msg in log_messages)
-        assert any("Installation of packages into the Python Worker failed. Possibly because these packages are not currently supported. See above for details." in msg for msg in log_messages)
+        assert any(
+            "Installation of packages into the Python Worker failed. Possibly because these packages are not currently supported. See above for details."
+            in msg
+            for msg in log_messages
+        )
 
     @patch.object(pywrangler_sync, "_install_requirements_to_vendor")
     @patch.object(pywrangler_sync, "_get_vendor_package_versions")
