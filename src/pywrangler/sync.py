@@ -282,6 +282,16 @@ def _log_installed_packages(venv_path: Path) -> None:
                 logger.debug(f"  {line.strip()}")
 
 
+def _parse_pip_freeze(result: str) -> list[str]:
+    packages = []
+    for line in result.strip().split("\n"):
+        # filter out empty lines and comments that we cannot handle just in case
+        line = line.strip()
+        if line and not line.startswith("#") and "==" in line:
+            packages.append(line)
+    return packages
+
+
 def _get_vendor_package_versions() -> list[str]:
     """Get pinned package versions from pyodide venv (e.g., ["shapely==2.0.7"])."""
     result = run_command(
@@ -293,13 +303,7 @@ def _get_vendor_package_versions() -> list[str]:
         logger.warning("Failed to get package versions from pyodide venv")
         return []
 
-    packages = []
-    for line in result.stdout.strip().split("\n"):
-        # filter out empty lines and comments that we cannot handle just in case
-        line = line.strip()
-        if line and not line.startswith("#") and "==" in line:
-            packages.append(line)
-    return packages
+    return _parse_pip_freeze(result.stdout)
 
 
 def install_requirements(requirements: list[str]) -> None:
