@@ -31,8 +31,12 @@ def get_venv_workers_token_path() -> Path:
     return get_venv_workers_path() / ".synced"
 
 
+def get_vendor_modules_path() -> Path:
+    return get_project_root() / "python_modules"
+
+
 def get_vendor_token_path() -> Path:
-    return get_project_root() / "python_modules/.synced"
+    return get_vendor_modules_path() / ".synced"
 
 
 def get_pyodide_venv_path() -> Path:
@@ -162,15 +166,20 @@ def temp_requirements_file(requirements: list[str]) -> Iterator[str]:
         yield temp_file.name
 
 
-def _install_requirements_to_vendor(requirements: list[str]) -> None:
-    vendor_path = get_project_root() / "python_modules"
+def _install_requirements_to_vendor(requirements: list[str]) -> str | None:
+    """Install packages to the Pyodide vendor directory.
+
+    Returns:
+        Error message string if installation failed, None if successful.
+    """
+    vendor_path = get_vendor_modules_path()
     logger.debug(f"Using vendor path: {vendor_path}")
 
     if len(requirements) == 0:
         logger.warning(
             f"Requirements list is empty. No dependencies to install in {vendor_path}."
         )
-        return
+        return None
 
     # Install packages into vendor directory
     vendor_path.mkdir(parents=True, exist_ok=True)
@@ -198,28 +207,7 @@ def _install_requirements_to_vendor(requirements: list[str]) -> None:
             env=os.environ | {"VIRTUAL_ENV": str(get_pyodide_venv_path())},
         )
         if result.returncode != 0:
-            logger.warning(result.stdout.strip())
-            # Handle some common failures and give nicer error messages for them.
-            lowered_stdout = result.stdout.lower()
-            if "invalid peer certificate" in lowered_stdout:
-                logger.error(
-                    "Installation failed because of an invalid peer certificate. Are your systems certificates correctly installed? Do you have an Enterprise VPN enabled?"
-                )
-            elif "failed to fetch" in lowered_stdout:
-                logger.error(
-                    "Installation failed because of a failed fetch. Is your network connection working?"
-                )
-            elif "no solution found when resolving dependencies" in lowered_stdout:
-                logger.error(
-                    "Installation failed because the packages you requested are not supported by Python Workers. See above for details."
-                )
-            else:
-                logger.error(
-                    "Installation of packages into the Python Worker failed. Possibly because these packages are not currently supported. See above for details."
-                )
-            raise click.exceptions.Exit(code=result.returncode)
-
-        _log_installed_packages(get_pyodide_venv_path())
+            return result.stdout.strip()
 
         pyv = get_python_version()
         shutil.rmtree(vendor_path)
@@ -237,6 +225,47 @@ def _install_requirements_to_vendor(requirements: list[str]) -> None:
         f"Packages installed in [bold]{relative_vendor_path}[/bold].",
         extra={"markup": True},
     )
+    return None
+
+
+def _install_requirements_to_venv(requirements: list[str]) -> str | None:
+    """Install packages to the native venv.
+
+    Uses pinned versions from vendor directory if available to ensure host packages
+    accurately reflect what will run in production.
+
+    Returns:
+        Error message string if installation failed, None if successful.
+    """
+
+    venv_workers_path = get_venv_workers_path()
+    project_root = get_project_root()
+    relative_venv_workers_path = venv_workers_path.relative_to(project_root)
+    requirements = requirements.copy()
+    requirements.append("pyodide-py")
+
+    logger.info(
+        f"Installing packages into [bold]{relative_venv_workers_path}[/bold]...",
+        extra={"markup": True},
+    )
+
+    with temp_requirements_file(requirements) as requirements_file:
+        result = run_command(
+            ["uv", "pip", "install", "-r", requirements_file],
+            check=False,
+            env=os.environ | {"VIRTUAL_ENV": str(venv_workers_path)},
+            capture_output=True,
+        )
+        if result.returncode != 0:
+            return result.stdout.strip()
+
+    get_venv_workers_token_path().touch()
+    logger.info(
+        f"Packages installed in [bold]{relative_venv_workers_path}[/bold].",
+        extra={"markup": True},
+    )
+
+    return None
 
 
 def _log_installed_packages(venv_path: Path) -> None:
@@ -253,54 +282,75 @@ def _log_installed_packages(venv_path: Path) -> None:
                 logger.debug(f"  {line.strip()}")
 
 
-def _install_requirements_to_venv(requirements: list[str]) -> None:
-    # Create a requirements file for .venv-workers that includes pyodide-py
-    venv_workers_path = get_venv_workers_path()
-    project_root = get_project_root()
-    relative_venv_workers_path = venv_workers_path.relative_to(project_root)
-    requirements = requirements.copy()
-    requirements.append("pyodide-py")
+def _parse_pip_freeze(result: str) -> list[str]:
+    packages = []
+    for line in result.strip().split("\n"):
+        # filter out empty lines and comments that we cannot handle just in case
+        line = line.strip()
+        if line and not line.startswith("#") and "==" in line:
+            packages.append(line)
+    return packages
 
-    logger.info(
-        f"Installing packages into [bold]{relative_venv_workers_path}[/bold]...",
-        extra={"markup": True},
-    )
-    with temp_requirements_file(requirements) as requirements_file:
-        result = run_command(
-            [
-                "uv",
-                "pip",
-                "install",
-                "-r",
-                requirements_file,
-            ],
-            check=False,
-            env=os.environ | {"VIRTUAL_ENV": str(venv_workers_path)},
-            capture_output=True,
-        )
-        if result.returncode != 0:
-            logger.warning(result.stdout.strip())
-            logger.error(
-                "Failed to install the requirements defined in your pyproject.toml file. See above for details."
-            )
-            raise click.exceptions.Exit(code=result.returncode)
 
-    get_venv_workers_token_path().touch()
-    logger.info(
-        f"Packages installed in [bold]{relative_venv_workers_path}[/bold].",
-        extra={"markup": True},
+def _get_vendor_package_versions() -> list[str]:
+    """Get pinned package versions from pyodide venv (e.g., ["shapely==2.0.7"])."""
+    result = run_command(
+        ["uv", "pip", "freeze", "--path", str(get_vendor_modules_path())],
+        env=os.environ | {"VIRTUAL_ENV": str(get_pyodide_venv_path())},
+        capture_output=True,
     )
+    if result.returncode != 0:
+        logger.warning("Failed to get package versions from pyodide venv")
+        return []
+
+    return _parse_pip_freeze(result.stdout)
 
 
 def install_requirements(requirements: list[str]) -> None:
-    # Note: the order these are executed is important.
-    # We need to install to .venv-workers first, so that we can determine if the packages requested
-    # by the user are valid.
-    _install_requirements_to_venv(requirements)
-    # Then we install the same requirements to the vendor directory. If this installation
-    # fails while the above succeeded, it implies that Pyodide does not support these package
-    # requirements which allows us to give a nicer error message to the user.
-    _install_requirements_to_vendor(requirements)
+    # First, install to the Pyodide vendor directory. This determines the exact package
+    # versions that will run in production.
+    pyodide_error = _install_requirements_to_vendor(requirements)
+
+    # Then install to .venv-workers using the pinned versions from vendor.
+    # This ensures host packages accurately reflect what will run in production.
+    # If the installation to the Pyodide vendor directory fails, use the original requirements
+    # to see if it fails in the native venv as well.
+    host_requirements = (
+        requirements if pyodide_error else _get_vendor_package_versions()
+    )
+    native_error = _install_requirements_to_venv(host_requirements)
+
+    # Show the native error first (more likely to be actionable), then the Pyodide error.
+    if native_error:
+        logger.warning(native_error)
+        logger.error(
+            "Failed to install the requirements defined in your pyproject.toml file. See above for details."
+        )
+        raise click.exceptions.Exit(code=1)
+
+    if pyodide_error:
+        logger.warning(pyodide_error)
+        # Handle some common failures and give nicer error messages for them.
+        lowered_error = pyodide_error.lower()
+        if "invalid peer certificate" in lowered_error:
+            logger.error(
+                "Installation failed because of an invalid peer certificate. Are your systems certificates correctly installed? Do you have an Enterprise VPN enabled?"
+            )
+        elif "failed to fetch" in lowered_error:
+            logger.error(
+                "Installation failed because of a failed fetch. Is your network connection working?"
+            )
+        elif "no solution found when resolving dependencies" in lowered_error:
+            logger.error(
+                "Installation failed because the packages you requested are not supported by Python Workers. See above for details."
+            )
+        else:
+            logger.error(
+                "Installation of packages into the Python Worker failed. Possibly because these packages are not currently supported. See above for details."
+            )
+        raise click.exceptions.Exit(code=1)
+
+    _log_installed_packages(get_venv_workers_path())
 
 
 def _is_out_of_date(token: Path, time: float) -> bool:
