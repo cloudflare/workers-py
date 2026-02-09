@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.7.3 (2026-02-09)
+
+### Bug Fixes
+
+- Ensure the same version is installed in host and pyodide venv
+  ([#59](https://github.com/cloudflare/workers-py/pull/59),
+  [`f85a938`](https://github.com/cloudflare/workers-py/commit/f85a938758d4e6ecffa14c20bd772ec7539a4d24))
+
+
 ## v1.7.2 (2026-02-05)
 
 ### Bug Fixes
