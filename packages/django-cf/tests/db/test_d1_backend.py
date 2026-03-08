@@ -162,7 +162,9 @@ class TestD1DatabaseWrapperConfiguration:
     def test_display_name(self):
         """Test display name is 'D1'."""
         # Read the source to verify the display_name
-        with open('/Users/gabriel/PycharmProjects/django-cf/django_cf/db/backends/d1/base.py') as f:
+        import importlib.util
+        spec = importlib.util.find_spec('django_cf.db.backends.d1.base')
+        with open(spec.origin) as f:
             content = f.read()
             assert 'display_name = "D1"' in content
             assert 'vendor = "cloudflare_d1"' in content
