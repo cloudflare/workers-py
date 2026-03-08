@@ -94,7 +94,9 @@ class TestDODatabaseWrapperConfiguration:
 
     def test_vendor_name(self):
         """Test vendor name is correct."""
-        with open('/Users/gabriel/PycharmProjects/django-cf/django_cf/db/backends/do/base.py') as f:
+        import importlib.util
+        spec = importlib.util.find_spec('django_cf.db.backends.do.base')
+        with open(spec.origin) as f:
             content = f.read()
             assert 'vendor = "cloudflare_durable_objects"' in content
             assert 'display_name = "DO"' in content
@@ -181,7 +183,9 @@ class TestDOStorageInitialization:
 
     def test_get_storage_function_exists(self):
         """Test that get_storage function exists in storage module."""
-        with open('/Users/gabriel/PycharmProjects/django-cf/django_cf/db/backends/do/base.py') as f:
+        import importlib.util
+        spec = importlib.util.find_spec('django_cf.db.backends.do.base')
+        with open(spec.origin) as f:
             content = f.read()
             assert 'from .storage import get_storage' in content
 
@@ -224,7 +228,9 @@ class TestDOQueryExecution:
         #     Error.stackTraceLimit = 1e10
         #     raise Error(Error.new().stack)
 
-        with open('/Users/gabriel/PycharmProjects/django-cf/django_cf/db/backends/do/base.py') as f:
+        import importlib.util
+        spec = importlib.util.find_spec('django_cf.db.backends.do.base')
+        with open(spec.origin) as f:
             content = f.read()
             # Verify the problematic pattern exists
             assert 'Error.stackTraceLimit = 1e10' in content
