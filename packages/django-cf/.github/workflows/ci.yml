@@ -33,7 +33,9 @@ jobs:
       run: pip install uv
 
     - name: Install dependencies
-      run: pnpm install
+      run: |
+        pnpm install
+        pip install build
 
     - name: Build
       run: pnpm run build
