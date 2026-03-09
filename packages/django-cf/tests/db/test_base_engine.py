@@ -679,6 +679,44 @@ class TestCFDatabaseOperations:
         assert isinstance(result, str)
         assert 'SELECT * FROM test WHERE id' in result
 
+    def test_last_executed_query_catches_formatting_errors(self):
+        """Test last_executed_query catches Exception on format failure."""
+        from django_cf.db.base_engine import CFDatabaseOperations
+
+        mock_wrapper = MagicMock()
+        ops = CFDatabaseOperations(mock_wrapper)
+
+        # Mismatched format string and params to trigger formatting error
+        sql = 'SELECT * FROM test WHERE id = %s AND name = %s'
+        params = (1,)  # Too few params for the format string
+
+        result = ops.last_executed_query(None, sql, params)
+
+        # Should fall back to returning original sql on formatting error
+        assert result == sql
+
+    def test_last_executed_query_does_not_catch_keyboard_interrupt(self):
+        """Test last_executed_query does not suppress KeyboardInterrupt."""
+        from django_cf.db.base_engine import CFDatabaseOperations
+
+        mock_wrapper = MagicMock()
+        ops = CFDatabaseOperations(mock_wrapper)
+
+        # Object whose __str__ raises KeyboardInterrupt during sql % params
+        class BadStr:
+            def __str__(self):
+                raise KeyboardInterrupt()
+            def __format__(self, spec):
+                raise KeyboardInterrupt()
+
+        # Patch _quote_params to return a tuple with our bad object
+        ops._quote_params_for_last_executed_query = lambda params: (BadStr(),)
+
+        sql = 'SELECT * FROM test WHERE id = %s'
+
+        with pytest.raises(KeyboardInterrupt):
+            ops.last_executed_query(None, sql, [1])
+
 
 class TestCFSQLCompiler:
     """Tests for the CFSQLCompiler class."""
