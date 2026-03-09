@@ -400,15 +400,17 @@ class TestCFDatabase:
 
         assert result is None
 
-    def test_defer_foreign_keys_bug(self):
-        """Test defer_foreign_keys has a bug (assigns to local variable)."""
+    def test_defer_foreign_keys(self):
+        """Test defer_foreign_keys correctly sets the instance variable."""
         from django_cf.db.base_engine import CFDatabase
 
         db = CFDatabase(MagicMock())
 
-        # This demonstrates the bug: _defer_foreign_keys stays False
         db.defer_foreign_keys(True)
-        assert db._defer_foreign_keys is False  # Bug: should be True
+        assert db._defer_foreign_keys is True
+
+        db.defer_foreign_keys(False)
+        assert db._defer_foreign_keys is False
 
     def test_execute_converts_boolean_true(self):
         """Test execute converts True to 1."""
