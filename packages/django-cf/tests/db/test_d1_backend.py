@@ -11,19 +11,15 @@ class TestD1DatabaseWrapperProcessQuery:
         """Create a mock D1 DatabaseWrapper for testing."""
         # We need to mock the worker imports before importing the module
         mock_workers = MagicMock()
-        mock_import_from_javascript = MagicMock()
         mock_run_sync = MagicMock()
 
         with patch.dict(sys.modules, {
             'workers': mock_workers,
             'pyodide.ffi': MagicMock(run_sync=mock_run_sync)
         }):
-            mock_workers.import_from_javascript = mock_import_from_javascript
-
             # Create a mock wrapper that mimics D1 DatabaseWrapper
             class MockD1Wrapper:
                 def __init__(self):
-                    self.import_from_javascript = mock_import_from_javascript
                     self.run_sync = mock_run_sync
                     self._cursor_mock = MagicMock()
                     self._cursor_mock._defer_foreign_keys = False

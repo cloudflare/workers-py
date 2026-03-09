@@ -28,9 +28,7 @@ class DatabaseWrapper(CFDatabaseWrapper):
         super().__init__(*args)
 
         try:
-            from workers import import_from_javascript
             from pyodide.ffi import run_sync
-            self.import_from_javascript = import_from_javascript
             self.run_sync = run_sync
         except ImportError as e:
             print(e)
@@ -69,8 +67,8 @@ class DatabaseWrapper(CFDatabaseWrapper):
     def run_query(self, query, params=None) -> CFResult:
         proc_query, params = self.process_query(query, params)
 
-        cf_workers = self.import_from_javascript("cloudflare:workers")
-        db = getattr(cf_workers.env, self.binding)
+        from workers import env
+        db = getattr(env, self.binding)
 
         if params:
             stmt = db.prepare(proc_query).bind(*params);

@@ -68,24 +68,21 @@ class R2Storage(Storage):
         self.location = location.strip('/')
         self.allow_overwrite = allow_overwrite
         self._bucket = None
-        self._import_from_javascript = None
         self._run_sync = None
 
     def _get_bucket(self):
         """Lazy initialization of the R2 bucket binding."""
         if self._bucket is None:
-            if self._import_from_javascript is None:
+            if self._run_sync is None:
                 try:
-                    from workers import import_from_javascript
                     from pyodide.ffi import run_sync
-                    self._import_from_javascript = import_from_javascript
                     self._run_sync = run_sync
 
                 except ImportError as e:
                     raise Exception("Code not running inside a worker!")
 
-            cf_workers = self._import_from_javascript("cloudflare:workers")
-            self._bucket = getattr(cf_workers.env, self.binding)
+            from workers import env
+            self._bucket = getattr(env, self.binding)
 
         return self._bucket
 
