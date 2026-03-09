@@ -237,6 +237,30 @@ class TestDOQueryExecution:
             assert 'raise Error(Error.new().stack)' in content
 
 
+class TestDOExceptionHandling:
+    """Tests for DO backend exception handling."""
+
+    def test_run_query_uses_except_exception(self):
+        """Test that run_query uses 'except Exception' instead of bare 'except'.
+
+        Bare except clauses catch BaseException subclasses like KeyboardInterrupt
+        and SystemExit, which should be allowed to propagate normally.
+        """
+        import importlib.util
+        spec = importlib.util.find_spec('django_cf.db.backends.do.base')
+        with open(spec.origin) as f:
+            content = f.read()
+            # Should use 'except Exception:' not bare 'except:'
+            assert 'except Exception:' in content
+            # Should NOT have bare except
+            lines = content.split('\n')
+            for line in lines:
+                stripped = line.strip()
+                if stripped.startswith('except') and stripped.endswith(':'):
+                    assert stripped != 'except:', \
+                        f"Found bare 'except:' clause: {line}"
+
+
 class TestDOParamConversion:
     """Tests for DO parameter type conversion."""
 
