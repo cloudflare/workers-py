@@ -157,6 +157,46 @@ class TestJWTExtraction:
                 result = middleware._extract_jwt_token(mock_request)
                 assert result is None
 
+    def test_no_broken_dash_header_lookup(self, mock_request):
+        """Test that _extract_jwt_token does not try to look up headers with dashes.
+
+        Previously the code had a fallback that looked up
+        'HTTP_CF_ACCESS_JWT_ASSERTION'.replace('_', '-') which evaluated to
+        'HTTP-CF-ACCESS-JWT-ASSERTION' - a key that could never exist in
+        Django's request.META (Django always uses underscores for HTTP headers).
+        """
+        with patch.dict('sys.modules', {'django.contrib.auth': MagicMock(),
+                                         'django.contrib.auth.models': MagicMock(),
+                                         'django.http': MagicMock(),
+                                         'django.conf': MagicMock(),
+                                         'django.core.cache': MagicMock()}):
+            with patch('django.conf.settings') as mock_settings:
+                mock_settings.CLOUDFLARE_ACCESS_AUD = 'test-aud'
+                mock_settings.CLOUDFLARE_ACCESS_TEAM_NAME = 'testteam'
+                mock_settings.CLOUDFLARE_ACCESS_EXEMPT_PATHS = []
+                mock_settings.CLOUDFLARE_ACCESS_CACHE_TIMEOUT = 3600
+
+                from django_cf.middleware.CloudflareAccessMiddleware import CloudflareAccessMiddleware
+
+                middleware = CloudflareAccessMiddleware(lambda r: r)
+
+                # Verify the source code does NOT contain the broken dash-based lookup
+                import inspect
+                source = inspect.getsource(middleware._extract_jwt_token)
+                assert ".replace('_', '-')" not in source
+                assert '.replace("_", "-")' not in source
+
+                # Without header or cookie, should return None (no broken fallback)
+                mock_request.META = {}
+                mock_request.COOKIES = {}
+                result = middleware._extract_jwt_token(mock_request)
+                assert result is None
+
+                # With correct underscore-based header key, should find it
+                mock_request.META = {'HTTP_CF_ACCESS_JWT_ASSERTION': 'test-token'}
+                result = middleware._extract_jwt_token(mock_request)
+                assert result == 'test-token'
+
     def test_header_takes_precedence_over_cookie(self, mock_request):
         """Test that header JWT takes precedence over cookie."""
         with patch.dict('sys.modules', {'django.contrib.auth': MagicMock(),
