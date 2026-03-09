@@ -205,11 +205,6 @@ class CloudflareAccessMiddleware:
         if jwt_token:
             return jwt_token
 
-        # Try alternative header format
-        jwt_token = request.META.get('HTTP_CF_ACCESS_JWT_ASSERTION'.replace('_', '-'))
-        if jwt_token:
-            return jwt_token
-
         # Try cookie
         jwt_token = request.COOKIES.get('CF_Authorization')
         if jwt_token:
