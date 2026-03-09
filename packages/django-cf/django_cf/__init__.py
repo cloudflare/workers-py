@@ -39,7 +39,7 @@ async def handle_wsgi(request, app):
         wsgi_request['CONTENT_LENGTH'] = request.headers.get('content-length')
 
     for header in request.headers.items():
-        wsgi_request[f'HTTP_{header[0].upper()}'] = header[1]
+        wsgi_request[f'HTTP_{header[0].upper().replace("-", "_")}'] = header[1]
 
     if method in ['POST', 'PUT', 'PATCH']:
         body = (await request._js_request.arrayBuffer()).to_bytes()
@@ -75,7 +75,7 @@ async def handle_wsgi(request, app):
 
 class DjangoCF:
     def get_app(self):
-        raise NotImplementedError("Please implement implement get_app in your django_cf worker")
+        raise NotImplementedError("Please implement get_app in your django_cf worker")
 
     async def fetch(self, request):
         return await handle_wsgi(request, self.get_app())
@@ -83,7 +83,7 @@ class DjangoCF:
 
 class DjangoCFDurableObject:
     def get_app(self):
-        raise NotImplementedError("Please implement implement get_app in your django_cf worker")
+        raise NotImplementedError("Please implement get_app in your django_cf worker")
 
     def __init__(self, ctx, env):
         self.ctx = ctx
