@@ -120,7 +120,7 @@ class CFDatabaseOperations(SQLiteDatabaseOperations):
                 params = dict(zip(params, values))
             try:
                 return sql % params
-            except:
+            except Exception:
                 return sql
         # For consistency with SQLiteCursorWrapper.execute(), just return sql
         # when there are no parameters. See #13648 and #17158.

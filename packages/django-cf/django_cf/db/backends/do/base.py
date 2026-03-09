@@ -50,7 +50,7 @@ class DatabaseWrapper(CFDatabaseWrapper):
         try:
             response = stmt.raw().toArray().to_py()
             result = CFResult.from_object(query, params, response, stmt.rowsRead, stmt.rowsWritten)
-        except:
+        except Exception:
             from js import Error
             Error.stackTraceLimit = 1e10
             raise Error(Error.new().stack)
