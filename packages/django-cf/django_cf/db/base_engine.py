@@ -153,11 +153,7 @@ class CFDatabaseFeatures(SQLiteDatabaseFeatures):
     supports_pragma_foreign_key_check = False
     can_alter_table_rename_column = False
     max_query_params = 100
-    can_clone_databases = False
-    can_rollback_ddl = False
-    supports_atomic_references_rename = False
     supports_forward_references = False
-    supports_transactions = False
     has_bulk_insert = True
     # supports_select_union = False
     # supports_select_intersection = False
@@ -275,7 +271,7 @@ class CFDatabase:
     lastResult: CFResult = None
 
     def defer_foreign_keys(self, state):
-        _defer_foreign_keys = state
+        self._defer_foreign_keys = state
 
     @staticmethod
     def connect(binding):
