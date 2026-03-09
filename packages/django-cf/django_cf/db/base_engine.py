@@ -33,7 +33,7 @@ def replace_date_trunc_in_sql(sql):
         replacement = (
             f"CASE %s "
             f"WHEN 'year' THEN STRFTIME('%Y-01-01', {field}) "
-            f"WHEN 'quarter' THEN CASE CAST(STRFTIME('%m', {field}) AS INTEGER) "
+            f"WHEN 'quarter' THEN CASE ((CAST(STRFTIME('%m', {field}) AS INTEGER) - 1) / 3 + 1) "
             f"  WHEN 1 THEN STRFTIME('%Y-01-01', {field}) "
             f"  WHEN 2 THEN STRFTIME('%Y-04-01', {field}) "
             f"  WHEN 3 THEN STRFTIME('%Y-07-01', {field}) "
@@ -370,7 +370,7 @@ class CFSQLCompiler(SQLCompiler):
             
             templates = {
                 'year': f'STRFTIME("%Y-01-01", {field})',
-                'quarter': f'CASE CAST(STRFTIME("%m", {field}) AS INTEGER) WHEN 1 THEN STRFTIME("%Y-01-01", {field}) WHEN 2 THEN STRFTIME("%Y-04-01", {field}) WHEN 3 THEN STRFTIME("%Y-07-01", {field}) WHEN 4 THEN STRFTIME("%Y-10-01", {field}) END',
+                'quarter': f'CASE ((CAST(STRFTIME("%m", {field}) AS INTEGER) - 1) / 3 + 1) WHEN 1 THEN STRFTIME("%Y-01-01", {field}) WHEN 2 THEN STRFTIME("%Y-04-01", {field}) WHEN 3 THEN STRFTIME("%Y-07-01", {field}) WHEN 4 THEN STRFTIME("%Y-10-01", {field}) END',
                 'month': f'STRFTIME("%Y-%m-01", {field})',
                 'week': f'DATE({field}, "-" || CAST((CAST(STRFTIME("%w", {field}) AS INTEGER) + 6) % 7 AS TEXT) || " days")',
                 'day': f'DATE({field})',
@@ -397,7 +397,7 @@ class CFSQLCompiler(SQLCompiler):
 
         templates = {
             'year': 'STRFTIME("%Y-01-01", {})'.format(field_sql),
-            'quarter': 'CASE CAST(STRFTIME("%%m", {}) AS INTEGER) WHEN 1 THEN STRFTIME("%%Y-01-01", {}) WHEN 2 THEN STRFTIME("%%Y-04-01", {}) WHEN 3 THEN STRFTIME("%%Y-07-01", {}) WHEN 4 THEN STRFTIME("%%Y-10-01", {}) END'.format(field_sql, field_sql, field_sql, field_sql, field_sql),
+            'quarter': 'CASE ((CAST(STRFTIME("%%m", {}) AS INTEGER) - 1) / 3 + 1) WHEN 1 THEN STRFTIME("%%Y-01-01", {}) WHEN 2 THEN STRFTIME("%%Y-04-01", {}) WHEN 3 THEN STRFTIME("%%Y-07-01", {}) WHEN 4 THEN STRFTIME("%%Y-10-01", {}) END'.format(field_sql, field_sql, field_sql, field_sql, field_sql),
             'month': 'STRFTIME("%Y-%m-01", {})'.format(field_sql),
             'week': 'DATE({}, "-" || CAST((CAST(STRFTIME("%w", {}) AS INTEGER) + 6) %% 7 AS TEXT) || " days")'.format(field_sql, field_sql),
             'day': 'DATE({})'.format(field_sql),
