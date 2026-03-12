@@ -150,6 +150,7 @@ def test_sync_command_integration(dependencies, test_dir):  # noqa: C901 (test c
     """Test the sync command with real commands running on the system."""
     # Create a test pyproject.toml with dependencies
     test_deps = create_test_pyproject(test_dir, dependencies)
+    test_deps.append("workers-runtime-sdk")
 
     # Create a test wrangler.jsonc file
     create_test_wrangler_jsonc(test_dir, "src/worker.py")
