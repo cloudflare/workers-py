@@ -1,11 +1,14 @@
 import sys
 from contextlib import chdir
+from pathlib import Path
 from subprocess import run
 
 import pytest
 
 # Import the full module so we can patch constants
 from pywrangler.types import wrangler_types
+
+RUNTIME_SDK_PATH = Path(__file__).resolve().parents[1] / ".." / "workers-runtime-sdk"
 
 WRANGLER_TOML = """
 compatibility_date = "2025-08-14"
@@ -20,8 +23,11 @@ PYPROJECT_TOML = """
 dev = [
     "mypy>=1.17.1",
     "pyodide-py",
-    "workers-runtime-sdk<1",
+    "workers-runtime-sdk",
 ]
+
+[tool.uv.sources]
+workers-runtime-sdk = {{ path = "{runtime_sdk_path}" }}
 
 [tool.mypy]
 files = [
@@ -56,7 +62,7 @@ def test_types(tmp_path):
     worker_dir.mkdir(parents=True)
     worker_path.write_text(WORKER)
     config_path.write_text(WRANGLER_TOML)
-    pyproject_path.write_text(PYPROJECT_TOML)
+    pyproject_path.write_text(PYPROJECT_TOML.format(runtime_sdk_path=RUNTIME_SDK_PATH))
 
     with chdir(tmp_path):
         wrangler_types(None, None)
