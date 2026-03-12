@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.8.0 (2026-03-12)
+
+### Bug Fixes
+
+- Fix types in workers-runtime-sdk ([#73](https://github.com/cloudflare/workers-py/pull/73),
+  [`c46de58`](https://github.com/cloudflare/workers-py/commit/c46de58086d5f27341194fb48353bea7acc08312))
+
+
 ## v1.0.0 (2026-03-12)
 
 - Initial Release
