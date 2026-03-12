@@ -11,7 +11,16 @@ from http import HTTPMethod, HTTPStatus
 import js
 import pyodide.http
 from pyodide.ffi import JsProxy, to_js
-from workers import Blob, File, FormData, Request, Response, WorkerEntrypoint, fetch
+from workers import (
+    Blob,
+    File,
+    FormData,
+    Request,
+    Response,
+    WorkerEntrypoint,
+    env,
+    fetch,
+)
 
 
 @asynccontextmanager
@@ -153,27 +162,26 @@ class Default(WorkerEntrypoint):
         assert ctrl.cron == "* * * * 30"
 
     async def test(self):
-        js_env = self.env._env
-        await can_support_scheduled_cron_trigger(js_env)
-        await can_return_custom_fetch_response(js_env)
-        await can_modify_response(js_env)
-        await can_use_duplicate_headers(js_env)
-        await can_use_fetch_opts(js_env)
-        await gets_nice_error_on_jsism(js_env)
-        await can_use_undefined_options_and_redirect(js_env)
-        await can_use_inherited_response_methods(js_env)
-        await errors_on_invalid_input_to_redirect(js_env)
-        await can_use_response_json(js_env)
-        await can_request_form_data(js_env)
-        await form_data_unit_tests(js_env)
-        await blob_unit_tests(js_env)
-        await can_request_form_data_blob(js_env)
-        await replace_body_unit_tests(js_env)
-        await can_use_cf_fetch_opts(js_env)
-        await request_unit_tests(js_env)
-        await can_use_event_decorator(js_env)
-        await response_unit_tests(js_env)
-        await response_buffer_source_unit_tests(js_env)
+        await can_support_scheduled_cron_trigger()
+        await can_return_custom_fetch_response()
+        await can_modify_response()
+        await can_use_duplicate_headers()
+        await can_use_fetch_opts()
+        await gets_nice_error_on_jsism()
+        await can_use_undefined_options_and_redirect()
+        await can_use_inherited_response_methods()
+        await errors_on_invalid_input_to_redirect()
+        await can_use_response_json()
+        await can_request_form_data()
+        await form_data_unit_tests()
+        await blob_unit_tests()
+        await can_request_form_data_blob()
+        await replace_body_unit_tests()
+        await can_use_cf_fetch_opts()
+        await request_unit_tests()
+        await can_use_event_decorator()
+        await response_unit_tests()
+        await response_buffer_source_unit_tests()
         await can_fetch_python_request()
 
 
@@ -185,7 +193,7 @@ class Default(WorkerEntrypoint):
 # calling the JS fetch via the FFI.
 
 
-async def can_return_custom_fetch_response(env):
+async def can_return_custom_fetch_response():
     assert isinstance(env, JsProxy), (
         "Expecting the env for these tests not to be wrapped"
     )
@@ -196,7 +204,7 @@ async def can_return_custom_fetch_response(env):
     assert text == "Hi there!"
 
 
-async def can_modify_response(env):
+async def can_modify_response():
     response = await env.SELF.fetch(
         "http://example.com/modify",
     )
@@ -206,7 +214,7 @@ async def can_modify_response(env):
     assert response.headers.get("Custom-Header-That-Should-Passthrough") == "modified"
 
 
-async def can_use_duplicate_headers(env):
+async def can_use_duplicate_headers():
     response = await env.SELF.fetch(
         "http://example.com/modify_tuple",
     )
@@ -218,7 +226,7 @@ async def can_use_duplicate_headers(env):
     )
 
 
-async def can_use_fetch_opts(env):
+async def can_use_fetch_opts():
     response = await env.SELF.fetch(
         "http://example.com/fetch_opts",
     )
@@ -227,7 +235,7 @@ async def can_use_fetch_opts(env):
     assert response.headers.get("Custom-Header-That-Should-Passthrough") == "true"
 
 
-async def gets_nice_error_on_jsism(env):
+async def gets_nice_error_on_jsism():
     response = await env.SELF.fetch(
         "http://example.com/jsism",
     )
@@ -235,7 +243,7 @@ async def gets_nice_error_on_jsism(env):
     assert text == "success"
 
 
-async def can_use_undefined_options_and_redirect(env):
+async def can_use_undefined_options_and_redirect():
     response = await env.SELF.fetch(
         "http://example.com/undefined_opts", redirect="manual"
     )
@@ -246,7 +254,7 @@ async def can_use_undefined_options_and_redirect(env):
     assert response.status == 301
 
 
-async def can_use_inherited_response_methods(env):
+async def can_use_inherited_response_methods():
     response = await env.SELF.fetch(
         "http://example.com/response_inherited",
     )
@@ -254,7 +262,7 @@ async def can_use_inherited_response_methods(env):
     assert text == "success"
 
 
-async def errors_on_invalid_input_to_redirect(env):
+async def errors_on_invalid_input_to_redirect():
     response = await env.SELF.fetch(
         "http://example.com/redirect_invalid_input",
     )
@@ -262,7 +270,7 @@ async def errors_on_invalid_input_to_redirect(env):
     assert text == "success"
 
 
-async def can_use_response_json(env):
+async def can_use_response_json():
     response = await env.SELF.fetch(
         "http://example.com/response_json",
     )
@@ -270,7 +278,7 @@ async def can_use_response_json(env):
     assert text == '{"obj": {"field": 123}}'
 
 
-async def can_request_form_data(env):
+async def can_request_form_data():
     response = await env.SELF.fetch(
         "http://example.com/formdata",
     )
@@ -278,7 +286,7 @@ async def can_request_form_data(env):
     assert text == "success"
 
 
-async def form_data_unit_tests(env):
+async def form_data_unit_tests():
     # Verify that existing JS formdata is loaded correctly.
     js_data = js.FormData.new()
     js_data.append("foobar", 123)
@@ -313,7 +321,7 @@ async def form_data_unit_tests(env):
     assert "foobar2" in data_values
 
 
-async def blob_unit_tests(env):
+async def blob_unit_tests():
     # Verify that we can create a FormData and add Blob in there.
     data = FormData()
     data["test"] = Blob(["some string"])
@@ -353,7 +361,7 @@ async def blob_unit_tests(env):
     assert file_blob.name == "test.txt"
 
 
-async def can_request_form_data_blob(env):
+async def can_request_form_data_blob():
     response = await env.SELF.fetch(
         "http://example.com/formdatablob",
     )
@@ -361,7 +369,7 @@ async def can_request_form_data_blob(env):
     assert text == "success"
 
 
-async def replace_body_unit_tests(env):
+async def replace_body_unit_tests():
     response = Response("test", status=201, status_text="Created")
     cloned = response.replace_body("other")
     assert cloned.status == 201
@@ -370,7 +378,7 @@ async def replace_body_unit_tests(env):
     assert t == "other"
 
 
-async def can_use_cf_fetch_opts(env):
+async def can_use_cf_fetch_opts():
     response = await env.SELF.fetch(
         "http://example.com/cf_opts",
     )
@@ -378,7 +386,7 @@ async def can_use_cf_fetch_opts(env):
     assert text == "success"
 
 
-async def request_unit_tests(env):
+async def request_unit_tests():
     req = Request("https://test.com", method=HTTPMethod.POST)
     assert req.method == HTTPMethod.POST
     assert repr(req) == "Request(method='POST', url='https://test.com/')"
@@ -468,7 +476,7 @@ async def request_unit_tests(env):
     assert form_data["foobar"] == "123"
 
 
-async def can_use_event_decorator(env):
+async def can_use_event_decorator():
     js_headers = js.Headers.new()
     js_headers.append("X-Custom-Header", "some_value")
     js_headers.append("X-Custom-Header", "some_other_value")
@@ -479,7 +487,7 @@ async def can_use_event_decorator(env):
     assert text == "success"
 
 
-async def response_unit_tests(env):
+async def response_unit_tests():
     response_json = Response.json([1, 2, 3])
     assert await response_json.text() == "[1, 2, 3]"
     assert (
@@ -551,7 +559,7 @@ async def response_unit_tests(env):
     assert response_ws.status == 101
 
 
-async def response_buffer_source_unit_tests(env):
+async def response_buffer_source_unit_tests():
     buffer_source_cases = [
         # TODO: Float16Array is not supported in Pyodide <= 0.29 (pyodide/pyodide#6005)
         ("ArrayBuffer", js.Uint8Array.new(to_js([1, 2, 3, 4, 5, 6, 7, 8])).buffer),
@@ -599,6 +607,6 @@ async def can_fetch_python_request():
         await fetch(Request("https://example.com/redirect"))
 
 
-async def can_support_scheduled_cron_trigger(env):
+async def can_support_scheduled_cron_trigger():
     result = await env.SELF.scheduled(scheduledTime=1000, cron="* * * * 30")
     assert result.outcome == "ok"
