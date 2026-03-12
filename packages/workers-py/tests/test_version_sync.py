@@ -46,8 +46,14 @@ class TestInstallRequirements:
         assert mock_venv.call_count == 1
         assert mock_get_vendor.call_count == 0
 
-        assert mock_vendor.call_args_list[0][0][0] == ["nonexistent-package"]
-        assert mock_venv.call_args_list[0][0][0] == ["nonexistent-package"]
+        assert mock_vendor.call_args_list[0][0][0] == [
+            "nonexistent-package",
+            "workers-runtime-sdk",
+        ]
+        assert mock_venv.call_args_list[0][0][0] == [
+            "nonexistent-package",
+            "workers-runtime-sdk",
+        ]
 
         log_messages = [record.message for record in caplog.records]
         native_idx = next(
@@ -84,10 +90,16 @@ class TestInstallRequirements:
         # Pyodide installation failed, so _get_vendor_package_versions should not be called
         assert mock_get_vendor.call_count == 0
 
-        assert mock_vendor.call_args_list[0][0][0] == ["some-package"]
+        assert mock_vendor.call_args_list[0][0][0] == [
+            "some-package",
+            "workers-runtime-sdk",
+        ]
 
         # native installation should be called with the original requirements
-        assert mock_venv.call_args_list[0][0][0] == ["some-package"]
+        assert mock_venv.call_args_list[0][0][0] == [
+            "some-package",
+            "workers-runtime-sdk",
+        ]
 
         log_messages = [record.message for record in caplog.records]
         assert any(mocked_pyodide_error in msg for msg in log_messages)
@@ -105,7 +117,10 @@ class TestInstallRequirements:
     ):
         mocked_native_error = "Native install failed: package not found"
         mock_vendor.return_value = None
-        mock_get_vendor.return_value = ["some-package==1.0.0"]
+        mock_get_vendor.return_value = [
+            "some-package==1.0.0",
+            "workers-runtime-sdk==1.0.0",
+        ]
         mock_venv.return_value = mocked_native_error
 
         import click
@@ -118,8 +133,14 @@ class TestInstallRequirements:
         assert mock_venv.call_count == 1
         assert mock_get_vendor.call_count == 1
 
-        assert mock_vendor.call_args_list[0][0][0] == ["some-package"]
-        assert mock_venv.call_args_list[0][0][0] == ["some-package==1.0.0"]
+        assert mock_vendor.call_args_list[0][0][0] == [
+            "some-package",
+            "workers-runtime-sdk",
+        ]
+        assert mock_venv.call_args_list[0][0][0] == [
+            "some-package==1.0.0",
+            "workers-runtime-sdk==1.0.0",
+        ]
 
         log_messages = [record.message for record in caplog.records]
         assert any(mocked_native_error in msg for msg in log_messages)

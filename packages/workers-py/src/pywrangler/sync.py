@@ -307,6 +307,7 @@ def _get_vendor_package_versions() -> list[str]:
 
 
 def install_requirements(requirements: list[str]) -> None:
+    requirements.append("workers-runtime-sdk")
     # First, install to the Pyodide vendor directory. This determines the exact package
     # versions that will run in production.
     pyodide_error = _install_requirements_to_vendor(requirements)
