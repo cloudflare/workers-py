@@ -18,13 +18,16 @@ from contextlib import ExitStack, contextmanager
 from enum import StrEnum
 from http import HTTPMethod, HTTPStatus
 from types import LambdaType
-from typing import Any, Never, Protocol, TypedDict, Unpack
+from typing import TYPE_CHECKING, Any, Never, Protocol, TypedDict, Unpack
 
 import _cloudflare_compat_flags
 
 # Get globals modules and import function from the entrypoint-helper
 import _pyodide_entrypoint_helper
 import js
+
+if TYPE_CHECKING:
+    from js import DurableObjectState, Env, ExecutionContext
 import pyodide.http
 from js import Object
 from pyodide import __version__ as pyodide_version
@@ -1371,7 +1374,10 @@ class DurableObject:
     Base class used to define a Durable Object.
     """
 
-    def __init__(self, ctx: Context, env: Any):
+    ctx: "DurableObjectState"
+    env: "Env"
+
+    def __init__(self, ctx: "DurableObjectState", env: "Env"):
         self.ctx = ctx
         self.env = env
 
@@ -1384,7 +1390,10 @@ class WorkerEntrypoint:
     Base class used to define a Worker Entrypoint.
     """
 
-    def __init__(self, ctx: Context, env: Any):
+    ctx: "ExecutionContext"
+    env: "Env"
+
+    def __init__(self, ctx: "ExecutionContext", env: "Env"):
         self.ctx = ctx
         self.env = env
 
@@ -1397,7 +1406,10 @@ class WorkflowEntrypoint:
     Base class used to define a Workflow Entrypoint.
     """
 
-    def __init__(self, ctx: Context, env: Any):
+    ctx: "ExecutionContext"
+    env: "Env"
+
+    def __init__(self, ctx: "ExecutionContext", env: "Env"):
         self.ctx = ctx
         self.env = env
 
