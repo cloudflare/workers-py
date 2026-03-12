@@ -20,7 +20,7 @@ PYPROJECT_TOML = """
 dev = [
     "mypy>=1.17.1",
     "pyodide-py",
-    "workers-runtime-sdk",
+    "workers-runtime-sdk<1",
 ]
 
 [tool.mypy]
