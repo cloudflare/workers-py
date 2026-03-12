@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.9.0 (2026-03-12)
+
+### Features
+
+- Make workers cli install workers-runtime-sdk
+  ([#74](https://github.com/cloudflare/workers-py/pull/74),
+  [`a62f255`](https://github.com/cloudflare/workers-py/commit/a62f255e51555d212ecbb98f93e7145e251863f4))
+
+
 ## v1.8.0 (2026-03-12)
 
 ### Bug Fixes
