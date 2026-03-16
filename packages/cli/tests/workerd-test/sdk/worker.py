@@ -5,13 +5,16 @@
 # behaviour doesn't need to strictly be held consistent. In fact it uses the JS fetch, so it's not
 # going to follow the SDK at all.
 
+import os
 from contextlib import asynccontextmanager
 from functools import wraps
 from http import HTTPMethod, HTTPStatus
 
 import js
 import pyodide.http
+import pytest
 from pyodide.ffi import JsProxy, to_js
+from pyodide.webloop import WebLoop
 from workers import (
     Blob,
     File,
@@ -22,6 +25,15 @@ from workers import (
     env,
     fetch,
 )
+
+
+async def noop(*args):
+    pass
+
+
+# pytest-asyncio relies on these but in Pyodide < 0.29 WebLoop does not implement them
+WebLoop.shutdown_asyncgens = noop
+WebLoop.shutdown_default_executor = noop
 
 
 @asynccontextmanager
@@ -69,27 +81,11 @@ class Default(WorkerEntrypoint):
         assert ctrl.cron == "* * * * 30"
 
     async def test(self):
-        await can_support_scheduled_cron_trigger()
-        await can_return_custom_fetch_response()
-        await can_modify_response()
-        await can_use_duplicate_headers()
-        await can_use_fetch_opts()
-        await gets_nice_error_on_jsism()
-        await can_use_undefined_options_and_redirect()
-        await can_use_inherited_response_methods()
-        await errors_on_invalid_input_to_redirect()
-        await can_use_response_json()
-        await can_request_form_data()
-        await form_data_unit_tests()
-        await blob_unit_tests()
-        await can_request_form_data_blob()
-        await replace_body_unit_tests()
-        await can_use_cf_fetch_opts()
-        await request_unit_tests()
-        await can_use_event_decorator()
-        await response_unit_tests()
-        await response_buffer_source_unit_tests()
-        await can_fetch_python_request()
+        os.chdir("/session/metadata/")
+        args = ["./worker.py", "-vv"]
+        if self.env.color:
+            args.append("--color=yes")
+        assert pytest.main(args) == 0
 
 
 # TODO: Right now the `fetch` that's available on a binding is the JS fetch.
@@ -100,7 +96,8 @@ class Default(WorkerEntrypoint):
 # calling the JS fetch via the FFI.
 
 
-async def can_return_custom_fetch_response():
+@pytest.mark.asyncio
+async def test_can_return_custom_fetch_response():
     assert isinstance(env, JsProxy), (
         "Expecting the env for these tests not to be wrapped"
     )
@@ -116,7 +113,8 @@ async def can_return_custom_fetch_response():
     assert text == "Hi there!"
 
 
-async def can_modify_response():
+@pytest.mark.asyncio
+async def test_can_modify_response():
     @response_handler
     async def handler(request):
         resp = await fetch("https://example.com/sub")
@@ -135,7 +133,8 @@ async def can_modify_response():
     assert response.headers.get("Custom-Header-That-Should-Passthrough") == "modified"
 
 
-async def can_use_duplicate_headers():
+@pytest.mark.asyncio
+async def test_can_use_duplicate_headers():
     @response_handler
     async def handler(request):
         resp = await fetch("https://example.com/sub")
@@ -158,7 +157,8 @@ async def can_use_duplicate_headers():
     )
 
 
-async def can_use_fetch_opts():
+@pytest.mark.asyncio
+async def test_can_use_fetch_opts():
     @response_handler
     async def handler(request):
         resp = await fetch(
@@ -177,7 +177,8 @@ async def can_use_fetch_opts():
     assert response.headers.get("Custom-Header-That-Should-Passthrough") == "true"
 
 
-async def gets_nice_error_on_jsism():
+@pytest.mark.asyncio
+async def test_gets_nice_error_on_jsism():
     @response_handler
     async def handler(request):
         # Headers should be specified via a keyword argument, but it's done
@@ -202,7 +203,8 @@ async def gets_nice_error_on_jsism():
     assert text == "success"
 
 
-async def can_use_undefined_options_and_redirect():
+@pytest.mark.asyncio
+async def test_can_use_undefined_options_and_redirect():
     @response_handler
     async def handler(request):
         # This tests two things:
@@ -231,7 +233,8 @@ async def can_use_undefined_options_and_redirect():
     assert response.status == 301
 
 
-async def can_use_inherited_response_methods():
+@pytest.mark.asyncio
+async def test_can_use_inherited_response_methods():
     @response_handler
     async def handler(request):
         expected = "test123"
@@ -249,7 +252,8 @@ async def can_use_inherited_response_methods():
     assert text == "success"
 
 
-async def errors_on_invalid_input_to_redirect():
+@pytest.mark.asyncio
+async def test_errors_on_invalid_input_to_redirect():
     @response_handler
     async def handler(request):
         try:
@@ -265,7 +269,8 @@ async def errors_on_invalid_input_to_redirect():
     assert text == "success"
 
 
-async def can_use_response_json():
+@pytest.mark.asyncio
+async def test_can_use_response_json():
     @response_handler
     async def handler(request):
         return Response.json({"obj": {"field": 123}}, status=HTTPStatus.NOT_FOUND)
@@ -277,7 +282,8 @@ async def can_use_response_json():
     assert text == '{"obj": {"field": 123}}'
 
 
-async def can_request_form_data():
+@pytest.mark.asyncio
+async def test_can_request_form_data():
     @response_handler
     async def handler(request):
         # server.py creates a new FormData and verifies that it can be passed
@@ -296,7 +302,8 @@ async def can_request_form_data():
     assert text == "success"
 
 
-async def form_data_unit_tests():
+@pytest.mark.asyncio
+async def test_form_data_unit_tests():
     # Verify that existing JS formdata is loaded correctly.
     js_data = js.FormData.new()
     js_data.append("foobar", 123)
@@ -331,7 +338,8 @@ async def form_data_unit_tests():
     assert "foobar2" in data_values
 
 
-async def blob_unit_tests():
+@pytest.mark.asyncio
+async def test_blob_unit_tests():
     # Verify that we can create a FormData and add Blob in there.
     data = FormData()
     data["test"] = Blob(["some string"])
@@ -371,7 +379,8 @@ async def blob_unit_tests():
     assert file_blob.name == "test.txt"
 
 
-async def can_request_form_data_blob():
+@pytest.mark.asyncio
+async def test_can_request_form_data_blob():
     @response_handler
     async def handler(request):
         # server.py creates a new FormData and verifies that it can be passed
@@ -392,7 +401,8 @@ async def can_request_form_data_blob():
     assert text == "success"
 
 
-async def replace_body_unit_tests():
+@pytest.mark.asyncio
+async def test_replace_body_unit_tests():
     response = Response("test", status=201, status_text="Created")
     cloned = response.replace_body("other")
     assert cloned.status == 201
@@ -401,7 +411,8 @@ async def replace_body_unit_tests():
     assert t == "other"
 
 
-async def can_use_cf_fetch_opts():
+@pytest.mark.asyncio
+async def test_can_use_cf_fetch_opts():
     @response_handler
     async def handler(request):
         resp = await fetch(
@@ -423,7 +434,8 @@ async def can_use_cf_fetch_opts():
     assert text == "success"
 
 
-async def request_unit_tests():
+@pytest.mark.asyncio
+async def test_request_unit_tests():
     req = Request("https://test.com", method=HTTPMethod.POST)
     assert req.method == HTTPMethod.POST
     assert repr(req) == "Request(method='POST', url='https://test.com/')"
@@ -513,7 +525,8 @@ async def request_unit_tests():
     assert form_data["foobar"] == "123"
 
 
-async def can_use_event_decorator():
+@pytest.mark.asyncio
+async def test_can_use_event_decorator():
     @response_handler
     async def handler(request):
         # Verify that the `@event`` decorator has transformed the `request` parameter to the correct
@@ -534,7 +547,8 @@ async def can_use_event_decorator():
     assert text == "success"
 
 
-async def response_unit_tests():
+@pytest.mark.asyncio
+async def test_response_unit_tests():
     response_json = Response.json([1, 2, 3])
     assert await response_json.text() == "[1, 2, 3]"
     assert (
@@ -606,7 +620,8 @@ async def response_unit_tests():
     assert response_ws.status == 101
 
 
-async def response_buffer_source_unit_tests():
+@pytest.mark.asyncio
+async def test_response_buffer_source_unit_tests():
     buffer_source_cases = [
         # TODO: Float16Array is not supported in Pyodide <= 0.29 (pyodide/pyodide#6005)
         ("ArrayBuffer", js.Uint8Array.new(to_js([1, 2, 3, 4, 5, 6, 7, 8])).buffer),
@@ -646,7 +661,8 @@ async def response_buffer_source_unit_tests():
         )
 
 
-async def can_fetch_python_request():
+@pytest.mark.asyncio
+async def test_can_fetch_python_request():
     def fetch_check(request, opts):
         assert isinstance(request, JsProxy)
 
@@ -654,6 +670,7 @@ async def can_fetch_python_request():
         await fetch(Request("https://example.com/redirect"))
 
 
-async def can_support_scheduled_cron_trigger():
+@pytest.mark.asyncio
+async def test_can_support_scheduled_cron_trigger():
     result = await env.SELF.scheduled(scheduledTime=1000, cron="* * * * 30")
     assert result.outcome == "ok"
