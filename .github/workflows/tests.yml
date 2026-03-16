@@ -28,10 +28,10 @@ jobs:
 
     - name: Install project
       run: |
-        uv pip install --system -e packages/workers-runtime-sdk -e packages/workers-py pytest
+        uv pip install --system -e packages/runtime-sdk -e packages/cli pytest
 
     - name: Run tests
-      working-directory: packages/workers-py
+      working-directory: packages/cli
       run: |
         pytest tests
 

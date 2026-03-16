@@ -40,7 +40,7 @@ repos:
     rev: "v1.14.1"
     hooks:
       - id: mypy
-        exclude: (.*test.*|workers-runtime-sdk)
+        exclude: (.*test.*|runtime-sdk)
         additional_dependencies:
           - click
 ci:
