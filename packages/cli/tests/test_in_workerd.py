@@ -21,6 +21,27 @@ def discover_workerd_tests():
     return cases
 
 
+def embed(dir: Path, root: Path, level: int = 0):
+    modules = []
+    module_path_root = dir
+    for _ in range(level):
+        module_path_root = module_path_root.parent
+
+    for path in dir.glob("**/*"):
+        if path.is_dir():
+            continue
+
+        module_path = path.absolute().relative_to(module_path_root)
+        embed_path = path.absolute().relative_to(root)
+        if path.suffix == ".py":
+            modules.append(
+                f'(name = "{module_path}", pythonModule = embed "{embed_path}")'
+            )
+        else:
+            modules.append(f'(name = "{module_path}", data = embed "{embed_path}")')
+    return modules
+
+
 @pytest.mark.parametrize("test_dir, wd_test_file", discover_workerd_tests())
 def test_in_workerd(tmp_path, test_dir, wd_test_file, pytestconfig):
     color = pytestconfig.get_terminal_writer().hasmarkup
@@ -31,19 +52,10 @@ def test_in_workerd(tmp_path, test_dir, wd_test_file, pytestconfig):
         cwd=target,
         check=True,
     )
-    modules = []
-    PYTHON_MODULES = target / "python_modules"
-    for path in PYTHON_MODULES.glob("**/*"):
-        if path.is_dir():
-            continue
-        module_path = path.absolute().relative_to(PYTHON_MODULES)
-        embed_path = path.absolute().relative_to(PYTHON_MODULES.parent)
-        if path.suffix == ".py":
-            modules.append(
-                f'(name = "{module_path}", pythonModule = embed "{embed_path}")'
-            )
-        else:
-            modules.append(f'(name = "{module_path}", data = embed "{embed_path}")')
+    modules = embed(target / "python_modules", target) + embed(
+        target / "tests", target, level=1
+    )
+
     python_modules = ",\n".join(modules) + ",\n"
     wd_config = target / wd_test_file
     wd_config.write_text(
