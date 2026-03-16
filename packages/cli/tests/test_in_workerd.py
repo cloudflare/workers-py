@@ -22,7 +22,8 @@ def discover_workerd_tests():
 
 
 @pytest.mark.parametrize("test_dir, wd_test_file", discover_workerd_tests())
-def test_in_workerd(tmp_path, test_dir, wd_test_file):
+def test_in_workerd(tmp_path, test_dir, wd_test_file, pytestconfig):
+    color = pytestconfig.get_terminal_writer().hasmarkup
     target = tmp_path / test_dir.name
     shutil.copytree(test_dir, target)
     subprocess.run(
@@ -46,7 +47,9 @@ def test_in_workerd(tmp_path, test_dir, wd_test_file):
     python_modules = ",\n".join(modules) + ",\n"
     wd_config = target / wd_test_file
     wd_config.write_text(
-        wd_config.read_text().replace("%PYTHON_MODULES", python_modules)
+        wd_config.read_text()
+        .replace("%PYTHON_MODULES", python_modules)
+        .replace("%COLOR", str(color).lower())
     )
     subprocess.run(
         ["npm", "i", "workerd"],

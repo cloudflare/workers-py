@@ -7,6 +7,10 @@ const python :Workerd.Worker = (
   ],
   bindings = [
     ( name = "SELF", service = "python-sdk" ),
+    (
+      name = "color",
+      json = "%COLOR"
+    ),
   ],
   compatibilityDate = "2026-01-01",
   compatibilityFlags = ["python_workers", "service_binding_extra_handlers", "python_request_headers_preserve_commas"],
