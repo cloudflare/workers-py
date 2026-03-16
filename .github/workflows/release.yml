@@ -82,7 +82,7 @@ jobs:
           github_token: ${{ secrets.DEVPROD_PAT }}
           git_committer_name: "Workers DevProd"
           git_committer_email: "workers-devprod@cloudflare.com"
-          directory: packages/workers-runtime-sdk
+          directory: packages/runtime-sdk
 
       - name: Publish | Upload to GitHub Release Assets
         uses: python-semantic-release/publish-action@v10.5.3
@@ -90,14 +90,14 @@ jobs:
         with:
           github_token: ${{ secrets.DEVPROD_PAT }}
           tag: ${{ steps.release.outputs.tag }}
-          directory: packages/workers-runtime-sdk
+          directory: packages/runtime-sdk
 
       - name: Upload | Distribution Artifacts
         uses: actions/upload-artifact@v4
         if: steps.release.outputs.released == 'true'
         with:
           name: distribution-artifacts-workers-runtime-sdk
-          path: packages/workers-runtime-sdk/dist
+          path: packages/runtime-sdk/dist
           if-no-files-found: error
 
   release-cli:
@@ -132,7 +132,7 @@ jobs:
           github_token: ${{ secrets.DEVPROD_PAT }}
           git_committer_name: "Workers DevProd"
           git_committer_email: "workers-devprod@cloudflare.com"
-          directory: packages/workers-py
+          directory: packages/cli
 
       - name: Publish | Upload to GitHub Release Assets
         uses: python-semantic-release/publish-action@v10.5.3
@@ -140,14 +140,14 @@ jobs:
         with:
           github_token: ${{ secrets.DEVPROD_PAT }}
           tag: ${{ steps.release.outputs.tag }}
-          directory: packages/workers-py
+          directory: packages/cli
 
       - name: Upload | Distribution Artifacts
         uses: actions/upload-artifact@v4
         if: steps.release.outputs.released == 'true'
         with:
           name: distribution-artifacts-workers-py
-          path: packages/workers-py/dist
+          path: packages/cli/dist
           if-no-files-found: error
 
   deploy:

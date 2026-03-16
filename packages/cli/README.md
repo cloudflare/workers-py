@@ -48,7 +48,8 @@ Alternatively, you can add `workers-py` to your pyproject.toml:
 dev = ["workers-py"]
 
 [tool.uv.sources]
-workers-py = { path = "../workers-py" }
+workers-py = { path = "../workers-py/packages/cli" }
+workers-runtime-sdk = { path = "../workers-py/packages/runtime-sdk" }
 ```
 
 Then run via `uv run pywrangler`.

@@ -8,7 +8,7 @@ import pytest
 # Import the full module so we can patch constants
 from pywrangler.types import wrangler_types
 
-RUNTIME_SDK_PATH = Path(__file__).resolve().parents[1] / ".." / "workers-runtime-sdk"
+RUNTIME_SDK_PATH = Path(__file__).resolve().parents[1] / ".." / "runtime-sdk"
 
 WRANGLER_TOML = """
 compatibility_date = "2025-08-14"

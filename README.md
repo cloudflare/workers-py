@@ -6,8 +6,8 @@ A monorepo containing Python libraries and tools for Cloudflare Workers.
 
 | Package | Description |
 |---------|-------------|
-| [workers-py](./packages/workers-py/) | A set of libraries and tools for Python Workers |
-| [workers-runtime-sdk](./packages/workers-runtime-sdk/) | Python SDK for Cloudflare Workers |
+| [workers-py](./packages/cli/) | A set of libraries and tools for Python Workers |
+| [workers-runtime-sdk](./packages/runtime-sdk/) | Python SDK for Cloudflare Workers |
 
 ## Development
 
@@ -41,8 +41,8 @@ semantic-release version
 
 This project uses [Conventional Commits](https://www.conventionalcommits.org/) with package-scoped commits for the monorepo. For package-specific changes, use the scope prefix:
 
-- `feat(workers-py-): add new feature` - Feature for workers-py
-- `fix(workers-runtime-sdk-): fix bug` - Bug fix for workers-runtime-sdk
+- `feat(cli): add new feature` - Feature for workers-py
+- `fix(runtime-sdk): fix bug` - Bug fix for workers-runtime-sdk
 
 Tags:
 - `feat`: New feature (triggers minor version bump)

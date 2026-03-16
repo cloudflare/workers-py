@@ -25,8 +25,8 @@ Thank you for your interest in contributing to workers-py! This document provide
 
 This is a monorepo containing multiple Python packages. Each package is located in the `packages/` directory:
 
-- `packages/workers-py/` - The main workers-py package
-- `packages/workers-runtime-sdk/` - Python SDK for Cloudflare Workers
+- `packages/cli/` - The Python workers cli, `workers-py` on PyPI
+- `packages/runtime-sdk/` - Python SDK for Cloudflare Workers, `workers-runtime-sdk` on PyPI
 
 ### Working with a specific package
 
@@ -81,15 +81,15 @@ For monorepo support, use the package-specific scope prefix:
 
 ### Package Scope Prefixes
 
-- `workers-py-` - For changes to the workers-py package
-- `workers-runtime-sdk-` - For changes to the workers-runtime-sdk package
+- `cli` - For changes to the workers-py package
+- `runtime-sdk` - For changes to the workers-runtime-sdk package
 
 ### Examples
 
 ```
-feat(workers-py-): add new CLI command for syncing
-fix(workers-runtime-sdk-): handle edge case in API client
-docs(workers-py-): update README with new usage examples
+feat(cli): add new CLI command for syncing
+fix(runtime-sdk): handle edge case in API client
+docs(cli): update README with new usage examples
 ```
 
 ### Commit Tags

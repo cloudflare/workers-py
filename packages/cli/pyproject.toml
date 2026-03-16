@@ -151,7 +151,7 @@ default = "semantic-release <semantic-release>"
 
 [tool.semantic_release.commit_parser_options]
 path_filters = ["."]
-scope_prefix = "workers-py"
+scope_prefix = "cli"
 minor_tags = ["feat"]
 patch_tags = ["fix", "perf"]
 other_allowed_tags = ["build", "chore", "ci", "docs", "style", "refactor", "test"]
