@@ -200,8 +200,7 @@ class Default(WorkerEntrypoint):
     async def test(self, ctrl):
         await test_headers(self.env)
         await test_sse(self.env)
-        # TODO: fix streaming
-        # await test_streaming(self.env)
+        await test_streaming(self.env)
         await test_error_after_response_is_logged(self.env)
         await test_background_task_error_is_logged()
         await test_app_exception_before_response_is_logged()
