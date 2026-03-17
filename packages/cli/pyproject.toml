@@ -20,6 +20,7 @@ dependencies = [
     "pyjson5>=1.6.0",
     "pyodide-py",
     "workers-runtime-sdk>=0.1.0",
+    "packaging>=23.0",
 ]
 
 [dependency-groups]

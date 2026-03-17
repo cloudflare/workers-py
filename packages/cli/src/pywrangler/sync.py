@@ -7,7 +7,13 @@ from contextlib import contextmanager
 from pathlib import Path
 
 import click
+from packaging.utils import canonicalize_name
 
+from .local_deps import (
+    build_wheels,
+    is_local_path_dep,
+    parse_local_dep,
+)
 from .utils import (
     check_uv_version,
     check_wrangler_config,
@@ -154,6 +160,7 @@ def parse_requirements() -> list[str]:
     if dependencies:
         for dep in dependencies:
             logger.debug(f"  - {dep}")
+
     return dependencies
 
 
@@ -306,21 +313,56 @@ def _get_vendor_package_versions() -> list[str]:
     return _parse_pip_freeze(result.stdout)
 
 
-def install_requirements(requirements: list[str]) -> None:
-    requirements.append("workers-runtime-sdk")
-    # First, install to the Pyodide vendor directory. This determines the exact package
-    # versions that will run in production.
-    pyodide_error = _install_requirements_to_vendor(requirements)
+@contextmanager
+def _prebuild_local_deps(local_deps: list[str]) -> Iterator[list[str]]:
+    if not local_deps:
+        yield []
+        return
+    wheel_dir = Path(tempfile.mkdtemp(prefix="pywrangler-wheels-"))
+    try:
+        yield build_wheels(local_deps, wheel_dir)
+    finally:
+        shutil.rmtree(wheel_dir, ignore_errors=True)
 
-    # Then install to .venv-workers using the pinned versions from vendor.
-    # This ensures host packages accurately reflect what will run in production.
-    # If the installation to the Pyodide vendor directory fails, use the original requirements
-    # to see if it fails in the native venv as well.
-    host_requirements = (
-        requirements if pyodide_error else _get_vendor_package_versions()
-    )
-    native_error = _install_requirements_to_venv(host_requirements)
 
+def _host_requirements_for(
+    original: list[str],
+    local_deps: list[str],
+    pyodide_failed: bool,
+) -> list[str]:
+    """Build the requirements list for the native .venv-workers install.
+
+    Normally the native venv mirrors the exact versions that were installed in
+    the Pyodide vendor directory (via ``pip freeze``), so both environments stay
+    in sync.  Two situations require special handling:
+
+    1. **Pyodide install failed** — fall back to the original user requirements
+       so the native install can surface its own, often more actionable, error.
+
+    2. **Local path deps are present** — ``pip freeze`` records them as
+       ``pkg==version`` which would then resolve against PyPI where the package
+       likely doesn't exist.  We strip those entries from the pinned list and
+       re-add the original local path references (resolved to absolute paths so
+       they work from the temp requirements file).
+    """
+    if pyodide_failed:
+        return original
+
+    pinned = _get_vendor_package_versions()
+    if not local_deps:
+        return pinned
+
+    local_names = {canonicalize_name(parse_local_dep(d)[0]) for d in local_deps}
+    pinned_remote = [
+        p for p in pinned if canonicalize_name(p.split("==")[0]) not in local_names
+    ]
+    return pinned_remote + local_deps
+
+
+def _raise_on_install_error(
+    native_error: str | None,
+    pyodide_error: str | None,
+) -> None:
     # Show the native error first (more likely to be actionable), then the Pyodide error.
     if native_error:
         logger.warning(native_error)
@@ -331,17 +373,16 @@ def install_requirements(requirements: list[str]) -> None:
 
     if pyodide_error:
         logger.warning(pyodide_error)
-        # Handle some common failures and give nicer error messages for them.
-        lowered_error = pyodide_error.lower()
-        if "invalid peer certificate" in lowered_error:
+        lowered = pyodide_error.lower()
+        if "invalid peer certificate" in lowered:
             logger.error(
                 "Installation failed because of an invalid peer certificate. Are your systems certificates correctly installed? Do you have an Enterprise VPN enabled?"
             )
-        elif "failed to fetch" in lowered_error:
+        elif "failed to fetch" in lowered:
             logger.error(
                 "Installation failed because of a failed fetch. Is your network connection working?"
             )
-        elif "no solution found when resolving dependencies" in lowered_error:
+        elif "no solution found when resolving dependencies" in lowered:
             logger.error(
                 "Installation failed because the packages you requested are not supported by Python Workers. See above for details."
             )
@@ -351,6 +392,22 @@ def install_requirements(requirements: list[str]) -> None:
             )
         raise click.exceptions.Exit(code=1)
 
+
+def install_requirements(requirements: list[str]) -> None:
+    requirements.append("workers-runtime-sdk")
+
+    local_deps = [r for r in requirements if is_local_path_dep(r)]
+    remote_deps = [r for r in requirements if not is_local_path_dep(r)]
+
+    with _prebuild_local_deps(local_deps) as wheel_reqs:
+        pyodide_error = _install_requirements_to_vendor(remote_deps + wheel_reqs)
+
+    host_reqs = _host_requirements_for(
+        requirements, local_deps, pyodide_error is not None
+    )
+    native_error = _install_requirements_to_venv(host_reqs)
+
+    _raise_on_install_error(native_error, pyodide_error)
     _log_installed_packages(get_venv_workers_path())
 
 
