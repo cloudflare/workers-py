@@ -63,6 +63,9 @@ lint.ignore = ["E402", "E501", "E731", "E741", "PLW2901", "UP031"]
 lint.flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
 lint.per-file-ignores."tests/workerd-test/**" = ["C901", "PLR0911", "PLR0912", "PLR2004", "PLW0603"]
 
+[tool.pytest.ini_options]
+addopts = ["--ignore=tests/workerd-test"]
+
 [tool.mypy]
 packages = ["pywrangler"]
 python_version = "3.12"
