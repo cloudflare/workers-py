@@ -7,6 +7,7 @@ import pytest
 TEST_DIR = Path(__file__).parent
 WORKERD_TESTS = TEST_DIR / "workerd-test"
 WORKERS_PY = TEST_DIR.parent
+WORKERS_RUNTIME_SDK = WORKERS_PY.parent / "runtime-sdk" / "src"
 
 
 def discover_workerd_tests():
@@ -31,8 +32,15 @@ def test_in_workerd(tmp_path, test_dir, wd_test_file, pytestconfig):
         cwd=target,
         check=True,
     )
+
     modules = []
     PYTHON_MODULES = target / "python_modules"
+
+    # Copy runtime-sdk to the python modules as well
+    # FIXME: remove this and pass runtime-sdk as a dependency explicitly after
+    #        https://github.com/cloudflare/workers-py/pull/81 is merged
+    shutil.copytree(WORKERS_RUNTIME_SDK, PYTHON_MODULES, dirs_exist_ok=True)
+
     for path in PYTHON_MODULES.glob("**/*"):
         if path.is_dir():
             continue

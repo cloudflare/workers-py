@@ -172,7 +172,7 @@ async def process_request(
             if writer is not None:
                 # Already in streaming mode — write chunk to the stream.
                 with acquire_js_buffer(body) as jsbytes:
-                    await writer.write(jsbytes)
+                    await writer.write(jsbytes.slice())
                 if not more_body:
                     await writer.close()
                     finished_response.set()
@@ -188,7 +188,7 @@ async def process_request(
                 )
                 result.set_result(resp)
                 with acquire_js_buffer(body) as jsbytes:
-                    await writer.write(jsbytes)
+                    await writer.write(jsbytes.slice())
             else:
                 # Complete body in a single chunk
                 px = create_proxy(body)
@@ -222,8 +222,11 @@ async def process_request(
     # Create task to run the application in the background
     app_task = create_proxy(create_task(run_app()))
     wait_until(app_task)
-    app_task.destroy()
-    return await result
+
+    try:
+        return await result
+    finally:
+        app_task.destroy()
 
 
 async def process_websocket(app: Any, req: "Request | js.Request") -> js.Response:
