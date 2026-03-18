@@ -2,6 +2,18 @@
 
 <!-- version list -->
 
+## v1.1.1 (2026-03-18)
+
+### Bug Fixes
+
+- Fix Python ASGI adaptor to handle streaming responses correctly
+  ([#82](https://github.com/cloudflare/workers-py/pull/82),
+  [`d3ea87a`](https://github.com/cloudflare/workers-py/commit/d3ea87aff37c7a833f0602cc2a8018f1d5dde91b))
+
+- Fix streaming responses in asgi module ([#82](https://github.com/cloudflare/workers-py/pull/82),
+  [`d3ea87a`](https://github.com/cloudflare/workers-py/commit/d3ea87aff37c7a833f0602cc2a8018f1d5dde91b))
+
+
 ## v1.1.0 (2026-03-12)
 
 ### Features
