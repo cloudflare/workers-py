@@ -270,6 +270,75 @@ def test_sync_command_integration(dependencies, test_dir):  # noqa: C901 (test c
             )
 
 
+def create_test_local_package(base_dir: Path, name: str = "mylocalpkg") -> Path:
+    pkg_dir = base_dir / f"test_{name}"
+    pkg_dir.mkdir(parents=True, exist_ok=True)
+
+    (pkg_dir / "pyproject.toml").write_text(
+        dedent(f"""\
+        [build-system]
+        requires = ["setuptools>=61.0"]
+        build-backend = "setuptools.build_meta"
+
+        [project]
+        name = "{name}"
+        version = "0.1.0"
+    """)
+    )
+
+    module_dir = pkg_dir / name
+    module_dir.mkdir(exist_ok=True)
+    (module_dir / "__init__.py").write_text('__version__ = "0.1.0"\n')
+
+    return pkg_dir
+
+
+def test_sync_command_with_local_dep(test_dir):
+    local_pkg_dir = create_test_local_package(test_dir.parent, "mylocalpkg")
+    try:
+        rel_path = os.path.relpath(local_pkg_dir, test_dir)
+        create_test_pyproject(test_dir, ["click", f"mylocalpkg @ {rel_path}"])
+        create_test_wrangler_jsonc(test_dir, "src/worker.py")
+
+        result = subprocess.run(
+            ["uv", "run", "--no-project", "pywrangler", "sync"],
+            capture_output=True,
+            text=True,
+            cwd=test_dir,
+            check=False,
+        )
+        print(f"\nCommand output:\n{result.stdout}")
+        if result.stderr:
+            print(f"Command errors:\n{result.stderr}")
+
+        assert result.returncode == 0, (
+            f"Sync failed with output: {result.stdout}\nErrors: {result.stderr}"
+        )
+
+        vendor = test_dir / "python_modules"
+        assert vendor.exists(), "python_modules directory was not created"
+        assert is_package_installed(vendor, "mylocalpkg"), (
+            "Local package not found in python_modules"
+        )
+        assert is_package_installed(vendor, "click"), (
+            "Registry package 'click' not found in python_modules"
+        )
+
+        venv_workers = test_dir / ".venv-workers"
+        if os.name == "nt":
+            site_packages = venv_workers / "Lib" / "site-packages"
+        else:
+            site_packages = venv_workers / "lib" / "python3.12" / "site-packages"
+        assert is_package_installed(site_packages, "mylocalpkg"), (
+            "Local package not found in .venv-workers"
+        )
+        assert is_package_installed(site_packages, "click"), (
+            "Registry package 'click' not found in .venv-workers"
+        )
+    finally:
+        shutil.rmtree(local_pkg_dir, ignore_errors=True)
+
+
 def test_sync_command_handles_missing_pyproject():
     """Test that the sync command correctly handles a missing pyproject.toml file."""
     import tempfile
