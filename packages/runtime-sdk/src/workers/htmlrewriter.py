@@ -99,8 +99,7 @@ class HTMLRewriter:
                 # clean up these proxies.
 
         async def cancel(reason):
-            if reader:
-                await reader.cancel(reason)
+            await reader.cancel(reason)
 
         start_proxy = create_proxy(start)
         cancel_proxy = create_proxy(cancel)

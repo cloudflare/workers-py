@@ -1,10 +1,8 @@
 import asyncio
 
 import pytest
-from workers import HTMLRewriter, Response
-
 from pyodide.ffi import JsException
-from pyodide.http import AbortError
+from workers import HTMLRewriter, Response
 
 
 @pytest.mark.asyncio
@@ -318,10 +316,6 @@ async def test_proxy_cleanup_on_completion():
     text = await result.text()
     assert 'data-test="true"' in text
 
-    # Proxy destruction is deferred via waitUntil to avoid destroying them
-    # while JS HTMLRewriter is still finalizing. Yield to let it complete.
-    await asyncio.sleep(0)
-
     for proxy in proxies:
         assert is_proxy_destroyed(proxy), "Proxy should be destroyed after consumption"
 
@@ -340,9 +334,7 @@ async def test_exception_handling():
     rewriter.on("div", Handler())
     result = rewriter.transform(response)
 
-    try:
-        await result.text()
-    except Exception as e:
+    with pytest.raises(Exception, match="PythonError"):
         # Note: workerd will show the `info: uncaught exception; source = Uncaught; stack = PythonError`
         # in the log message, which is expected
-        assert "PythonError" in str(e)
+        await result.text()
