@@ -59,7 +59,7 @@ def test_in_workerd(tmp_path, test_dir, wd_test_file, pytestconfig):
     #        https://github.com/cloudflare/workers-py/pull/81 is merged
     shutil.copytree(WORKERS_RUNTIME_SDK, target / "python_modules", dirs_exist_ok=True)
 
-    modules = embed(target / "python_modules", target) + embed(
+    modules = embed(target / "python_modules", target, level=1) + embed(
         target / "tests", target, level=1
     )
 
