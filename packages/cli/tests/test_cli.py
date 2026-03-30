@@ -270,6 +270,41 @@ def test_sync_command_integration(dependencies, test_dir):  # noqa: C901 (test c
             )
 
 
+def test_sync_removes_stale_packages(test_dir):
+    """Test that removing a dependency from pyproject.toml cleans it up from python_modules."""
+    create_test_wrangler_jsonc(test_dir, "src/worker.py")
+    sync_cmd = ["uv", "run", "pywrangler", "sync"]
+
+    # First sync: install click + six
+    create_test_pyproject(test_dir, ["click", "six"])
+    result = subprocess.run(
+        sync_cmd, capture_output=True, text=True, cwd=test_dir, check=False
+    )
+    assert result.returncode == 0, (
+        f"First sync failed: {result.stdout}\n{result.stderr}"
+    )
+
+    vendor_path = test_dir / "python_modules"
+    assert is_package_installed(vendor_path, "click")
+    assert is_package_installed(vendor_path, "six")
+
+    # Second sync: remove six, keep click
+    create_test_pyproject(test_dir, ["click"])
+    result = subprocess.run(
+        sync_cmd, capture_output=True, text=True, cwd=test_dir, check=False
+    )
+    assert result.returncode == 0, (
+        f"Second sync failed: {result.stdout}\n{result.stderr}"
+    )
+
+    assert is_package_installed(vendor_path, "click"), (
+        "click should still be installed after second sync"
+    )
+    assert not is_package_installed(vendor_path, "six"), (
+        "six should have been removed from python_modules after being dropped from dependencies"
+    )
+
+
 def test_sync_command_handles_missing_pyproject():
     """Test that the sync command correctly handles a missing pyproject.toml file."""
     import tempfile
