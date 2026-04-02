@@ -188,6 +188,18 @@ def _install_requirements_to_vendor(requirements: list[str]) -> str | None:
         f"Installing packages into [bold]{relative_vendor_path}[/bold]...",
         extra={"markup": True},
     )
+
+    # Clear pyodide venv site-packages so stale packages from previous syncs
+    # don't carry over into python_modules.
+    pyv = get_python_version()
+    site_packages_path = (
+        f"lib/python{pyv}/site-packages" if os.name != "nt" else "Lib/site-packages"
+    )
+    pyodide_site_packages = get_pyodide_venv_path() / site_packages_path
+    if pyodide_site_packages.is_dir():
+        shutil.rmtree(pyodide_site_packages)
+        pyodide_site_packages.mkdir()
+
     with temp_requirements_file(requirements) as requirements_file:
         result = run_command(
             [
@@ -209,13 +221,8 @@ def _install_requirements_to_vendor(requirements: list[str]) -> str | None:
         if result.returncode != 0:
             return result.stdout.strip()
 
-        pyv = get_python_version()
         shutil.rmtree(vendor_path)
-
-        site_packages_path = (
-            f"lib/python{pyv}/site-packages" if os.name != "nt" else "Lib/site-packages"
-        )
-        shutil.copytree(get_pyodide_venv_path() / site_packages_path, vendor_path)
+        shutil.copytree(pyodide_site_packages, vendor_path)
 
     # Create a pyvenv.cfg file in python_modules to mark it as a virtual environment
     (vendor_path / "pyvenv.cfg").touch()
