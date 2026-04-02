@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.9.2 (2026-04-02)
+
+### Bug Fixes
+
+- Do not include stale packages in the bundle
+  ([#88](https://github.com/cloudflare/workers-py/pull/88),
+  [`6e7c384`](https://github.com/cloudflare/workers-py/commit/6e7c384e8a76669580305ea5bfe1e63b3208efb6))
+
+- **workers-py**: Do not include stale packages in the bundle
+  ([#88](https://github.com/cloudflare/workers-py/pull/88),
+  [`6e7c384`](https://github.com/cloudflare/workers-py/commit/6e7c384e8a76669580305ea5bfe1e63b3208efb6))
+
+
 ## v1.9.1 (2026-03-18)
 
 ### Bug Fixes
