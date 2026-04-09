@@ -4,63 +4,61 @@ on:
   push:
     branches: [main]
 
-concurrency: ${{ github.workflow }}-${{ github.ref }}
+permissions:
+  id-token: write
+  contents: write
+  pull-requests: write
 
 jobs:
   release:
     name: Release
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      pull-requests: write
-      id-token: write
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: false
+
     steps:
       - uses: actions/checkout@v6
+
+      - uses: pnpm/action-setup@v4
 
       - uses: actions/setup-node@v6
         with:
           node-version: "22"
-          registry-url: "https://registry.npmjs.org"
-
-      - name: Install pnpm
-        run: npm install -g pnpm
+          cache: pnpm
 
       - run: pnpm install
 
-      - name: Get current version
-        id: pre
-        run: echo "version=$(jq -r .version package.json)" >> "$GITHUB_OUTPUT"
-
-      - name: Check if version is already published
-        id: check
-        run: |
-          VERSION="${{ steps.pre.outputs.version }}"
-          if npm view "django-cf@${VERSION}" version >/dev/null 2>&1; then
-            echo "published=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "published=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Create Release Pull Request or Publish
+      - name: Create Release Pull Request
         id: changesets
         uses: changesets/action@v1
         with:
-          publish: ${{ steps.check.outputs.published == 'false' && 'npm publish --provenance --access public' || 'echo Already published, skipping' }}
-          version: pnpx changeset version
+          version: bash scripts/version.sh
           title: "chore: version packages"
           commit: "chore: version packages"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build Python package
+        if: steps.changesets.outputs.hasChangesets == 'false' && steps.changesets.outputs.pullRequestNumber == ''
+        run: |
+          pip install build
+          python3 -m build
+
+      - name: Publish to PyPI
+        if: steps.changesets.outputs.hasChangesets == 'false' && steps.changesets.outputs.pullRequestNumber == ''
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: dist/
+
       - name: Create GitHub Release
-        if: steps.changesets.outputs.published == 'true'
+        if: steps.changesets.outputs.hasChangesets == 'false' && steps.changesets.outputs.pullRequestNumber == ''
         run: |
           VERSION=$(jq -r .version package.json)
           TAG="v${VERSION}"
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG already exists, skipping."
           else
-            # Extract changelog for this version (between ## $VERSION and the next ## heading)
             BODY=$(awk "/^## ${VERSION}\$/{ found=1; next } /^## /{ if(found) exit } found" CHANGELOG.md)
             if [ -z "$BODY" ]; then
               BODY="See [CHANGELOG.md](https://github.com/G4brym/django-cf/blob/main/CHANGELOG.md) for details."
