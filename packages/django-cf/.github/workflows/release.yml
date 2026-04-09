@@ -39,20 +39,31 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build Python package
+      - name: Check if version is already published
         if: steps.changesets.outputs.hasChangesets == 'false' && steps.changesets.outputs.pullRequestNumber == ''
+        id: check
+        run: |
+          VERSION=$(jq -r .version package.json)
+          if pip index versions django-cf 2>/dev/null | grep -q "$VERSION"; then
+            echo "published=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "published=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build Python package
+        if: steps.check.outputs.published == 'false'
         run: |
           pip install build
           python3 -m build
 
       - name: Publish to PyPI
-        if: steps.changesets.outputs.hasChangesets == 'false' && steps.changesets.outputs.pullRequestNumber == ''
+        if: steps.check.outputs.published == 'false'
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           packages-dir: dist/
 
       - name: Create GitHub Release
-        if: steps.changesets.outputs.hasChangesets == 'false' && steps.changesets.outputs.pullRequestNumber == ''
+        if: steps.check.outputs.published == 'false'
         run: |
           VERSION=$(jq -r .version package.json)
           TAG="v${VERSION}"
