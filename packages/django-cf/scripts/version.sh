@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # Run changeset version to bump package.json and generate CHANGELOG.md
-pnpx changeset version
+pnpm exec changeset version
 
 # Sync the version from package.json into pyproject.toml
 VERSION=$(jq -r .version package.json)
