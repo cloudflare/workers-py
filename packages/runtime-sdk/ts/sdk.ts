@@ -2,10 +2,10 @@
 // This file is compiled to src/workers/sdk.mjs via scripts/compile_js_sdk.py
 
 // Pyodide proxy future — supports copy/destroy for proxy lifecycle management
-interface PyFuture<T> {
-  copy(): Promise<T>;
+type PyFuture<T> = Promise<T> & {
+  copy(): PyFuture<T>;
   destroy(): void;
-}
+};
 
 const waitUntilPatched = new WeakSet();
 
