@@ -38,7 +38,7 @@ def compile_ts() -> str:
         [
             npx,
             "--yes",
-            "esbuild",
+            "esbuild@0.28.0",
             str(TS_SOURCE),
             "--format=esm",
             "--log-level=error",
