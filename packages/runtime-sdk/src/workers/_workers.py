@@ -111,7 +111,7 @@ def import_from_javascript(module_name: str) -> Any:
 @functools.cache
 def get_js_sdk():
     # IMPORTANT: The module name here must match how wrangler registers the module
-    # during the vendoring. Changing this value requires changes in workers-sdk.
+    # while vendoring the python_modules.
     return import_from_javascript("python_modules/workers/sdk.mjs")
 
 
@@ -1339,7 +1339,8 @@ def _wrap_subclass(cls):
 
     def wrapped_init(self, *args, **kwargs):
         if len(args) > 0:
-            get_js_sdk().patchWaitUntil(args[0])
+            js_sdk = get_js_sdk()
+            js_sdk.patchWaitUntil(args[0])
         if len(args) > 1:
             args = list(args)
             args[1] = _EnvWrapper(args[1])
