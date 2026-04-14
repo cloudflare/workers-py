@@ -28,6 +28,8 @@ class OptimizeConfig(TypedDict, total=False):
 
 
 logger = logging.getLogger(__name__)
+# Disable wheel_optimizer logging, we have our own logging
+logging.getLogger("wheel_optimizer").setLevel(logging.CRITICAL)
 
 DEFAULT_ON_OPTIMIZERS: frozenset[str] = frozenset(
     {
@@ -97,7 +99,7 @@ def optimize_packages(vendor_path: Path) -> None:
         return
 
     names = [opt.name for opt in pipeline.optimizers]
-    logger.debug(
+    logger.info(
         f"Optimizing vendor packages ({', '.join(names)})...",
     )
     pipeline.run(vendor_path)
