@@ -19,6 +19,7 @@ dependencies = [
     "pyodide-cli",
     "pyjson5>=1.6.0",
     "pyodide-py",
+    "wheel-optimizer",
     "workers-runtime-sdk>=0.1.0",
 ]
 

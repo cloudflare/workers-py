@@ -205,8 +205,9 @@ class PyProjectProject(TypedDict):
     dependencies: list[str]
 
 
-class PyProject(TypedDict):
+class PyProject(TypedDict, total=False):
     project: PyProjectProject
+    tool: dict[str, object]
 
 
 def read_pyproject_toml() -> PyProject:
