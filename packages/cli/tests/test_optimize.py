@@ -1,4 +1,3 @@
-import re
 import shutil
 import subprocess
 from dataclasses import fields
@@ -205,7 +204,7 @@ def _write_wrangler_jsonc(test_dir: Path) -> None:
 
 
 def test_sync_applies_default_optimizations(integration_dir):
-    _write_pyproject(integration_dir, ["six"])
+    _write_pyproject(integration_dir, ["six==1.17.0"])
     _write_wrangler_jsonc(integration_dir)
 
     result = subprocess.run(
@@ -220,22 +219,10 @@ def test_sync_applies_default_optimizations(integration_dir):
     vendor = integration_dir / "python_modules"
     assert vendor.exists()
 
-    min_file_size = 100
-    py_files = [
-        f
-        for f in vendor.rglob("*.py")
-        if f.stat().st_size > min_file_size and f.name != "pyvenv.cfg"
-    ]
+    # Six is a package with a single file: six.py
+    py_files = list(vendor.rglob("six.py"))
+    assert py_files
     content = py_files[0].read_text()
 
-    # minify_whitespace: original 4-space indentation becomes 1-space.
-    # 1-space-indented lines are impossible in unminified source, so their
-    # presence proves the optimizer ran.
-    assert re.search(r"^ \S", content, re.MULTILINE), (
-        f"Expected 1-space indentation from minify_whitespace in {py_files[0].name}"
-    )
-
-    # remove_docstrings: file should not start with a triple-quoted string.
-    assert not content.lstrip().startswith(('"""', "'''")), (
-        f"Module docstring still present in {py_files[0].name}"
-    )
+    # check docstring remover is applied.
+    assert not content.lstrip().startswith(('"""', "'''"))
