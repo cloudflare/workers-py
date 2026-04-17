@@ -110,8 +110,10 @@ def import_from_javascript(module_name: str) -> Any:
 
 @functools.cache
 def get_js_sdk():
-    # IMPORTANT: The module name here must match how wrangler registers the module
-    # while vendoring the python_modules.
+    # IMPORTANT:
+    # The module name here must match how wrangler registers the JS modules
+    # while vendoring the python_modules directory.
+    # See: https://github.com/cloudflare/workers-sdk/pull/13311
     return import_from_javascript("python_modules/workers/sdk.mjs")
 
 

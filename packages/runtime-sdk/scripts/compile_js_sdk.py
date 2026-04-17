@@ -6,8 +6,6 @@ Usage:
     python scripts/compile_js_sdk.py --check  # verify sdk.mjs is up to date
 """
 
-from __future__ import annotations
-
 import shutil
 import subprocess
 import sys

@@ -1,7 +1,5 @@
 """Verify that sdk.mjs is up to date with the TypeScript source."""
 
-from __future__ import annotations
-
 import subprocess
 import sys
 from pathlib import Path
