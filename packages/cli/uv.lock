@@ -615,11 +615,11 @@ wheels = [
 
 [[package]]
 name = "wheel-optimizer"
-version = "0.0.2"
+version = "0.0.3"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/30/60/2fda01a4af8fe73e5f465064bdbb3606d5b8c57e8298b6519b4a409a72fd/wheel_optimizer-0.0.2.tar.gz", hash = "sha256:4f96c4e5d9679ced5d575f27353e9330e90236cc11130fa2d53b0b996b1ac2d5", size = 50509, upload-time = "2026-04-14T07:11:30.785Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/2e/e5/e52887b88fa4d7c101bcacf1f03d09317a9f6363baebb086378417be08a6/wheel_optimizer-0.0.3.tar.gz", hash = "sha256:f9958b2a3e4b465a5f84db66daa418c9ba5c6a85fff5432630d382cad0ebae7b", size = 50528, upload-time = "2026-04-14T08:35:17.863Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/39/4e/2517afba82f157a8fa3733bfaf40a29731ba6a66de2ca25bdd02537ba375/wheel_optimizer-0.0.2-py3-none-any.whl", hash = "sha256:fa0ceaf3938558abf8fb1d95817bd897fc909645bca27011fe376486d21dbfc0", size = 13471, upload-time = "2026-04-14T07:11:29.311Z" },
+    { url = "https://files.pythonhosted.org/packages/65/e5/0fb51bbdf60fd4bff27fafcd494ada22a4b2beadc2c2430cc17a46eb5484/wheel_optimizer-0.0.3-py3-none-any.whl", hash = "sha256:85396f6fdee942ceffa99a7241711753844b3b90f060a7adc697a79aeb26a60e", size = 13478, upload-time = "2026-04-14T08:35:16.416Z" },
 ]
 
 [[package]]
@@ -660,7 +660,7 @@ requires-dist = [
     { name = "pyodide-py" },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "uv", marker = "extra == 'build'", specifier = "~=0.5.23" },
-    { name = "wheel-optimizer" },
+    { name = "wheel-optimizer", specifier = ">=0.0.3" },
     { name = "workers-runtime-sdk", specifier = ">=0.1.0" },
 ]
 provides-extras = ["build"]

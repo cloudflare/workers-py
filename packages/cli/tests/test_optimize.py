@@ -1,3 +1,4 @@
+import re
 import shutil
 import subprocess
 from dataclasses import fields
@@ -224,5 +225,9 @@ def test_sync_applies_default_optimizations(integration_dir):
     assert py_files
     content = py_files[0].read_text()
 
-    # check docstring remover is applied.
-    assert not content.lstrip().startswith(('"""', "'''"))
+    # minify_whitespace: original 4-space indentation becomes 1-space.
+    # 1-space-indented lines are impossible in unminified source, so their
+    # presence proves the optimizer ran.
+    assert re.search(r"^ \S", content, re.MULTILINE), (
+        f"Expected 1-space indentation from minify_whitespace in {py_files[0].name}"
+    )
