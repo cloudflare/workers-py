@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.1.2 (2026-04-21)
+
+### Bug Fixes
+
+- Make top level asgi import work with snapshots
+  ([#93](https://github.com/cloudflare/workers-py/pull/93),
+  [`3dd4115`](https://github.com/cloudflare/workers-py/commit/3dd41151d201aca4e1b895638fd3926eb1c68756))
+
+
 ## v1.1.1 (2026-03-18)
 
 ### Bug Fixes
