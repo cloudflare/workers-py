@@ -7,7 +7,7 @@ from typing import Any
 
 import js
 
-from workers import Context, Request, wait_until
+from workers import Context, Request
 
 ASGI = {"spec_version": "2.0", "version": "3.0"}
 logger = logging.getLogger("asgi")
@@ -221,6 +221,9 @@ async def process_request(
 
     # Create task to run the application in the background
     app_task = create_proxy(create_task(run_app()))
+
+    from workers import wait_until
+
     wait_until(app_task)
 
     try:
