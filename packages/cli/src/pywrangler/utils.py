@@ -95,7 +95,7 @@ def setup_logging() -> int:
     return log_level
 
 
-def _get_pywrangler_version() -> str:
+def get_pywrangler_version() -> str:
     """Get the version of pywrangler."""
     try:
         from importlib.metadata import version
@@ -109,7 +109,7 @@ def log_startup_info() -> None:
     """
     Log startup information for debugging.
     """
-    logger.debug(f"pywrangler version: {_get_pywrangler_version()}")
+    logger.debug(f"pywrangler version: {get_pywrangler_version()}")
     logger.debug(f"Python: {platform.python_version()}")
     logger.debug(f"Platform: {sys.platform}")
     logger.debug(f"Working directory: {Path.cwd()}")

@@ -15,6 +15,7 @@ from .utils import (
     get_project_root,
     get_pyodide_index,
     get_python_version,
+    get_pywrangler_version,
     get_uv_pyodide_interp_name,
     read_pyproject_toml,
     run_command,
@@ -226,7 +227,7 @@ def _install_requirements_to_vendor(requirements: list[str]) -> str | None:
 
     # Create a pyvenv.cfg file in python_modules to mark it as a virtual environment
     (vendor_path / "pyvenv.cfg").touch()
-    get_vendor_token_path().touch()
+    _write_sync_token(get_vendor_token_path())
 
     logger.info(
         f"Packages installed in [bold]{relative_vendor_path}[/bold].",
@@ -266,7 +267,7 @@ def _install_requirements_to_venv(requirements: list[str]) -> str | None:
         if result.returncode != 0:
             return result.stdout.strip()
 
-    get_venv_workers_token_path().touch()
+    _write_sync_token(get_venv_workers_token_path())
     logger.info(
         f"Packages installed in [bold]{relative_venv_workers_path}[/bold].",
         extra={"markup": True},
@@ -361,15 +362,42 @@ def install_requirements(requirements: list[str]) -> None:
     _log_installed_packages(get_venv_workers_path())
 
 
+def _write_sync_token(token: Path) -> None:
+    """Record the current workers-py version into the given sync token file."""
+    token.parent.mkdir(parents=True, exist_ok=True)
+    token.write_text(get_pywrangler_version())
+
+
+def _read_sync_token_version(token: Path) -> str | None:
+    """Read the workers-py version recorded in a sync token, if any."""
+    if not token.is_file():
+        return None
+    try:
+        return token.read_text().strip() or None
+    except OSError:
+        return None
+
+
 def _is_out_of_date(token: Path, time: float) -> bool:
     if not token.exists():
         return True
-    return time > token.stat().st_mtime
+    if time > token.stat().st_mtime:
+        return True
+    recorded_version = _read_sync_token_version(token)
+    current_version = get_pywrangler_version()
+    if recorded_version != current_version:
+        logger.debug(
+            f"workers-py version changed from {recorded_version!r} to {current_version!r}; "
+            f"{token.parent} needs to be re-synced"
+        )
+        return True
+    return False
 
 
 def is_sync_needed() -> bool:
     """
-    Checks if pyproject.toml has been modified since the last sync.
+    Checks if pyproject.toml has been modified since the last sync, or if the
+    workers-py version has changed since the last sync.
 
     Returns:
         bool: True if sync is needed, False otherwise
