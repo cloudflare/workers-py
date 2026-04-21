@@ -43,8 +43,13 @@ def embed(dir: Path, root: Path, level: int = 0):
     return modules
 
 
+@pytest.fixture(scope="module")
+def bundle_cache(tmp_path_factory):
+    yield tmp_path_factory.mktemp("bundle_cache")
+
+
 @pytest.mark.parametrize("test_dir, wd_test_file", discover_workerd_tests())
-def test_in_workerd(tmp_path, test_dir, wd_test_file, pytestconfig):
+def test_in_workerd(tmp_path, test_dir, wd_test_file, pytestconfig, bundle_cache):
     color = pytestconfig.get_terminal_writer().hasmarkup
     target = tmp_path / test_dir.name
     shutil.copytree(test_dir, target)
@@ -75,8 +80,30 @@ def test_in_workerd(tmp_path, test_dir, wd_test_file, pytestconfig):
         cwd=target,
         check=True,
     )
+    workerd_common = [
+        "node_modules/workerd/bin/workerd",
+        "test",
+        wd_test_file,
+        "--experimental",
+        "--python-snapshot-dir",
+        ".",
+        "--pyodide-bundle-disk-cache-dir",
+        bundle_cache,
+    ]
     subprocess.run(
-        ["node_modules/workerd/bin/workerd", "test", wd_test_file, "--experimental"],
+        [
+            *workerd_common,
+            "--python-save-snapshot",
+        ],
+        cwd=target,
+        check=True,
+    )
+    subprocess.run(
+        [
+            *workerd_common,
+            "--python-load-snapshot",
+            "snapshot.bin",
+        ],
         cwd=target,
         check=True,
     )
