@@ -732,10 +732,10 @@ def test_startup_banner(test_dir, monkeypatch):
 
     importlib.reload(pywrangler.utils)
 
-    from pywrangler.utils import _get_pywrangler_version, log_startup_info
+    from pywrangler.utils import get_pywrangler_version, log_startup_info
 
     # Verify the functions exist and return expected content
-    version = _get_pywrangler_version()
+    version = get_pywrangler_version()
     assert version is not None
 
     # Verify log_startup_info can be called without error
