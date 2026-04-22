@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.9.3 (2026-04-22)
+
+### Bug Fixes
+
+- **workers-py**: Bust cache if workers-py version changes
+  ([#95](https://github.com/cloudflare/workers-py/pull/95),
+  [`9804681`](https://github.com/cloudflare/workers-py/commit/9804681956585c6e017aeda53924561116dccaf7))
+
+
 ## v1.9.2 (2026-04-02)
 
 ### Bug Fixes
