@@ -8,6 +8,7 @@ from pathlib import Path
 
 import click
 
+from .optimize import optimize_packages
 from .utils import (
     check_uv_version,
     check_wrangler_config,
@@ -225,7 +226,8 @@ def _install_requirements_to_vendor(requirements: list[str]) -> str | None:
         shutil.rmtree(vendor_path)
         shutil.copytree(pyodide_site_packages, vendor_path)
 
-    # Create a pyvenv.cfg file in python_modules to mark it as a virtual environment
+    optimize_packages(vendor_path)
+
     (vendor_path / "pyvenv.cfg").touch()
     _write_sync_token(get_vendor_token_path())
 
