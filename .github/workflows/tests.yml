@@ -30,8 +30,13 @@ jobs:
       run: |
         uv pip install --system -e packages/runtime-sdk -e packages/cli pytest
 
-    - name: Run tests
+    - name: Run cli tests
       working-directory: packages/cli
+      run: |
+        pytest tests
+
+    - name: Run runtime-sdk tests
+      working-directory: packages/runtime-sdk
       run: |
         pytest tests
 

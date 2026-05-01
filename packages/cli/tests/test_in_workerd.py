@@ -38,8 +38,11 @@ def embed(dir: Path, root: Path, level: int = 0):
             modules.append(
                 f'(name = "{module_path}", pythonModule = embed "{embed_path}")'
             )
+        elif path.suffix == ".mjs":
+            modules.append(f'(name = "{module_path}", esModule = embed "{embed_path}")')
         else:
             modules.append(f'(name = "{module_path}", data = embed "{embed_path}")')
+
     return modules
 
 
