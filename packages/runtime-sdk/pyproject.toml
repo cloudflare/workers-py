@@ -68,11 +68,10 @@ warn_unreachable = true
 no_implicit_optional = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/workers", "src/asgi.py"]
+include = ["src/_*.py", "src/_*.pyi", "src/_*.pth", "src/workers"]
 
-[tool.hatch.build.targets.wheel.force-include]
-"src/_cloudflare_compat_flags.pyi" = "_cloudflare_compat_flags.pyi"
-"src/_pyodide_entrypoint_helper.pyi" = "_pyodide_entrypoint_helper.pyi"
+[tool.hatch.build.targets.wheel.sources]
+"src" = ""
 
 [tool.semantic_release]
 assets = []
