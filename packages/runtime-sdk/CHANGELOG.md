@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.1.3 (2026-05-04)
+
+### Bug Fixes
+
+- Add entropy import context for packages from workerd
+  ([#99](https://github.com/cloudflare/workers-py/pull/99),
+  [`6e574ca`](https://github.com/cloudflare/workers-py/commit/6e574ca000776645d3cf2883e515c96f49a43c2c))
+
+
 ## v1.1.2 (2026-04-21)
 
 ### Bug Fixes
