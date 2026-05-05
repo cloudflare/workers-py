@@ -1,3 +1,12 @@
 {
-   "signedContributors": []
+  "signedContributors": [
+    {
+      "name": "hoodmane",
+      "id": 8739626,
+      "comment_id": 4382734583,
+      "created_at": "2026-05-05T20:23:20Z",
+      "repoId": 928267808,
+      "pullRequestNo": 100
+    }
+  ]
 }
