@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.1.4 (2026-05-06)
+
+### Bug Fixes
+
+- Make pth file not warn when run in native Python
+  ([#100](https://github.com/cloudflare/workers-py/pull/100),
+  [`3c60df6`](https://github.com/cloudflare/workers-py/commit/3c60df6fd59c3ab65adeb5216feee3d52345ebb7))
+
+
 ## v1.1.3 (2026-05-04)
 
 ### Bug Fixes
