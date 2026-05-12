@@ -68,8 +68,15 @@ class ProxyToWranglerGroup(click.Group):
             except ValueError:
                 remaining_args = []
 
+            # --native-tls is consumed by pywrangler (passed through to uv during
+            # sync) and stripped before forwarding to wrangler since wrangler does
+            # not understand this flag.
+            native_tls = "--native-tls" in remaining_args
+            if native_tls:
+                remaining_args = [a for a in remaining_args if a != "--native-tls"]
+
             if cmd_name in ["dev", "publish", "deploy", "versions"]:
-                sync(force=False)
+                sync(force=False, native_tls=native_tls)
 
             if cmd_name == "dev":
                 check_wrangler_version()
@@ -127,14 +134,19 @@ def types_command(outdir: str | None, config: str | None) -> Never:
 
 @app.command("sync")
 @click.option("--force", is_flag=True, help="Force sync even if no changes detected")
-def sync_command(force: bool = False) -> None:
+@click.option(
+    "--native-tls",
+    is_flag=True,
+    help="Use the system's native TLS implementation when invoking uv.",
+)
+def sync_command(force: bool = False, native_tls: bool = False) -> None:
     """
     Installs Python packages from pyproject.toml into src/vendor.
 
     Also creates a virtual env for Workers that you can use for testing.
     """
 
-    sync(force, directly_requested=True)
+    sync(force, directly_requested=True, native_tls=native_tls)
     write_success("Sync process completed successfully.")
 
 

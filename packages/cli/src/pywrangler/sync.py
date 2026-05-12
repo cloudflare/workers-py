@@ -89,7 +89,16 @@ def _get_venv_python_version() -> str | None:
     return result.stdout.strip()
 
 
-def create_workers_venv() -> None:
+def _uv_command(args: list[str], native_tls: bool = False) -> list[str]:
+    """Build a uv command, optionally including --native-tls."""
+    cmd = ["uv"]
+    if native_tls:
+        cmd.append("--native-tls")
+    cmd.extend(args)
+    return cmd
+
+
+def create_workers_venv(native_tls: bool = False) -> None:
     """
     Creates a virtual environment at `venv_workers_path` if it doesn't exist.
     """
@@ -119,17 +128,19 @@ def create_workers_venv() -> None:
 
     logger.debug(f"Creating virtual environment at {venv_workers_path}...")
     run_command(
-        [
-            "uv",
-            "venv",
-            str(venv_workers_path),
-            "--python",
-            f"python{wanted_python_version}",
-        ]
+        _uv_command(
+            [
+                "venv",
+                str(venv_workers_path),
+                "--python",
+                f"python{wanted_python_version}",
+            ],
+            native_tls=native_tls,
+        )
     )
 
 
-def create_pyodide_venv() -> None:
+def create_pyodide_venv(native_tls: bool = False) -> None:
     pyodide_venv_path = get_pyodide_venv_path()
     if pyodide_venv_path.is_dir():
         logger.debug(
@@ -141,8 +152,15 @@ def create_pyodide_venv() -> None:
     logger.debug(f"Creating Pyodide virtual environment at {pyodide_venv_path}...")
     pyodide_venv_path.parent.mkdir(parents=True, exist_ok=True)
     interp_name = get_uv_pyodide_interp_name()
-    run_command(["uv", "python", "install", interp_name])
-    run_command(["uv", "venv", str(pyodide_venv_path), "--python", interp_name])
+    run_command(
+        _uv_command(["python", "install", interp_name], native_tls=native_tls)
+    )
+    run_command(
+        _uv_command(
+            ["venv", str(pyodide_venv_path), "--python", interp_name],
+            native_tls=native_tls,
+        )
+    )
 
 
 def parse_requirements() -> list[str]:
@@ -167,7 +185,9 @@ def temp_requirements_file(requirements: list[str]) -> Iterator[str]:
         yield temp_file.name
 
 
-def _install_requirements_to_vendor(requirements: list[str]) -> str | None:
+def _install_requirements_to_vendor(
+    requirements: list[str], native_tls: bool = False
+) -> str | None:
     """Install packages to the Pyodide vendor directory.
 
     Returns:
@@ -203,18 +223,20 @@ def _install_requirements_to_vendor(requirements: list[str]) -> str | None:
 
     with temp_requirements_file(requirements) as requirements_file:
         result = run_command(
-            [
-                "uv",
-                "pip",
-                "install",
-                "--no-build",
-                "-r",
-                requirements_file,
-                "--extra-index-url",
-                get_pyodide_index(),
-                "--index-strategy",
-                "unsafe-best-match",
-            ],
+            _uv_command(
+                [
+                    "pip",
+                    "install",
+                    "--no-build",
+                    "-r",
+                    requirements_file,
+                    "--extra-index-url",
+                    get_pyodide_index(),
+                    "--index-strategy",
+                    "unsafe-best-match",
+                ],
+                native_tls=native_tls,
+            ),
             capture_output=True,
             check=False,
             env=os.environ | {"VIRTUAL_ENV": str(get_pyodide_venv_path())},
@@ -236,7 +258,9 @@ def _install_requirements_to_vendor(requirements: list[str]) -> str | None:
     return None
 
 
-def _install_requirements_to_venv(requirements: list[str]) -> str | None:
+def _install_requirements_to_venv(
+    requirements: list[str], native_tls: bool = False
+) -> str | None:
     """Install packages to the native venv.
 
     Uses pinned versions from vendor directory if available to ensure host packages
@@ -259,7 +283,9 @@ def _install_requirements_to_venv(requirements: list[str]) -> str | None:
 
     with temp_requirements_file(requirements) as requirements_file:
         result = run_command(
-            ["uv", "pip", "install", "-r", requirements_file],
+            _uv_command(
+                ["pip", "install", "-r", requirements_file], native_tls=native_tls
+            ),
             check=False,
             env=os.environ | {"VIRTUAL_ENV": str(venv_workers_path)},
             capture_output=True,
@@ -314,11 +340,13 @@ def _get_vendor_package_versions() -> list[str]:
     return _parse_pip_freeze(result.stdout)
 
 
-def install_requirements(requirements: list[str]) -> None:
+def install_requirements(
+    requirements: list[str], native_tls: bool = False
+) -> None:
     requirements.append("workers-runtime-sdk")
     # First, install to the Pyodide vendor directory. This determines the exact package
     # versions that will run in production.
-    pyodide_error = _install_requirements_to_vendor(requirements)
+    pyodide_error = _install_requirements_to_vendor(requirements, native_tls=native_tls)
 
     # Then install to .venv-workers using the pinned versions from vendor.
     # This ensures host packages accurately reflect what will run in production.
@@ -327,7 +355,7 @@ def install_requirements(requirements: list[str]) -> None:
     host_requirements = (
         requirements if pyodide_error else _get_vendor_package_versions()
     )
-    native_error = _install_requirements_to_venv(host_requirements)
+    native_error = _install_requirements_to_venv(host_requirements, native_tls=native_tls)
 
     # Show the native error first (more likely to be actionable), then the Pyodide error.
     if native_error:
@@ -413,7 +441,11 @@ def is_sync_needed() -> bool:
     )
 
 
-def sync(force: bool = False, directly_requested: bool = False) -> None:
+def sync(
+    force: bool = False,
+    directly_requested: bool = False,
+    native_tls: bool = False,
+) -> None:
     # Check if requirements.txt does not exist.
     check_requirements_txt()
 
@@ -433,10 +465,10 @@ def sync(force: bool = False, directly_requested: bool = False) -> None:
     check_wrangler_config()
 
     # Create .venv-workers if it doesn't exist
-    create_workers_venv()
+    create_workers_venv(native_tls=native_tls)
 
     # Set up Pyodide virtual env
-    create_pyodide_venv()
+    create_pyodide_venv(native_tls=native_tls)
 
     # Generate requirements.txt from pyproject.toml by directly parsing the TOML file then install into vendor folder.
     requirements = parse_requirements()
@@ -444,4 +476,4 @@ def sync(force: bool = False, directly_requested: bool = False) -> None:
         logger.warning(
             "No dependencies found in [project.dependencies] section of pyproject.toml."
         )
-    install_requirements(requirements)
+    install_requirements(requirements, native_tls=native_tls)
