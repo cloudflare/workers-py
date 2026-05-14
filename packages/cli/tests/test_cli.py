@@ -473,10 +473,148 @@ def test_proxy_auto_sync_commands(
     assert result.exit_code == 0
 
     # Verify sync was called
-    mock_sync_command.assert_called_once()
+    mock_sync_command.assert_called_once_with(force=False, native_tls=False)
 
     # Verify _proxy_to_wrangler was called with correct arguments
     mock_proxy_to_wrangler.assert_called_once_with("dev", ["--local"])
+
+
+@pytest.mark.parametrize("cmd_name", ["dev", "deploy"])
+@patch("pywrangler.utils.check_wrangler_version")
+@patch("pywrangler.cli._proxy_to_wrangler")
+@patch("pywrangler.cli.sync")
+def test_proxy_native_tls_passed_to_sync_and_stripped(
+    mock_sync_command,
+    mock_proxy_to_wrangler,
+    mock_check_wrangler_version,
+    cmd_name,
+    monkeypatch,
+):
+    """Test that --native-tls is forwarded to sync but stripped from wrangler args."""
+    monkeypatch.setattr(
+        "sys.argv", ["pywrangler", cmd_name, "--native-tls", "--local"]
+    )
+    runner = CliRunner()
+    result = runner.invoke(app, [cmd_name, "--native-tls", "--local"])
+    assert result.exit_code == 0
+
+    mock_sync_command.assert_called_once_with(force=False, native_tls=True)
+    # --native-tls must be stripped before forwarding to wrangler
+    mock_proxy_to_wrangler.assert_called_once_with(cmd_name, ["--local"])
+
+
+@patch.object(pywrangler_sync, "is_sync_needed", lambda: True)
+@patch.object(pywrangler_sync, "install_requirements")
+@patch.object(pywrangler_sync, "create_pyodide_venv")
+@patch.object(pywrangler_sync, "create_workers_venv")
+def test_sync_command_native_tls_threads_through(
+    mock_create_workers_venv,
+    mock_create_pyodide_venv,
+    mock_install_requirements,
+    test_dir,
+):
+    """Test that --native-tls on `sync` is threaded through to uv-invoking helpers."""
+    create_test_pyproject(test_dir)
+    create_test_wrangler_jsonc(test_dir)
+
+    runner = CliRunner()
+    result = runner.invoke(app, ["sync", "--force", "--native-tls"])
+    assert result.exit_code == 0
+
+    mock_create_workers_venv.assert_called_once_with(native_tls=True)
+    mock_create_pyodide_venv.assert_called_once_with(native_tls=True)
+    # install_requirements is called with (requirements, native_tls=True)
+    assert mock_install_requirements.call_count == 1
+    _args, kwargs = mock_install_requirements.call_args
+    assert kwargs.get("native_tls") is True
+
+
+@patch("pywrangler.sync.run_command")
+@patch("pywrangler.sync.get_pyodide_index", lambda: "https://example/index")
+@patch("pywrangler.sync.get_python_version", lambda: "3.12")
+def test_install_requirements_to_vendor_uses_native_tls(mock_run_command, tmp_path):
+    """Verify uv pip install in vendor receives --native-tls when requested."""
+    from pywrangler import sync as sync_mod
+
+    # Make run_command return a fake successful result
+    mock_run_command.return_value = Mock(returncode=0, stdout="")
+
+    # Point vendor/pyodide paths inside tmp_path
+    vendor_path = tmp_path / "python_modules"
+    pyodide_venv = tmp_path / ".venv-workers" / "pyodide-venv"
+    pyodide_site = (
+        pyodide_venv / "lib" / "python3.12" / "site-packages"
+        if os.name != "nt"
+        else pyodide_venv / "Lib" / "site-packages"
+    )
+    pyodide_site.mkdir(parents=True)
+
+    with (
+        patch.object(sync_mod, "get_vendor_modules_path", lambda: vendor_path),
+        patch.object(sync_mod, "get_pyodide_venv_path", lambda: pyodide_venv),
+        patch.object(sync_mod, "get_project_root", lambda: tmp_path),
+        patch.object(sync_mod, "_write_sync_token", lambda _t: None),
+    ):
+        sync_mod._install_requirements_to_vendor(["click"], native_tls=True)
+
+    # Find the call for `uv pip install`
+    install_calls = [
+        c for c in mock_run_command.call_args_list if "install" in c.args[0]
+    ]
+    assert install_calls, "Expected at least one uv pip install call"
+    cmd = install_calls[0].args[0]
+    assert cmd[0] == "uv"
+    assert "--native-tls" in cmd
+    assert cmd.index("--native-tls") < cmd.index("pip"), (
+        "--native-tls should be placed before the uv subcommand"
+    )
+
+
+@patch("pywrangler.sync.run_command")
+def test_install_requirements_to_venv_uses_native_tls(mock_run_command, tmp_path):
+    """Verify uv pip install in venv receives --native-tls when requested."""
+    from pywrangler import sync as sync_mod
+
+    mock_run_command.return_value = Mock(returncode=0, stdout="")
+
+    venv = tmp_path / ".venv-workers"
+    venv.mkdir(parents=True)
+
+    with (
+        patch.object(sync_mod, "get_venv_workers_path", lambda: venv),
+        patch.object(sync_mod, "get_project_root", lambda: tmp_path),
+        patch.object(sync_mod, "_write_sync_token", lambda _t: None),
+    ):
+        sync_mod._install_requirements_to_venv(["click"], native_tls=True)
+
+    assert mock_run_command.call_count == 1
+    cmd = mock_run_command.call_args.args[0]
+    assert cmd[0] == "uv"
+    assert "--native-tls" in cmd
+    assert cmd.index("--native-tls") < cmd.index("pip")
+
+
+@patch("pywrangler.sync.run_command")
+def test_install_requirements_to_venv_no_native_tls_by_default(
+    mock_run_command, tmp_path
+):
+    """Verify --native-tls is absent by default."""
+    from pywrangler import sync as sync_mod
+
+    mock_run_command.return_value = Mock(returncode=0, stdout="")
+
+    venv = tmp_path / ".venv-workers"
+    venv.mkdir(parents=True)
+
+    with (
+        patch.object(sync_mod, "get_venv_workers_path", lambda: venv),
+        patch.object(sync_mod, "get_project_root", lambda: tmp_path),
+        patch.object(sync_mod, "_write_sync_token", lambda _t: None),
+    ):
+        sync_mod._install_requirements_to_venv(["click"])
+
+    cmd = mock_run_command.call_args.args[0]
+    assert "--native-tls" not in cmd
 
 
 @patch("pywrangler.cli.subprocess.run")
