@@ -61,6 +61,7 @@ def _wait_for_ready(process: subprocess.Popen[str], base_url: str) -> None:
             time.sleep(DEV_POLL_INTERVAL)
 
     process.kill()
+    process.wait()
     pytest.fail(f"pywrangler dev did not become ready within {DEV_STARTUP_TIMEOUT}s")
 
 
@@ -109,42 +110,46 @@ def dev_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
         process.wait(timeout=10)
     except subprocess.TimeoutExpired:
         process.kill()
+        process.wait()
 
 
-def _run_suite(dev_server: str, suite_name: str) -> SuiteResults:
-    """Call /run-tests/{suite} and return the per-test results dict."""
-    resp = requests.get(f"{dev_server}/run-tests/{suite_name}", timeout=60)
-    assert resp.ok, f"Suite '{suite_name}' returned {resp.status_code}: {resp.text}"
-    return resp.json()
+_test_suite_cache: dict[str, SuiteResults] = {}
 
 
-def _make_test(suite: str, name: str) -> Callable:
-    """Generate a pytest method that fetches suite results and asserts a single test passed."""
+def _get_test_results(dev_server: str, suite: str) -> SuiteResults:
+    if suite not in _test_suite_cache:
+        resp = requests.get(f"{dev_server}/run-tests/{suite}", timeout=60)
+        assert resp.ok, f"Suite '{suite}' returned {resp.status_code}: {resp.text}"
+        _test_suite_cache[suite] = resp.json()
+    return _test_suite_cache[suite]
 
+
+def _make_test(suite: str, test_name: str) -> Callable:
     def test_fn(self: Any, dev_server: str) -> None:
-        results: SuiteResults = _run_suite(dev_server, suite)
-        result: BindingTestResult | None = results.get(name)
-        assert result is not None, f"Test {suite}::{name} not found in results"
+        results = _get_test_results(dev_server, suite)
+        result: BindingTestResult | None = results.get(test_name)
+        assert result is not None, f"Test {suite}::{test_name} not found in results"
         if result["status"] == "failed":
             pytest.fail(result["error"])
         elif result["status"] == "error":
             pytest.fail(f"{result['error']}\n{result.get('traceback', '')}")
 
-    test_fn.__name__ = f"test_{name}"
+    test_fn.__name__ = f"test_{test_name}"
     return test_fn
 
 
-KV_TESTS: list[str] = [
-    "test_put_and_get",
-    # TODO: add more tests for KV
-]
+def binding_suite(suite: str, tests: list[str]) -> type:
+    """Register a binding test suite: creates a test class with one method per test."""
+    return type(
+        f"Test{suite.upper()}",
+        (),
+        {f"test_{name}": _make_test(suite, name) for name in tests},
+    )
 
 
-class TestKV:
-    """KV Namespace binding tests — exercised via /run-tests/kv."""
-
-    pass
-
-
-for _test_name in KV_TESTS:
-    setattr(TestKV, f"test_{_test_name}", _make_test("kv", _test_name))
+TestKV = binding_suite(
+    "kv",
+    [
+        "put_and_get",
+    ],
+)

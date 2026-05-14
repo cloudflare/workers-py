@@ -13,5 +13,5 @@ async def test_put_and_get(env):
 
 
 KV_TESTS = {
-    "test_put_and_get": test_put_and_get,
+    "put_and_get": test_put_and_get,
 }
