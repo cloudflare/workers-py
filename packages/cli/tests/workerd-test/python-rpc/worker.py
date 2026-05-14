@@ -2,6 +2,8 @@
 # Licensed under the Apache 2.0 license found in the LICENSE file or at:
 #     https://opensource.org/licenses/Apache-2.0
 
+# Ported from workerd (https://github.com/cloudflare/workerd/tree/main/src/workerd/server/tests/python/python-rpc)
+
 import collections.abc
 import json
 from asyncio import Future, sleep
