@@ -1,0 +1,9 @@
+{
+    "name": "bindings-test",
+    "main": "src/worker.py",
+    "compatibility_date": "2026-01-01",
+    "compatibility_flags": ["python_workers"],
+    "kv_namespaces": [
+        { "binding": "KV", "id": "test-kv" }
+    ]
+}
