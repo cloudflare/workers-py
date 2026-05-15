@@ -5,5 +5,15 @@
     "compatibility_flags": ["python_workers"],
     "kv_namespaces": [
         { "binding": "KV", "id": "test-kv" }
+    ],
+    "r2_buckets": [
+        { "binding": "BUCKET", "bucket_name": "test-bucket" }
+    ],
+    "d1_databases": [
+        {
+            "binding": "DB",
+            "database_id": "00000000-0000-0000-0000-000000000000",
+            "database_name": "test-db"
+        }
     ]
 }

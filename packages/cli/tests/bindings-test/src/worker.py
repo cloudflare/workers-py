@@ -1,10 +1,14 @@
 import traceback
 
+from d1_test import D1_TESTS
 from kv_test import KV_TESTS
+from r2_test import R2_TESTS
 from workers import Response, WorkerEntrypoint
 
 ALL_TESTS = {
     "kv": KV_TESTS,
+    "r2": R2_TESTS,
+    "d1": D1_TESTS,
 }
 
 
@@ -15,10 +19,9 @@ class Default(WorkerEntrypoint):
         path = urlparse(request.url).path
 
         if path.startswith("/run-tests/"):
-            suite_name = path[len("/run-tests/") :]
+            suite_name = path[len("/run-tests/"):]
             return await self._run_suite(suite_name)
         if path == "/health":
-            # health check used in test to make sure the worker is up and running
             return Response.json({"ok": True})
         return Response.json({"error": "not found"}, status=404)
 

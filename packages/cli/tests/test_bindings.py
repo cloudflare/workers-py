@@ -66,7 +66,7 @@ def _wait_for_ready(process: subprocess.Popen[str], base_url: str) -> None:
 
 
 @pytest.fixture(scope="module")
-def dev_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
+def dev_server(tmp_path_factory: Any) -> Generator[str]:
     """Start a pywrangler dev server on a free port and yield its base URL."""
     tmp_path = tmp_path_factory.mktemp("bindings_test")
     target = tmp_path / "bindings-test"
@@ -150,6 +150,72 @@ def binding_suite(suite: str, tests: list[str]) -> type:
 TestKV = binding_suite(
     "kv",
     [
-        "put_and_get",
+        "put_and_get_text",
+        "get_nonexistent",
+        "put_and_get_json",
+        "put_overwrite",
+        "put_empty_value",
+        "delete",
+        "delete_nonexistent",
+        "put_with_metadata",
+        "get_with_metadata_nonexistent",
+        "put_with_expiration_ttl",
+        "list_basic",
+        "list_with_prefix",
+        "list_with_limit_and_cursor",
+        "list_empty_prefix",
+        "list_with_metadata",
+    ],
+)
+
+TestR2 = binding_suite(
+    "r2",
+    [
+        "put_and_get_text",
+        "put_and_get_json",
+        "put_with_http_metadata",
+        "put_with_custom_metadata",
+        "head_object",
+        "get_nonexistent",
+        "head_nonexistent",
+        "delete_single",
+        "delete_multiple",
+        "list_basic",
+        "list_with_prefix",
+        "list_with_limit_and_cursor",
+        "list_with_delimiter",
+        "overwrite_object",
+        "put_empty_body",
+        "get_range_offset_length",
+        "get_range_suffix",
+        "r2object_properties",
+        "multipart_upload",
+        "multipart_abort",
+    ],
+)
+
+TestD1 = binding_suite(
+    "d1",
+    [
+        "insert_and_select_via_run",
+        "all_returns_results",
+        "first_returns_single_row",
+        "first_with_column_name",
+        "first_on_empty_result",
+        "raw_returns_arrays",
+        "raw_with_column_names",
+        "bind_null",
+        "bind_integer",
+        "bind_float",
+        "bind_string",
+        "bind_boolean",
+        "bind_multiple_parameters",
+        "exec_create_and_query",
+        "exec_multiple_statements",
+        "batch_multiple_inserts",
+        "run_metadata_fields",
+        "update_row",
+        "delete_row",
+        "invalid_sql_raises_error",
     ],
 )
