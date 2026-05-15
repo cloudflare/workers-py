@@ -108,6 +108,15 @@ def import_from_javascript(module_name: str) -> Any:
         raise
 
 
+@functools.cache
+def get_js_sdk():
+    # IMPORTANT:
+    # The module name here must match how wrangler registers the JS modules
+    # while vendoring the python_modules directory.
+    # See: https://github.com/cloudflare/workers-sdk/pull/13311
+    return import_from_javascript("python_modules/workers/sdk.mjs")
+
+
 @contextmanager
 def patch_env(
     d: dict[str, Any] | Sequence[tuple[str, Any]] | None = None, **kwds: dict[str, Any]
@@ -1332,7 +1341,8 @@ def _wrap_subclass(cls):
 
     def wrapped_init(self, *args, **kwargs):
         if len(args) > 0:
-            _pyodide_entrypoint_helper.patchWaitUntil(args[0])
+            js_sdk = get_js_sdk()
+            js_sdk.patchWaitUntil(args[0])
         if len(args) > 1:
             args = list(args)
             args[1] = _EnvWrapper(args[1])
