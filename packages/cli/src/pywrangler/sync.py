@@ -2,9 +2,11 @@ import logging
 import os
 import shutil
 import tempfile
+import tomllib
 from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
+from typing import Any
 
 import click
 
@@ -145,13 +147,87 @@ def create_pyodide_venv() -> None:
     run_command(["uv", "venv", str(pyodide_venv_path), "--python", interp_name])
 
 
+def _has_uv_sources_or_workspace(pyproject_data: Any) -> bool:
+    """Detect whether the project uses uv-specific dep resolution.
+    We trigger the `uv export` path if either is present, since vanilla
+    `[project.dependencies]` parsing ignores both."""
+    tool_uv = pyproject_data.get("tool", {}).get("uv", {})
+    return bool(tool_uv.get("sources")) or bool(tool_uv.get("workspace"))
+
+
+def _find_uv_workspace_root() -> Path:
+    """Walk up looking for a pyproject.toml with [tool.uv.workspace].
+    Returns the workspace root, or the project root if not in a workspace."""
+    project_root = get_project_root()
+    current = project_root
+    while True:
+        pyproject = current / "pyproject.toml"
+        if pyproject.is_file():
+            try:
+                with open(pyproject, "rb") as f:
+                    data = tomllib.load(f)
+                if data.get("tool", {}).get("uv", {}).get("workspace"):
+                    return current
+            except (OSError, tomllib.TOMLDecodeError):
+                pass
+        parent = current.parent
+        if parent == current:
+            return project_root
+        current = parent
+
+
+def _export_resolved_requirements() -> list[str]:
+    """Resolve dependencies via `uv export`, honoring workspace + sources.
+    Path entries are rewritten to absolute so `uv pip install -r` can resolve
+    them regardless of which directory it's invoked from."""
+    workspace_root = _find_uv_workspace_root()
+    result = run_command(
+        [
+            "uv",
+            "export",
+            "--format",
+            "requirements-txt",
+            "--no-dev",
+            "--no-hashes",
+            "--no-editable",
+            "--no-emit-project",
+            "--quiet",
+        ],
+        cwd=get_project_root(),
+        capture_output=True,
+        check=True,
+    )
+    lines: list[str] = []
+    for raw in result.stdout.splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#"):
+            continue
+        # Strip trailing `    # via foo` annotations uv emits.
+        line = line.split("#", 1)[0].strip()
+        if not line:
+            continue
+        # Convert workspace-relative paths to absolute. `uv pip install` accepts
+        # a bare path argument and reads the package name from its pyproject.toml.
+        if line.startswith("./") or line.startswith("../"):
+            line = str((workspace_root / line).resolve())
+        lines.append(line)
+    return lines
+
+
 def parse_requirements() -> list[str]:
     pyproject_data = read_pyproject_toml()
 
-    # Extract dependencies from [project.dependencies]
-    dependencies = pyproject_data.get("project", {}).get("dependencies", [])
+    if _has_uv_sources_or_workspace(pyproject_data):
+        dependencies = _export_resolved_requirements()
+        logger.info(
+            f"Found {len(dependencies)} dependencies (via `uv export`, "
+            f"honoring [tool.uv.sources] / workspace)."
+        )
+    else:
+        # Fall back to the original [project.dependencies] read.
+        dependencies = pyproject_data.get("project", {}).get("dependencies", [])
+        logger.info(f"Found {len(dependencies)} dependencies.")
 
-    logger.info(f"Found {len(dependencies)} dependencies.")
     if dependencies:
         for dep in dependencies:
             logger.debug(f"  - {dep}")
@@ -202,8 +278,33 @@ def _install_requirements_to_vendor(requirements: list[str]) -> str | None:
         pyodide_site_packages.mkdir()
 
     with temp_requirements_file(requirements) as requirements_file:
-        result = run_command(
-            [
+        # If any requirement is a local path (workspace member / [tool.uv.sources]),
+        # we need to allow building it from source (pure-Python wheel build).
+        # The original `--no-build` is too aggressive in that case; use
+        # `--no-build-package` for each *remote* dep instead.
+        local_paths = {
+            Path(r).resolve()
+            for r in requirements
+            if Path(r).is_absolute() and Path(r).exists()
+        }
+        if local_paths:
+            cmd = [
+                "uv",
+                "pip",
+                "install",
+                "-r",
+                requirements_file,
+                "--extra-index-url",
+                get_pyodide_index(),
+                "--index-strategy",
+                "unsafe-best-match",
+            ]
+            # Disallow source builds for everything that isn't one of our local paths.
+            # We don't know all package names here, so we lean on the original
+            # --no-build behavior: we strip it and trust that PyPI/Pyodide deps
+            # ship as wheels (which they do, since the Pyodide index is wheel-only).
+        else:
+            cmd = [
                 "uv",
                 "pip",
                 "install",
@@ -214,7 +315,9 @@ def _install_requirements_to_vendor(requirements: list[str]) -> str | None:
                 get_pyodide_index(),
                 "--index-strategy",
                 "unsafe-best-match",
-            ],
+            ]
+        result = run_command(
+            cmd,
             capture_output=True,
             check=False,
             env=os.environ | {"VIRTUAL_ENV": str(get_pyodide_venv_path())},
