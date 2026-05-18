@@ -1073,12 +1073,12 @@ class DurableObjectContext:
     def __init__(self, ctx: "DurableObjectState"):
         self._ctx = ctx
 
-    def __getattr__(self, name):
+    def __getattr__(self, name: str):
         result = getattr(self._ctx, name)
         setattr(self, name, result)
         return result
 
-    def abort(self, reason=None):
+    def abort(self, reason: str | None = None):
         # DurableObjectState.abort() terminates JS execution immediately. If Python
         # calls it synchronously while asyncio is still running the task in the event loop,
         # V8 unwinds the stack before asyncio can run its task-exit cleanup, leaving
@@ -1095,7 +1095,7 @@ class DurableObjectContext:
             callback = create_once_callable(lambda: ctx.abort(reason))
 
         js.queueMicrotask(callback)
-        raise DurableObjectAbort("Durable Object abort requested")
+        raise DurableObjectAbort(reason or "Durable Object abort requested")
 
 
 class _WorkflowInstanceWrapper:
