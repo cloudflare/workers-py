@@ -31,7 +31,8 @@ jobs:
 
     - name: Install project
       run: |
-        uv pip install --system -e packages/runtime-sdk -e packages/cli pytest
+        uv pip install --system -e packages/runtime-sdk -e packages/cli
+        uv pip install --system --group dev --project packages/cli
 
     - name: Run tests
       working-directory: packages/cli
