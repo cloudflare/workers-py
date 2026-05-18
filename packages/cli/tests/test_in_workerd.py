@@ -8,6 +8,7 @@ TEST_DIR = Path(__file__).parent
 WORKERD_TESTS = TEST_DIR / "workerd-test"
 WORKERS_PY = TEST_DIR.parent
 WORKERS_RUNTIME_SDK = WORKERS_PY.parent / "runtime-sdk" / "src"
+DISK_SERVICE_NAME = "TEST_TMPDIR"
 
 
 def discover_workerd_tests():
@@ -52,7 +53,9 @@ def bundle_cache(tmp_path_factory):
 def test_in_workerd(tmp_path, test_dir, wd_test_file, pytestconfig, bundle_cache):
     color = pytestconfig.get_terminal_writer().hasmarkup
     target = tmp_path / test_dir.name
+    disk_service_dir = target / DISK_SERVICE_NAME
     shutil.copytree(test_dir, target)
+    disk_service_dir.mkdir(exist_ok=True)
     subprocess.run(
         ["uv", "run", "--with", WORKERS_PY, "pywrangler", "sync"],
         cwd=target,
@@ -87,6 +90,7 @@ def test_in_workerd(tmp_path, test_dir, wd_test_file, pytestconfig, bundle_cache
         "--experimental",
         "--python-snapshot-dir",
         ".",
+        f"-d{DISK_SERVICE_NAME}={disk_service_dir}",
         "--pyodide-bundle-disk-cache-dir",
         bundle_cache,
     ]
