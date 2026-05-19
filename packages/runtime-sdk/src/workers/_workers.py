@@ -1365,8 +1365,8 @@ def _wrap_subclass(cls):
     original_init = cls.__init__
 
     def wrapped_init(self, *args, **kwargs):
+        args = list(args)
         if len(args) > 0:
-            args = list(args)
             _pyodide_entrypoint_helper.patchWaitUntil(args[0])
             if issubclass(cls, DurableObject):
                 args[0] = DurableObjectContext(args[0])
