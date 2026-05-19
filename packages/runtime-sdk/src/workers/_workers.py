@@ -25,9 +25,6 @@ import _cloudflare_compat_flags
 # Get globals modules and import function from the entrypoint-helper
 import _pyodide_entrypoint_helper
 import js
-
-if TYPE_CHECKING:
-    from js import DurableObjectState, Env, ExecutionContext
 import pyodide.http
 from js import Object
 from pyodide import __version__ as pyodide_version
@@ -35,6 +32,7 @@ from pyodide.ffi import (
     JsBuffer,
     JsException,
     JsProxy,
+    create_once_callable,
     create_proxy,
     destroy_proxies,
     to_js,
@@ -42,6 +40,9 @@ from pyodide.ffi import (
 from pyodide.http import pyfetch
 
 from workers.workflows import NonRetryableError
+
+if TYPE_CHECKING:
+    from js import DurableObjectState, Env, ExecutionContext
 
 
 class Context(Protocol):
@@ -1064,6 +1065,39 @@ class _DurableObjectNamespaceWrapper:
         )
 
 
+class DurableObjectAbort(BaseException):
+    pass
+
+
+class DurableObjectContext:
+    def __init__(self, ctx: "DurableObjectState"):
+        self._ctx = ctx
+
+    def __getattr__(self, name: str):
+        result = getattr(self._ctx, name)
+        setattr(self, name, result)
+        return result
+
+    def abort(self, reason: str | None = None):
+        # DurableObjectState.abort() terminates JS execution immediately. If Python
+        # calls it synchronously while asyncio is still running the task in the event loop,
+        # V8 unwinds the stack before asyncio can run its task-exit cleanup, leaving
+        # stale task state behind for the next request.
+        #
+        # Therefore, we queue the real abort into a microtask so Python can unwind first,
+        # then raise BaseException to stop user code without being swallowed by
+        # `except Exception` handlers.
+        ctx = self._ctx
+
+        if reason is None:
+            callback = create_once_callable(lambda: ctx.abort())
+        else:
+            callback = create_once_callable(lambda: ctx.abort(reason))
+
+        js.queueMicrotask(callback)
+        raise DurableObjectAbort(reason or "Durable Object abort requested")
+
+
 class _WorkflowInstanceWrapper:
     def __init__(self, binding):
         self._binding = binding
@@ -1331,10 +1365,12 @@ def _wrap_subclass(cls):
     original_init = cls.__init__
 
     def wrapped_init(self, *args, **kwargs):
+        args = list(args)
         if len(args) > 0:
             _pyodide_entrypoint_helper.patchWaitUntil(args[0])
+            if issubclass(cls, DurableObject):
+                args[0] = DurableObjectContext(args[0])
         if len(args) > 1:
-            args = list(args)
             args[1] = _EnvWrapper(args[1])
 
         original_init(self, *args, **kwargs)
@@ -1374,7 +1410,7 @@ class DurableObject:
     Base class used to define a Durable Object.
     """
 
-    ctx: "DurableObjectState"
+    ctx: "DurableObjectContext"
     env: "Env"
 
     def __init__(self, ctx: "DurableObjectState", env: "Env"):
