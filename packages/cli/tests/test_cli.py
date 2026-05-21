@@ -305,6 +305,68 @@ def test_sync_removes_stale_packages(test_dir):
     )
 
 
+def test_sync_lockfile_lifecycle(test_dir):
+    """Test that pylock.toml pins versions and --upgrade refreshes them."""
+    create_test_wrangler_jsonc(test_dir, "src/worker.py")
+    sync_cmd = ["uv", "run", "pywrangler", "sync"]
+    lockfile = test_dir / "pylock.toml"
+    vendor_path = test_dir / "python_modules"
+
+    old_six = "six==1.16.0"
+    latest_six = "six>=1.16.0"
+
+    # Step 1: Initial sync with old six — creates pylock.toml pinned to 1.16.0
+    create_test_pyproject(test_dir, [old_six])
+    result = subprocess.run(
+        sync_cmd, capture_output=True, text=True, cwd=test_dir, check=False
+    )
+    assert result.returncode == 0, f"Step 1 failed: {result.stdout}\n{result.stderr}"
+    assert lockfile.is_file(), "pylock.toml should be created after first sync"
+    assert is_package_installed(vendor_path, "six")
+    lockfile_content = lockfile.read_text()
+    assert 'version = "1.16.0"' in lockfile_content
+
+    # Step 2: Add click to pyproject.toml, rerun sync — pylock.toml adds click, six stays 1.16.0
+    create_test_pyproject(test_dir, [old_six, "click"])
+    result = subprocess.run(
+        sync_cmd, capture_output=True, text=True, cwd=test_dir, check=False
+    )
+    assert result.returncode == 0, f"Step 2 failed: {result.stdout}\n{result.stderr}"
+    lockfile_content = lockfile.read_text()
+    assert "click" in lockfile_content
+    assert 'version = "1.16.0"' in lockfile_content, (
+        "six should remain pinned to 1.16.0 when adding a new dep"
+    )
+    assert is_package_installed(vendor_path, "click")
+    assert is_package_installed(vendor_path, "six")
+
+    # Step 3: Rerun sync without changes — no update (skipped by timestamp check)
+    result = subprocess.run(
+        sync_cmd, capture_output=True, text=True, cwd=test_dir, check=False
+    )
+    assert result.returncode == 0, f"Step 3 failed: {result.stdout}\n{result.stderr}"
+    assert lockfile.read_text() == lockfile_content, (
+        "pylock.toml should not change when rerunning sync without changes"
+    )
+
+    # Step 4: Loosen six constraint and sync with --upgrade — six should upgrade past 1.16.0
+    create_test_pyproject(test_dir, [latest_six, "click"])
+    result = subprocess.run(
+        [*sync_cmd, "--force", "--upgrade"],
+        capture_output=True,
+        text=True,
+        cwd=test_dir,
+        check=False,
+    )
+    assert result.returncode == 0, f"Step 4 failed: {result.stdout}\n{result.stderr}"
+    lockfile_content = lockfile.read_text()
+    assert 'version = "1.16.0"' not in lockfile_content, (
+        "six should have been upgraded past 1.16.0 with --upgrade"
+    )
+    assert is_package_installed(vendor_path, "click")
+    assert is_package_installed(vendor_path, "six")
+
+
 def test_sync_command_handles_missing_pyproject():
     """Test that the sync command correctly handles a missing pyproject.toml file."""
     import tempfile
@@ -365,10 +427,22 @@ def test_sync_command_with_unchanged_timestamps(
 
 @patch.object(pywrangler_sync, "is_sync_needed", lambda: True)
 @patch.object(pywrangler_sync, "install_requirements")
+@patch.object(pywrangler_sync, "resolve_requirements")
+@patch.object(pywrangler_sync, "create_pyodide_venv")
+@patch.object(pywrangler_sync, "create_workers_venv")
 def test_sync_command_with_changed_timestamps(
-    mock_install_requirements, test_dir, caplog
+    mock_create_venv,
+    mock_create_pyodide,
+    mock_resolve,
+    mock_install_requirements,
+    test_dir,
+    caplog,
 ):
     """Test that the sync command runs when timestamps indicate changes."""
+    from pywrangler.resolve import InstallPlan
+
+    mock_resolve.return_value = InstallPlan(requirements=["click>=8.0"])
+
     # Create the pyproject.toml file
     create_test_pyproject(test_dir)
 
@@ -383,13 +457,28 @@ def test_sync_command_with_changed_timestamps(
     assert result.exit_code == 0
 
     # Verify that all the sync functions were called
+    mock_resolve.assert_called_once()
     mock_install_requirements.assert_called_once()
 
 
 @patch.object(pywrangler_sync, "is_sync_needed", lambda: False)
 @patch.object(pywrangler_sync, "install_requirements")
-def test_sync_command_with_force_flag(mock_install_requirements, test_dir, caplog):
+@patch.object(pywrangler_sync, "resolve_requirements")
+@patch.object(pywrangler_sync, "create_pyodide_venv")
+@patch.object(pywrangler_sync, "create_workers_venv")
+def test_sync_command_with_force_flag(
+    mock_create_venv,
+    mock_create_pyodide,
+    mock_resolve,
+    mock_install_requirements,
+    test_dir,
+    caplog,
+):
     """Test that the sync command runs when the --force flag is used, regardless of timestamps."""
+    from pywrangler.resolve import InstallPlan
+
+    mock_resolve.return_value = InstallPlan(requirements=["click>=8.0"])
+
     create_test_pyproject(test_dir)
     create_test_wrangler_jsonc(test_dir)
 

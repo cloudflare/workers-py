@@ -3,7 +3,9 @@ from unittest.mock import patch
 
 import pytest
 
+import pywrangler.resolve as pywrangler_resolve
 import pywrangler.sync as pywrangler_sync
+from pywrangler.resolve import InstallPlan
 
 
 def test_parse_pip_freeze():
@@ -42,14 +44,16 @@ class TestInstallRequirements:
         import click
         import pytest
 
+        plan = InstallPlan(requirements=["nonexistent-package", "workers-runtime-sdk"])
         with pytest.raises(click.exceptions.Exit):
-            pywrangler_sync.install_requirements(["nonexistent-package"])
+            pywrangler_sync.install_requirements(plan)
 
         assert mock_vendor.call_count == 1
         assert mock_venv.call_count == 1
         assert mock_get_vendor.call_count == 0
 
-        assert mock_vendor.call_args_list[0][0][0] == [
+        passed_plan = mock_vendor.call_args_list[0][0][0]
+        assert passed_plan.requirements == [
             "nonexistent-package",
             "workers-runtime-sdk",
         ]
@@ -85,15 +89,17 @@ class TestInstallRequirements:
         import click
         import pytest
 
+        plan = InstallPlan(requirements=["some-package", "workers-runtime-sdk"])
         with pytest.raises(click.exceptions.Exit):
-            pywrangler_sync.install_requirements(["some-package"])
+            pywrangler_sync.install_requirements(plan)
 
         assert mock_vendor.call_count == 1
         assert mock_venv.call_count == 1
         # Pyodide installation failed, so _get_vendor_package_versions should not be called
         assert mock_get_vendor.call_count == 0
 
-        assert mock_vendor.call_args_list[0][0][0] == [
+        passed_plan = mock_vendor.call_args_list[0][0][0]
+        assert passed_plan.requirements == [
             "some-package",
             "workers-runtime-sdk",
         ]
@@ -129,14 +135,16 @@ class TestInstallRequirements:
         import click
         import pytest
 
+        plan = InstallPlan(requirements=["some-package", "workers-runtime-sdk"])
         with pytest.raises(click.exceptions.Exit):
-            pywrangler_sync.install_requirements(["some-package"])
+            pywrangler_sync.install_requirements(plan)
 
         assert mock_vendor.call_count == 1
         assert mock_venv.call_count == 1
         assert mock_get_vendor.call_count == 1
 
-        assert mock_vendor.call_args_list[0][0][0] == [
+        passed_plan = mock_vendor.call_args_list[0][0][0]
+        assert passed_plan.requirements == [
             "some-package",
             "workers-runtime-sdk",
         ]
@@ -173,8 +181,9 @@ class TestInstallRequirements:
             import click
             import pytest
 
+            plan = InstallPlan(requirements=["some-package", "workers-runtime-sdk"])
             with pytest.raises(click.exceptions.Exit):
-                pywrangler_sync.install_requirements(["some-package"])
+                pywrangler_sync.install_requirements(plan)
 
             log_messages = [record.message for record in caplog.records]
             assert any(message in msg for msg in log_messages)
@@ -248,5 +257,71 @@ class TestSyncTokenVersion:
         venv_token.parent.mkdir(parents=True, exist_ok=True)
         vendor_token.write_text("")
         venv_token.write_text("")
+
+        assert pywrangler_sync.is_sync_needed() is True
+
+
+class TestReadLockfileRequirements:
+    def test_reads_packages_from_pylock(self, tmp_path):
+        lockfile = tmp_path / "pylock.toml"
+        lockfile.write_text(
+            'lock-version = "1.0"\n'
+            '[[packages]]\nname = "click"\nversion = "8.1.7"\n'
+            '[[packages]]\nname = "numpy"\nversion = "2.0.2"\n'
+        )
+        result = pywrangler_resolve._read_lockfile_requirements(lockfile)
+        assert result == ["click==8.1.7", "numpy==2.0.2"]
+
+    def test_empty_packages(self, tmp_path):
+        lockfile = tmp_path / "pylock.toml"
+        lockfile.write_text('lock-version = "1.0"\n')
+        result = pywrangler_resolve._read_lockfile_requirements(lockfile)
+        assert result == []
+
+
+class TestResolveRequirements:
+    @patch.object(
+        pywrangler_resolve,
+        "_compile_requirements",
+        return_value=["click==8.1.7"],
+    )
+    @patch.object(pywrangler_resolve, "parse_requirements", return_value=["click>=8.0"])
+    @patch.object(pywrangler_resolve, "get_lockfile_path")
+    def test_compiles_from_deps(
+        self, mock_lockpath, mock_parse, mock_compile, tmp_path
+    ):
+        mock_lockpath.return_value = tmp_path / "pylock.toml"
+        plan = pywrangler_resolve.resolve_requirements()
+        assert plan.requirements == ["click==8.1.7"]
+        mock_parse.assert_called_once()
+        mock_compile.assert_called_once()
+
+
+class TestSyncNeededWithLockfile:
+    @pytest.fixture
+    def project_root(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text("[project]\nname='x'\nversion='0.0.0'\n")
+        monkeypatch.setattr(pywrangler_sync, "find_pyproject_toml", lambda: pyproject)
+        monkeypatch.setattr(pywrangler_sync, "get_project_root", lambda: tmp_path)
+        monkeypatch.setattr(pywrangler_resolve, "get_project_root", lambda: tmp_path)
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.0.0")
+        return tmp_path
+
+    def test_sync_needed_when_lockfile_newer_than_token(
+        self, project_root: Path
+    ) -> None:
+        pywrangler_sync._write_sync_token(pywrangler_sync.get_vendor_token_path())
+        pywrangler_sync._write_sync_token(pywrangler_sync.get_venv_workers_token_path())
+
+        assert pywrangler_sync.is_sync_needed() is False
+
+        lockfile = project_root / "pylock.toml"
+        lockfile.write_text("click==8.1.7\n")
+        import os
+        import time
+
+        future = time.time() + 10
+        os.utime(lockfile, (future, future))
 
         assert pywrangler_sync.is_sync_needed() is True
