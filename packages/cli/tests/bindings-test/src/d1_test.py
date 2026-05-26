@@ -6,7 +6,13 @@ EXEC_MULTI_TABLE = "_test_d1_exec_multi"
 
 
 async def _cleanup_d1(db):
-    for table in [TEST_TABLE, TEST_TABLE_TYPES, TEST_TABLE_BATCH, EXEC_TABLE, EXEC_MULTI_TABLE]:
+    for table in [
+        TEST_TABLE,
+        TEST_TABLE_TYPES,
+        TEST_TABLE_BATCH,
+        EXEC_TABLE,
+        EXEC_MULTI_TABLE,
+    ]:
         try:
             await db.exec(f"DROP TABLE IF EXISTS {table}")
         except Exception:
@@ -32,17 +38,21 @@ async def test_insert_and_select_via_run(env):
     db = env.DB
     await _cleanup_d1(db)
     await _ensure_tables(db)
-    insert_result = await db.prepare(
-        f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)"
-    ).bind("run_test", "hello").run()
+    insert_result = (
+        await db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("run_test", "hello")
+        .run()
+    )
     assert insert_result["success"] is True, f"insert failed: {insert_result!r}"
     meta = insert_result["meta"]
     assert meta["changes"] >= 1
     assert meta["last_row_id"] > 0
     row_id = meta["last_row_id"]
-    select_result = await db.prepare(
-        f"SELECT id, name, value FROM {TEST_TABLE} WHERE id = ?"
-    ).bind(row_id).run()
+    select_result = (
+        await db.prepare(f"SELECT id, name, value FROM {TEST_TABLE} WHERE id = ?")
+        .bind(row_id)
+        .run()
+    )
     rows = select_result["results"]
     assert len(rows) == 1, f"expected 1 row, got {len(rows)}"
     assert rows[0]["name"] == "run_test"
@@ -53,12 +63,16 @@ async def test_all_returns_results(env):
     db = env.DB
     await _cleanup_d1(db)
     await _ensure_tables(db)
-    await db.prepare(
-        f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)"
-    ).bind("all_test", "v1").run()
-    result = await db.prepare(
-        f"SELECT name, value FROM {TEST_TABLE} WHERE name = ?"
-    ).bind("all_test").all()
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("all_test", "v1")
+        .run()
+    )
+    result = (
+        await db.prepare(f"SELECT name, value FROM {TEST_TABLE} WHERE name = ?")
+        .bind("all_test")
+        .all()
+    )
     assert result["success"] is True
     rows = result["results"]
     assert len(rows) >= 1, f"expected >= 1 row, got {len(rows)}"
@@ -69,12 +83,16 @@ async def test_first_returns_single_row(env):
     db = env.DB
     await _cleanup_d1(db)
     await _ensure_tables(db)
-    await db.prepare(
-        f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)"
-    ).bind("first_test", "fv").run()
-    row = await db.prepare(
-        f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1"
-    ).bind("first_test").first()
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("first_test", "fv")
+        .run()
+    )
+    row = (
+        await db.prepare(f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1")
+        .bind("first_test")
+        .first()
+    )
     assert row is not None, "first() returned None"
     assert isinstance(row, dict), f"expected dict, got {type(row)}: {row}"
     assert row["name"] == "first_test"
@@ -85,12 +103,16 @@ async def test_first_with_column_name(env):
     db = env.DB
     await _cleanup_d1(db)
     await _ensure_tables(db)
-    await db.prepare(
-        f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)"
-    ).bind("first_col", "col_val").run()
-    value = await db.prepare(
-        f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1"
-    ).bind("first_col").first("value")
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("first_col", "col_val")
+        .run()
+    )
+    value = (
+        await db.prepare(f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1")
+        .bind("first_col")
+        .first("value")
+    )
     assert value == "col_val", f"expected 'col_val', got {value!r}"
 
 
@@ -98,9 +120,11 @@ async def test_first_on_empty_result(env):
     db = env.DB
     await _cleanup_d1(db)
     await _ensure_tables(db)
-    row = await db.prepare(
-        f"SELECT * FROM {TEST_TABLE} WHERE name = ?"
-    ).bind("__nonexistent__xyz__").first()
+    row = (
+        await db.prepare(f"SELECT * FROM {TEST_TABLE} WHERE name = ?")
+        .bind("__nonexistent__xyz__")
+        .first()
+    )
     assert row is None, f"expected None, got {row!r}"
 
 
@@ -108,12 +132,16 @@ async def test_raw_returns_arrays(env):
     db = env.DB
     await _cleanup_d1(db)
     await _ensure_tables(db)
-    await db.prepare(
-        f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)"
-    ).bind("raw_test", "rv").run()
-    rows = await db.prepare(
-        f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1"
-    ).bind("raw_test").raw()
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("raw_test", "rv")
+        .run()
+    )
+    rows = (
+        await db.prepare(f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1")
+        .bind("raw_test")
+        .raw()
+    )
     assert isinstance(rows, list), f"expected list, got {type(rows)}"
     assert len(rows) == 1, f"expected 1 row, got {len(rows)}"
     assert rows[0] == ["raw_test", "rv"], f"row mismatch: {rows!r}"
@@ -123,12 +151,16 @@ async def test_raw_with_column_names(env):
     db = env.DB
     await _cleanup_d1(db)
     await _ensure_tables(db)
-    await db.prepare(
-        f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)"
-    ).bind("raw_cols", "rc").run()
-    rows = await db.prepare(
-        f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1"
-    ).bind("raw_cols").raw({"columnNames": True})
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("raw_cols", "rc")
+        .run()
+    )
+    rows = (
+        await db.prepare(f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1")
+        .bind("raw_cols")
+        .raw({"columnNames": True})
+    )
     assert len(rows) == 2, f"expected header + data, got {len(rows)} rows"
     assert rows[0] == ["name", "value"], f"header mismatch: {rows[0]!r}"
     assert rows[1] == ["raw_cols", "rc"], f"row mismatch: {rows[1]!r}"
@@ -139,39 +171,63 @@ async def test_bind_types(env):
     await _cleanup_d1(db)
     await _ensure_tables(db)
 
-    await db.prepare(
-        f"INSERT INTO {TEST_TABLE_TYPES} (id, txt, num, intval) VALUES (?, ?, ?, ?)"
-    ).bind(1, None, None, None).run()
-    await db.prepare(
-        f"INSERT INTO {TEST_TABLE_TYPES} (id, txt, num, intval) VALUES (?, ?, ?, ?)"
-    ).bind(2, "hello, D1!", 3.14, 42).run()
-    await db.prepare(
-        f"INSERT INTO {TEST_TABLE_TYPES} (id, intval) VALUES (?, ?)"
-    ).bind(3, True).run()
-    await db.prepare(
-        f"INSERT INTO {TEST_TABLE_TYPES} (id, intval) VALUES (?, ?)"
-    ).bind(4, False).run()
+    await (
+        db.prepare(
+            f"INSERT INTO {TEST_TABLE_TYPES} (id, txt, num, intval) VALUES (?, ?, ?, ?)"
+        )
+        .bind(1, None, None, None)
+        .run()
+    )
+    await (
+        db.prepare(
+            f"INSERT INTO {TEST_TABLE_TYPES} (id, txt, num, intval) VALUES (?, ?, ?, ?)"
+        )
+        .bind(2, "hello, D1!", 3.14, 42)
+        .run()
+    )
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE_TYPES} (id, intval) VALUES (?, ?)")
+        .bind(3, True)
+        .run()
+    )
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE_TYPES} (id, intval) VALUES (?, ?)")
+        .bind(4, False)
+        .run()
+    )
 
-    row1 = await db.prepare(
-        f"SELECT txt, num, intval FROM {TEST_TABLE_TYPES} WHERE id = ?"
-    ).bind(1).first()
+    row1 = (
+        await db.prepare(
+            f"SELECT txt, num, intval FROM {TEST_TABLE_TYPES} WHERE id = ?"
+        )
+        .bind(1)
+        .first()
+    )
     assert row1["txt"] is None, f"expected None, got {row1['txt']!r}"
     assert row1["num"] is None, f"expected None, got {row1['num']!r}"
     assert row1["intval"] is None, f"expected None, got {row1['intval']!r}"
 
-    row2 = await db.prepare(
-        f"SELECT txt, num, intval FROM {TEST_TABLE_TYPES} WHERE id = ?"
-    ).bind(2).first()
+    row2 = (
+        await db.prepare(
+            f"SELECT txt, num, intval FROM {TEST_TABLE_TYPES} WHERE id = ?"
+        )
+        .bind(2)
+        .first()
+    )
     assert row2["txt"] == "hello, D1!"
     assert abs(row2["num"] - 3.14) < 0.001
     assert row2["intval"] == 42
 
-    row3 = await db.prepare(
-        f"SELECT intval FROM {TEST_TABLE_TYPES} WHERE id = ?"
-    ).bind(3).first()
-    row4 = await db.prepare(
-        f"SELECT intval FROM {TEST_TABLE_TYPES} WHERE id = ?"
-    ).bind(4).first()
+    row3 = (
+        await db.prepare(f"SELECT intval FROM {TEST_TABLE_TYPES} WHERE id = ?")
+        .bind(3)
+        .first()
+    )
+    row4 = (
+        await db.prepare(f"SELECT intval FROM {TEST_TABLE_TYPES} WHERE id = ?")
+        .bind(4)
+        .first()
+    )
     assert row3["intval"] == 1, f"True should be 1, got {row3['intval']}"
     assert row4["intval"] == 0, f"False should be 0, got {row4['intval']}"
 
@@ -204,9 +260,15 @@ async def test_batch_multiple_inserts(env):
     await _cleanup_d1(db)
     await _ensure_tables(db)
     statements = [
-        db.prepare(f"INSERT INTO {TEST_TABLE_BATCH} (id, val) VALUES (?, ?)").bind(1, "batch_a"),
-        db.prepare(f"INSERT INTO {TEST_TABLE_BATCH} (id, val) VALUES (?, ?)").bind(2, "batch_b"),
-        db.prepare(f"INSERT INTO {TEST_TABLE_BATCH} (id, val) VALUES (?, ?)").bind(3, "batch_c"),
+        db.prepare(f"INSERT INTO {TEST_TABLE_BATCH} (id, val) VALUES (?, ?)").bind(
+            1, "batch_a"
+        ),
+        db.prepare(f"INSERT INTO {TEST_TABLE_BATCH} (id, val) VALUES (?, ?)").bind(
+            2, "batch_b"
+        ),
+        db.prepare(f"INSERT INTO {TEST_TABLE_BATCH} (id, val) VALUES (?, ?)").bind(
+            3, "batch_c"
+        ),
     ]
     results = await db.batch(statements)
     assert results is not None, "batch returned None"
@@ -222,12 +284,22 @@ async def test_run_metadata_fields(env):
     db = env.DB
     await _cleanup_d1(db)
     await _ensure_tables(db)
-    result = await db.prepare(
-        f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)"
-    ).bind("meta_test", "mv").run()
+    result = (
+        await db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("meta_test", "mv")
+        .run()
+    )
     assert result["success"] is True
     meta = result["meta"]
-    for key in ["duration", "changes", "last_row_id", "changed_db", "rows_read", "rows_written", "size_after"]:
+    for key in [
+        "duration",
+        "changes",
+        "last_row_id",
+        "changed_db",
+        "rows_read",
+        "rows_written",
+        "size_after",
+    ]:
         assert key in meta, f"missing {key!r} in meta: {meta!r}"
     assert meta["changes"] >= 1
     assert meta["changed_db"] is True
@@ -237,17 +309,23 @@ async def test_update_row(env):
     db = env.DB
     await _cleanup_d1(db)
     await _ensure_tables(db)
-    insert_result = await db.prepare(
-        f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)"
-    ).bind("update_me", "old_value").run()
+    insert_result = (
+        await db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("update_me", "old_value")
+        .run()
+    )
     row_id = insert_result["meta"]["last_row_id"]
-    update_result = await db.prepare(
-        f"UPDATE {TEST_TABLE} SET value = ? WHERE id = ?"
-    ).bind("new_value", row_id).run()
+    update_result = (
+        await db.prepare(f"UPDATE {TEST_TABLE} SET value = ? WHERE id = ?")
+        .bind("new_value", row_id)
+        .run()
+    )
     assert update_result["meta"]["changes"] == 1
-    row = await db.prepare(
-        f"SELECT value FROM {TEST_TABLE} WHERE id = ?"
-    ).bind(row_id).first()
+    row = (
+        await db.prepare(f"SELECT value FROM {TEST_TABLE} WHERE id = ?")
+        .bind(row_id)
+        .first()
+    )
     assert row["value"] == "new_value", f"expected 'new_value', got {row['value']!r}"
 
 
@@ -255,17 +333,21 @@ async def test_delete_row(env):
     db = env.DB
     await _cleanup_d1(db)
     await _ensure_tables(db)
-    insert_result = await db.prepare(
-        f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)"
-    ).bind("delete_me", "gone").run()
+    insert_result = (
+        await db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("delete_me", "gone")
+        .run()
+    )
     row_id = insert_result["meta"]["last_row_id"]
-    delete_result = await db.prepare(
-        f"DELETE FROM {TEST_TABLE} WHERE id = ?"
-    ).bind(row_id).run()
+    delete_result = (
+        await db.prepare(f"DELETE FROM {TEST_TABLE} WHERE id = ?").bind(row_id).run()
+    )
     assert delete_result["meta"]["changes"] == 1
-    row = await db.prepare(
-        f"SELECT * FROM {TEST_TABLE} WHERE id = ?"
-    ).bind(row_id).first()
+    row = (
+        await db.prepare(f"SELECT * FROM {TEST_TABLE} WHERE id = ?")
+        .bind(row_id)
+        .first()
+    )
     assert row is None, f"row should be deleted, got {row!r}"
 
 
@@ -273,14 +355,14 @@ async def test_session_prepare_and_query(env):
     db = env.DB
     await _cleanup_d1(db)
     await _ensure_tables(db)
-    await db.prepare(
-        f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)"
-    ).bind("session_test", "sv").run()
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("session_test", "sv")
+        .run()
+    )
     session = db.withSession()
     assert session is not None, "withSession() returned None"
-    result = await session.prepare(
-        f"SELECT COUNT(*) as cnt FROM {TEST_TABLE}"
-    ).all()
+    result = await session.prepare(f"SELECT COUNT(*) as cnt FROM {TEST_TABLE}").all()
     assert result["success"] is True
     assert result["results"][0]["cnt"] >= 1
 
@@ -291,11 +373,15 @@ async def test_session_bookmark(env):
     await _ensure_tables(db)
     session = db.withSession()
     bookmark_before = session.getBookmark()
-    assert bookmark_before is None, f"expected None before query, got {bookmark_before!r}"
-    await session.prepare(f"SELECT 1").all()
+    assert bookmark_before is None, (
+        f"expected None before query, got {bookmark_before!r}"
+    )
+    await session.prepare("SELECT 1").all()
     bookmark_after = session.getBookmark()
     assert bookmark_after is not None, "expected bookmark after query, got None"
-    assert isinstance(bookmark_after, str), f"expected string, got {type(bookmark_after)}"
+    assert isinstance(bookmark_after, str), (
+        f"expected string, got {type(bookmark_after)}"
+    )
     assert len(bookmark_after) > 0, "bookmark should be non-empty"
 
 
@@ -305,8 +391,12 @@ async def test_session_batch(env):
     await _ensure_tables(db)
     session = db.withSession()
     statements = [
-        session.prepare(f"INSERT INTO {TEST_TABLE_BATCH} (id, val) VALUES (?, ?)").bind(1, "sa"),
-        session.prepare(f"INSERT INTO {TEST_TABLE_BATCH} (id, val) VALUES (?, ?)").bind(2, "sb"),
+        session.prepare(f"INSERT INTO {TEST_TABLE_BATCH} (id, val) VALUES (?, ?)").bind(
+            1, "sa"
+        ),
+        session.prepare(f"INSERT INTO {TEST_TABLE_BATCH} (id, val) VALUES (?, ?)").bind(
+            2, "sb"
+        ),
     ]
     results = await session.batch(statements)
     assert results is not None, "session batch returned None"

@@ -37,9 +37,13 @@ async def test_put_and_get_json(env):
     await _cleanup_r2(bucket)
     key = "_test/put_get_json"
     payload = {"message": "hello", "numbers": [1, 2, 3]}
-    await bucket.put(key, json.dumps(payload), {
-        "httpMetadata": {"contentType": "application/json"},
-    })
+    await bucket.put(
+        key,
+        json.dumps(payload),
+        {
+            "httpMetadata": {"contentType": "application/json"},
+        },
+    )
     body = await bucket.get(key)
     assert body is not None, "get returned None"
     parsed = await body.json()
@@ -50,14 +54,18 @@ async def test_put_with_http_metadata(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
     key = "_test/http_meta"
-    await bucket.put(key, "metadata test", {
-        "httpMetadata": {
-            "contentType": "text/plain",
-            "contentLanguage": "en-US",
-            "contentDisposition": "inline",
-            "cacheControl": "max-age=3600",
+    await bucket.put(
+        key,
+        "metadata test",
+        {
+            "httpMetadata": {
+                "contentType": "text/plain",
+                "contentLanguage": "en-US",
+                "contentDisposition": "inline",
+                "cacheControl": "max-age=3600",
+            },
         },
-    })
+    )
     head = await bucket.head(key)
     assert head is not None, "head returned None"
     meta = head["httpMetadata"]
@@ -75,7 +83,9 @@ async def test_put_with_custom_metadata(env):
     await bucket.put(key, "custom metadata test", {"customMetadata": custom})
     head = await bucket.head(key)
     assert head is not None, "head returned None"
-    assert head["customMetadata"] == custom, f"custom metadata mismatch: {head['customMetadata']!r}"
+    assert head["customMetadata"] == custom, (
+        f"custom metadata mismatch: {head['customMetadata']!r}"
+    )
 
 
 async def test_head_object(env):
@@ -152,7 +162,9 @@ async def test_list_with_prefix(env):
     result = await bucket.list({"prefix": "_test/prefix_a/"})
     keys = [obj.key for obj in result["objects"]]
     assert len(keys) == 2, f"expected 2 objects, got {len(keys)}"
-    assert all(k.startswith("_test/prefix_a/") for k in keys), f"prefix filter failed: {keys!r}"
+    assert all(k.startswith("_test/prefix_a/") for k in keys), (
+        f"prefix filter failed: {keys!r}"
+    )
 
 
 async def test_list_with_limit_and_cursor(env):
@@ -162,13 +174,19 @@ async def test_list_with_limit_and_cursor(env):
     for i in range(5):
         await bucket.put(f"{prefix}{i:03d}", f"val-{i}")
     page1 = await bucket.list({"prefix": prefix, "limit": 2})
-    assert len(page1["objects"]) == 2, f"first page: expected 2, got {len(page1['objects'])}"
+    assert len(page1["objects"]) == 2, (
+        f"first page: expected 2, got {len(page1['objects'])}"
+    )
     assert page1["truncated"], "expected truncated=True"
     assert page1["cursor"] is not None, "expected cursor"
     page2 = await bucket.list({"prefix": prefix, "limit": 2, "cursor": page1["cursor"]})
-    assert len(page2["objects"]) == 2, f"second page: expected 2, got {len(page2['objects'])}"
+    assert len(page2["objects"]) == 2, (
+        f"second page: expected 2, got {len(page2['objects'])}"
+    )
     page3 = await bucket.list({"prefix": prefix, "limit": 2, "cursor": page2["cursor"]})
-    assert len(page3["objects"]) == 1, f"third page: expected 1, got {len(page3['objects'])}"
+    assert len(page3["objects"]) == 1, (
+        f"third page: expected 1, got {len(page3['objects'])}"
+    )
     assert not page3["truncated"], "expected truncated=False on last page"
 
 
@@ -241,10 +259,14 @@ async def test_r2object_properties(env):
     await _cleanup_r2(bucket)
     key = "_test/props"
     content = "properties test"
-    obj = await bucket.put(key, content, {
-        "httpMetadata": {"contentType": "text/plain"},
-        "customMetadata": {"foo": "bar"},
-    })
+    obj = await bucket.put(
+        key,
+        content,
+        {
+            "httpMetadata": {"contentType": "text/plain"},
+            "customMetadata": {"foo": "bar"},
+        },
+    )
     assert obj["key"] == key
     assert obj["size"] == len(content)
     assert isinstance(obj["version"], str) and obj["version"]
@@ -261,9 +283,12 @@ async def test_multipart_upload(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
     key = "_test/multipart"
-    upload = await bucket.createMultipartUpload(key, {
-        "customMetadata": {"uploadType": "multipart_test"},
-    })
+    upload = await bucket.createMultipartUpload(
+        key,
+        {
+            "customMetadata": {"uploadType": "multipart_test"},
+        },
+    )
     assert upload["key"] == key
     assert isinstance(upload["uploadId"], str) and upload["uploadId"]
     five_mb = 5 * 1024 * 1024
