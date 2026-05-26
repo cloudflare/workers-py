@@ -34,7 +34,6 @@ export default {
       1,
       'test',
       [1, 2, 3],
-      new Map([['key', 42]]),
       42,
       1.2345,
       false,
@@ -44,6 +43,10 @@ export default {
       const response = await env.PythonRpc.identity(val);
       assert.deepStrictEqual(response, val);
     }
+
+    // Maps are converted to Python dicts and sent back as plain objects
+    const mapResponse = await env.PythonRpc.identity(new Map([['key', 42]]));
+    assert.deepStrictEqual(mapResponse, { key: 42 });
 
     const null_resp = await env.PythonRpc.identity(null);
     assert.ok(null_resp === null || null_resp === undefined);
