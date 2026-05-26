@@ -1,10 +1,14 @@
 import traceback
 
+from d1_test import D1_TESTS
 from kv_test import KV_TESTS
+from r2_test import R2_TESTS
 from workers import Response, WorkerEntrypoint
 
 ALL_TESTS = {
     "kv": KV_TESTS,
+    "r2": R2_TESTS,
+    "d1": D1_TESTS,
 }
 
 
