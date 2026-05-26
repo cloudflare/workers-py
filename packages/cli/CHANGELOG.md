@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.9.4 (2026-05-19)
+
+### Bug Fixes
+
+- Wrap DurableObject.abort() so that python cleanup can be done before abort
+  ([#106](https://github.com/cloudflare/workers-py/pull/106),
+  [`bf6acf2`](https://github.com/cloudflare/workers-py/commit/bf6acf24429fb1525f34334ff2cefffa45b287ef))
+
+- **runtime-sdk**: Wrap DO.abort() to cleanup stale tasks before abortion
+  ([#106](https://github.com/cloudflare/workers-py/pull/106),
+  [`bf6acf2`](https://github.com/cloudflare/workers-py/commit/bf6acf24429fb1525f34334ff2cefffa45b287ef))
+
+
 ## v1.9.3 (2026-04-22)
 
 ### Bug Fixes
