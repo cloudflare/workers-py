@@ -68,7 +68,7 @@ warn_unreachable = true
 no_implicit_optional = true
 
 [tool.hatch.build.targets.wheel]
-include = ["src/_*.py", "src/_*.pyi", "src/_*.pth", "src/workers"]
+include = ["src/*.py", "src/_*.pyi", "src/_*.pth", "src/workers"]
 
 [tool.hatch.build.targets.wheel.sources]
 "src" = ""
