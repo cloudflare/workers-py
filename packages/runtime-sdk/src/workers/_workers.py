@@ -945,10 +945,17 @@ class JsDict(dict):
     """
 
     def __getattr__(self, name):
+        # The limitation of this approach is that if there is a key that conflicts with a built-in
+        # method or attribute of the dict class, it will not be accessible through attribute access.
+        # But that is a reasonable trade-off for the convenience of being able to access keys as
+        # attributes.
         try:
             return self[name]
         except KeyError:
             raise AttributeError(name) from None
+
+    def __setattr__(self, name, value):
+        self[name] = value
 
 
 def _normalize_result(obj):
@@ -1065,6 +1072,11 @@ class _RPCWrapper:
     def _convert_result(self, result):
         converted = python_from_rpc(result)
         if isinstance(converted, JsProxy):
+            # If the RPC result is another JsProxy, we assume that
+            # it is another RPC-wrapped object and wrap it as well.
+            # for example, d1.bind() returns the same object as a result.
+            # TODO: This is a bit of a hack. We should revisit when there are more
+            # bindings to support with different patterns.
             return self.__class__(converted)
         return converted
 
