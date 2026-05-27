@@ -199,6 +199,40 @@ TestR2 = binding_suite(
     ],
 )
 
+TestDO = binding_suite(
+    "do",
+    [
+        "storage_put_and_get",
+        "storage_get_nonexistent",
+        "storage_put_multiple",
+        "storage_get_multiple",
+        "storage_delete",
+        "storage_delete_multiple",
+        "storage_list",
+        "storage_list_with_options",
+        "storage_delete_all",
+        "storage_value_types",
+        "sql_exec_and_query",
+        "sql_cursor_one",
+        "sql_cursor_column_names",
+        "sql_cursor_rows_read_written",
+        "sql_database_size",
+        "alarm_set_get_delete",
+        "transaction",
+        "ctx_id",
+        "namespace_id_from_name",
+        "namespace_new_unique_id",
+        "namespace_id_from_string",
+        "rpc_echo",
+        "rpc_dict",
+        "stub_id",
+        "fetch",
+        "block_concurrency_while",
+        "storage_sync",
+        "id_equals",
+    ],
+)
+
 TestD1 = binding_suite(
     "d1",
     [
