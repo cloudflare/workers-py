@@ -3,7 +3,7 @@ import traceback
 from d1_test import D1_TESTS
 from do_test import DO_TESTS
 from durable_object import (
-    TestDurableObject,  # noqa: F401 - wrangler discovers by class_name
+    TestDurableObject,  # noqa: F401 - side effect of registering the Durable Object
 )
 from kv_test import KV_TESTS
 from r2_test import R2_TESTS
