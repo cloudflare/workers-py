@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.1.6 (2026-05-28)
+
+### Bug Fixes
+
+- Include asgi.py in the wheel ([#110](https://github.com/cloudflare/workers-py/pull/110),
+  [`cab6fab`](https://github.com/cloudflare/workers-py/commit/cab6fab48e63b05ac6d9b230c69657bde97eb0b8))
+
+
 ## v1.1.5 (2026-05-19)
 
 ### Bug Fixes
