@@ -57,7 +57,9 @@ def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
     tmp_path, test_dir, wd_test_file, compat_date, pytestconfig, bundle_cache_dir
 ):
     # FIXME:
-    # pywrangler sync fails to install pyodide packages for Python 3.12 on Linux
+    # pywrangler sync fails to install pyodide packages in unittest environment + Python 3.12 + Linux
+    # This is reproducible only in the unittest environment, and doesn't happen
+    # when running the same worker manually.
     if (
         test_dir.name == "sdk"
         and compat_date < "2025-09-29"
