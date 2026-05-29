@@ -1,5 +1,6 @@
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -55,6 +56,15 @@ def bundle_cache_dir(tmp_path_factory):
 def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
     tmp_path, test_dir, wd_test_file, compat_date, pytestconfig, bundle_cache_dir
 ):
+    # FIXME:
+    # pywrangler sync fails to install pyodide packages for Python 3.12 on Linux
+    if (
+        test_dir.name == "sdk"
+        and compat_date < "2025-09-29"
+        and sys.platform == "linux"
+    ):
+        pytest.xfail("pywrangler sync + uv + pyodide 3.12 on Linux")
+
     color = pytestconfig.get_terminal_writer().hasmarkup
     target = tmp_path / test_dir.name
     disk_service_dir = target / DISK_SERVICE_NAME
