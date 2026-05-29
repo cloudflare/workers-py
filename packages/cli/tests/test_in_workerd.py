@@ -3,6 +3,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+from conftest import COMPAT_DATES, replace_compat_date
 
 TEST_DIR = Path(__file__).parent
 WORKERD_TESTS = TEST_DIR / "workerd-test"
@@ -49,13 +50,19 @@ def bundle_cache(tmp_path_factory):
     yield tmp_path_factory.mktemp("bundle_cache")
 
 
+@pytest.mark.parametrize("compat_date", COMPAT_DATES)
 @pytest.mark.parametrize("test_dir, wd_test_file", discover_workerd_tests())
-def test_in_workerd(tmp_path, test_dir, wd_test_file, pytestconfig, bundle_cache):
+def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
+    tmp_path, test_dir, wd_test_file, compat_date, pytestconfig, bundle_cache
+):
     color = pytestconfig.get_terminal_writer().hasmarkup
     target = tmp_path / test_dir.name
     disk_service_dir = target / DISK_SERVICE_NAME
     shutil.copytree(test_dir, target)
     disk_service_dir.mkdir(exist_ok=True)
+
+    replace_compat_date(target / "wrangler.jsonc", compat_date)
+
     subprocess.run(
         ["uv", "run", "--with", WORKERS_PY, "pywrangler", "sync"],
         cwd=target,
@@ -77,6 +84,7 @@ def test_in_workerd(tmp_path, test_dir, wd_test_file, pytestconfig, bundle_cache
         wd_config.read_text()
         .replace("%PYTHON_MODULES", python_modules)
         .replace("%COLOR", str(color).lower())
+        .replace("%COMPAT_DATE", compat_date)
     )
     subprocess.run(
         ["npm", "i", "workerd"],
