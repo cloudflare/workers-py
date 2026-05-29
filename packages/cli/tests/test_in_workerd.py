@@ -46,14 +46,14 @@ def embed(dir: Path, root: Path, level: int = 0):
 
 
 @pytest.fixture(scope="module")
-def bundle_cache(tmp_path_factory):
+def bundle_cache_dir(tmp_path_factory):
     yield tmp_path_factory.mktemp("bundle_cache")
 
 
 @pytest.mark.parametrize("compat_date", COMPAT_DATES)
 @pytest.mark.parametrize("test_dir, wd_test_file", discover_workerd_tests())
 def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
-    tmp_path, test_dir, wd_test_file, compat_date, pytestconfig, bundle_cache
+    tmp_path, test_dir, wd_test_file, compat_date, pytestconfig, bundle_cache_dir
 ):
     color = pytestconfig.get_terminal_writer().hasmarkup
     target = tmp_path / test_dir.name
@@ -100,7 +100,7 @@ def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
         ".",
         f"-d{DISK_SERVICE_NAME}={disk_service_dir}",
         "--pyodide-bundle-disk-cache-dir",
-        bundle_cache,
+        bundle_cache_dir / compat_date,
     ]
     subprocess.run(
         [
