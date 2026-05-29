@@ -419,6 +419,25 @@ async def test_invalid_sql_raises_error(env):
     assert raised, "expected error on invalid SQL"
 
 
+async def test_raw_kwargs_column_names(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("kwargs_raw", "kv")
+        .run()
+    )
+    rows = await (
+        db.prepare(f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1")
+        .bind("kwargs_raw")
+        .raw(columnNames=True)
+    )
+    assert len(rows) == 2, f"expected header + data, got {len(rows)} rows"
+    assert rows[0] == ["name", "value"], f"header mismatch: {rows[0]!r}"
+    assert rows[1] == ["kwargs_raw", "kv"], f"row mismatch: {rows[1]!r}"
+
+
 D1_TESTS = {
     "insert_and_select_via_run": test_insert_and_select_via_run,
     "all_returns_results": test_all_returns_results,
@@ -437,5 +456,6 @@ D1_TESTS = {
     "session_prepare_and_query": test_session_prepare_and_query,
     "session_bookmark": test_session_bookmark,
     "session_batch": test_session_batch,
+    "raw_kwargs_column_names": test_raw_kwargs_column_names,
     "invalid_sql_raises_error": test_invalid_sql_raises_error,
 }

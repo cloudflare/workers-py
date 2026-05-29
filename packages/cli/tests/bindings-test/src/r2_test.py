@@ -320,6 +320,28 @@ async def test_multipart_abort(env):
     assert result is None, "object should not exist after abort"
 
 
+async def test_put_kwargs_custom_metadata(env):
+    bucket = env.BUCKET
+    await _cleanup_r2(bucket)
+    key = "_test/kwargs_meta"
+    await bucket.put(key, "kwargs test", customMetadata={"source": "kwargs"})
+    head = await bucket.head(key)
+    assert head is not None
+    assert head.customMetadata == {"source": "kwargs"}
+
+
+async def test_list_kwargs_prefix(env):
+    bucket = env.BUCKET
+    await _cleanup_r2(bucket)
+    await bucket.put("_test/kw_a/1", "a1")
+    await bucket.put("_test/kw_a/2", "a2")
+    await bucket.put("_test/kw_b/1", "b1")
+    result = await bucket.list(prefix="_test/kw_a/")
+    keys = [obj.key for obj in result.objects]
+    assert len(keys) == 2, f"expected 2, got {len(keys)}"
+    assert all(k.startswith("_test/kw_a/") for k in keys)
+
+
 R2_TESTS = {
     "put_and_get_text": test_put_and_get_text,
     "put_and_get_json": test_put_and_get_json,
@@ -341,4 +363,6 @@ R2_TESTS = {
     "r2object_properties": test_r2object_properties,
     "multipart_upload": test_multipart_upload,
     "multipart_abort": test_multipart_abort,
+    "put_kwargs_custom_metadata": test_put_kwargs_custom_metadata,
+    "list_kwargs_prefix": test_list_kwargs_prefix,
 }

@@ -240,6 +240,29 @@ async def test_get_multiple_keys_json(env):
     assert result["_test:multi_json:b"]["val"] == "b"
 
 
+async def test_put_kwargs_expiration_ttl(env):
+    kv = env.KV
+    await _cleanup_kv(kv)
+    key = "_test:kwargs_ttl"
+    await kv.put(key, "kwargs ttl", expirationTtl=60)
+    result = await kv.get(key)
+    assert result == "kwargs ttl", f"expected 'kwargs ttl', got {result!r}"
+    listed = await kv.list(prefix=key)
+    matching = [k for k in listed["keys"] if k["name"] == key]
+    assert len(matching) == 1
+    assert matching[0].get("expiration") is not None, "expected expiration to be set"
+
+
+async def test_put_kwargs_metadata(env):
+    kv = env.KV
+    await _cleanup_kv(kv)
+    key = "_test:kwargs_meta"
+    await kv.put(key, "kwargs meta", metadata={"source": "kwargs"})
+    result = await kv.getWithMetadata(key)
+    assert result["value"] == "kwargs meta"
+    assert result["metadata"]["source"] == "kwargs"
+
+
 KV_TESTS = {
     "put_and_get_text": test_put_and_get_text,
     "get_nonexistent": test_get_nonexistent,
@@ -261,4 +284,6 @@ KV_TESTS = {
     "get_arraybuffer": test_get_arraybuffer,
     "get_multiple_keys": test_get_multiple_keys,
     "get_multiple_keys_json": test_get_multiple_keys_json,
+    "put_kwargs_expiration_ttl": test_put_kwargs_expiration_ttl,
+    "put_kwargs_metadata": test_put_kwargs_metadata,
 }

@@ -170,6 +170,8 @@ TestKV = binding_suite(
         "get_arraybuffer",
         "get_multiple_keys",
         "get_multiple_keys_json",
+        "put_kwargs_expiration_ttl",
+        "put_kwargs_metadata",
     ],
 )
 
@@ -196,6 +198,8 @@ TestR2 = binding_suite(
         "r2object_properties",
         "multipart_upload",
         "multipart_abort",
+        "put_kwargs_custom_metadata",
+        "list_kwargs_prefix",
     ],
 )
 
@@ -219,6 +223,7 @@ TestD1 = binding_suite(
         "session_prepare_and_query",
         "session_bookmark",
         "session_batch",
+        "raw_kwargs_column_names",
         "invalid_sql_raises_error",
     ],
 )
