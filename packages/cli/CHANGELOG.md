@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.9.5 (2026-06-01)
+
+### Bug Fixes
+
+- Don't install Pyodide interpreter onto user's PATH
+  ([#115](https://github.com/cloudflare/workers-py/pull/115),
+  [`e6e78c4`](https://github.com/cloudflare/workers-py/commit/e6e78c4f22dd1219ac1e4c83cb57f3cb2b997d9b))
+
+
 ## v1.9.4 (2026-05-19)
 
 ### Bug Fixes
