@@ -2,6 +2,7 @@
 # Each date exercises a different Python version inside the worker runtime:
 #   - "2025-09-01" -> Python 3.12 (before the 2025-09-29 cutover)
 #   - "2026-01-01" -> Python 3.13 (after the 2025-09-29 cutover)
+# TODO: use compat flag instead of compat date
 from pathlib import Path
 
 COMPAT_DATES: list[str] = ["2025-09-01", "2026-01-01"]
