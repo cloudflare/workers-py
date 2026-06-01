@@ -9,7 +9,7 @@ from kv_test import KV_TESTS
 from r2_test import R2_TESTS
 from service_test import SERVICE_TESTS
 from service_worker import (
-    ServiceBinding,  # noqa: F401 - side effect of registering the Durable Object
+    ServiceBinding,  # noqa: F401 - side effect of registering the entrypoint
 )
 from workers import Response, WorkerEntrypoint
 
