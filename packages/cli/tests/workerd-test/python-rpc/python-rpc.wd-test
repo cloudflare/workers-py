@@ -17,13 +17,13 @@ const pyWorker :Workerd.Worker = (
     (name = "JsRpc", service = (name = "js", entrypoint = "JsRpcTester")),
     (name = "FOO", text = "text binding"),
   ],
-  compatibilityDate = "2026-01-01",
+  compatibilityDate = "%COMPAT_DATE",
   compatibilityFlags = ["python_workers", "service_binding_extra_handlers", "enable_python_external_sdk"],
 );
 
 const jsWorker :Workerd.Worker = (
   compatibilityFlags = ["nodejs_compat"],
-  compatibilityDate = "2026-01-01",
+  compatibilityDate = "%COMPAT_DATE",
   modules = [
     (name = "worker", esModule = embed "worker.js"),
   ],

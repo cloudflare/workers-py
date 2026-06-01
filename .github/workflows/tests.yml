@@ -12,6 +12,7 @@ permissions:
 jobs:
   test:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
         python-version: ['3.12', '3.13']
@@ -37,7 +38,7 @@ jobs:
     - name: Run tests
       working-directory: packages/cli
       run: |
-        pytest tests
+        pytest -v tests
 
     - name: Verify that pywrangler can be run globally
       run: |

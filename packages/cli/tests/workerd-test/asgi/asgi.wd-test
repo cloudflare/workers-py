@@ -11,7 +11,7 @@ const unitTests :Workerd.Config = (
         bindings = [
           ( name = "SELF", service = "python-asgi" ),
         ],
-        compatibilityDate = "2026-01-01",
+        compatibilityDate = "%COMPAT_DATE",
         compatibilityFlags = ["python_workers", "enable_python_external_sdk"],
       )
     )
