@@ -7,6 +7,10 @@ from durable_object import (
 )
 from kv_test import KV_TESTS
 from r2_test import R2_TESTS
+from service_test import SERVICE_TESTS
+from service_worker import (
+    ServiceBinding,  # noqa: F401 - side effect of registering the entrypoint
+)
 from workers import Response, WorkerEntrypoint
 
 ALL_TESTS = {
@@ -14,6 +18,7 @@ ALL_TESTS = {
     "r2": R2_TESTS,
     "d1": D1_TESTS,
     "do": DO_TESTS,
+    "service": SERVICE_TESTS,
 }
 
 

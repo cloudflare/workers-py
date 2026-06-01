@@ -23,5 +23,12 @@
     },
     "migrations": [
         { "tag": "v1", "new_sqlite_classes": ["TestDurableObject"] }
+    ],
+    "services": [
+        {
+            "binding": "SERVICE_BINDING",
+            "service": "bindings-test",
+            "entrypoint": "ServiceBinding"
+        }
     ]
 }

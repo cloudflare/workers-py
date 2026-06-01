@@ -147,6 +147,29 @@ def binding_suite(suite: str, tests: list[str]) -> type:
     )
 
 
+TestService = binding_suite(
+    "service",
+    [
+        "identity_primitives",
+        "identity_dict",
+        "identity_list",
+        "identity_nested_dict",
+        "identity_list_of_dicts",
+        "identity_empty_collections",
+        "rpc_multiple_args",
+        "rpc_transform_dict",
+        "rpc_multi_args_mixed_types",
+        "rpc_get_nested_return",
+        "rpc_default_values_all_provided",
+        "rpc_default_values_partial",
+        "unsupported_tuple_raises",
+        "unsupported_class_instance_raises",
+        "fetch_get",
+        "fetch_post_body",
+        "fetch_post_json",
+    ],
+)
+
 TestKV = binding_suite(
     "kv",
     [
