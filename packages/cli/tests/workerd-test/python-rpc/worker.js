@@ -38,7 +38,6 @@ export default {
       1.2345,
       false,
       true,
-      undefined,
     ]) {
       const response = await env.PythonRpc.identity(val);
       assert.deepStrictEqual(response, val);
@@ -48,8 +47,19 @@ export default {
     const mapResponse = await env.PythonRpc.identity(new Map([['key', 42]]));
     assert.deepStrictEqual(mapResponse, { key: 42 });
 
+    const hasJsnull = await env.PythonRpc.supports_jsnull();
+    const expectedNullish = hasJsnull ? null : undefined;
+
     const null_resp = await env.PythonRpc.identity(null);
-    assert.ok(null_resp === null || null_resp === undefined);
+    assert.strictEqual(null_resp, expectedNullish);
+
+    const undef_resp = await env.PythonRpc.identity(undefined);
+    assert.strictEqual(undef_resp, expectedNullish);
+
+    const nested = await env.PythonRpc.identity({a: 1, b: null, c: {d: null}});
+    assert.strictEqual(nested.a, 1);
+    assert.strictEqual(nested.b, expectedNullish);
+    assert.strictEqual(nested.c.d, expectedNullish);
 
     // Web/API Types
     const py_response = await env.PythonRpc.handle_response(

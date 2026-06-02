@@ -40,6 +40,8 @@ class Default(WorkerEntrypoint):
             try:
                 await test_fn(self.env)
                 results[test_name] = {"status": "passed"}
+            except SkipTest as e:
+                results[test_name] = {"status": "skipped", "reason": str(e)}
             except AssertionError as e:
                 results[test_name] = {"status": "failed", "error": str(e)}
             except Exception as e:
@@ -49,3 +51,7 @@ class Default(WorkerEntrypoint):
                     "traceback": traceback.format_exc(),
                 }
         return Response.json(results)
+
+
+class SkipTest(Exception):
+    pass

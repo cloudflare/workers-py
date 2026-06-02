@@ -263,6 +263,22 @@ async def test_put_kwargs_metadata(env):
     assert result["metadata"]["source"] == "kwargs"
 
 
+async def test_none_options_put(env):
+    kv = env.KV
+    await _cleanup_kv(kv)
+    await kv.put("_test:none_opts", "value", None)
+    result = await kv.get("_test:none_opts")
+    assert result == "value", f"expected 'value', got {result!r}"
+
+
+async def test_none_options_list(env):
+    kv = env.KV
+    await _cleanup_kv(kv)
+    await kv.put("_test:none_list", "val")
+    result = await kv.list(None)
+    assert result["list_complete"] is True
+
+
 KV_TESTS = {
     "put_and_get_text": test_put_and_get_text,
     "get_nonexistent": test_get_nonexistent,
@@ -286,4 +302,6 @@ KV_TESTS = {
     "get_multiple_keys_json": test_get_multiple_keys_json,
     "put_kwargs_expiration_ttl": test_put_kwargs_expiration_ttl,
     "put_kwargs_metadata": test_put_kwargs_metadata,
+    "none_options_put": test_none_options_put,
+    "none_options_list": test_none_options_list,
 }

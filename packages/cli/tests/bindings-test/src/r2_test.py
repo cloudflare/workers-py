@@ -342,6 +342,25 @@ async def test_list_kwargs_prefix(env):
     assert all(k.startswith("_test/kw_a/") for k in keys)
 
 
+async def test_none_options_put(env):
+    bucket = env.BUCKET
+    await _cleanup_r2(bucket)
+    key = "_test/none_opts"
+    await bucket.put(key, "value", None)
+    body = await bucket.get(key)
+    assert body is not None
+    text = await body.text()
+    assert text == "value", f"expected 'value', got {text!r}"
+
+
+async def test_none_options_list(env):
+    bucket = env.BUCKET
+    await _cleanup_r2(bucket)
+    await bucket.put("_test/none_list", "val")
+    result = await bucket.list(None)
+    assert len(result.objects) >= 1
+
+
 R2_TESTS = {
     "put_and_get_text": test_put_and_get_text,
     "put_and_get_json": test_put_and_get_json,
@@ -365,4 +384,6 @@ R2_TESTS = {
     "multipart_abort": test_multipart_abort,
     "put_kwargs_custom_metadata": test_put_kwargs_custom_metadata,
     "list_kwargs_prefix": test_list_kwargs_prefix,
+    "none_options_put": test_none_options_put,
+    "none_options_list": test_none_options_list,
 }

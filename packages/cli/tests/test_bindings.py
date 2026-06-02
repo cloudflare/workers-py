@@ -72,15 +72,9 @@ def compat_date(request: pytest.FixtureRequest) -> str:
 
 
 @pytest.fixture(scope="module")
-<<<<<<< HEAD
-def dev_server(tmp_path_factory: Any) -> Generator[str]:
-||||||| 806edef
-def dev_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
-=======
 def dev_server(
     tmp_path_factory: pytest.TempPathFactory, compat_date: str
 ) -> Generator[str]:
->>>>>>> origin/main
     """Start a pywrangler dev server on a free port and yield its base URL."""
     tmp_path = tmp_path_factory.mktemp("bindings_test")
     target = tmp_path / "bindings-test"
@@ -147,7 +141,9 @@ def _make_test(suite: str, test_name: str) -> Callable:
         results = _get_test_results(dev_server, suite)
         result: BindingTestResult | None = results.get(test_name)
         assert result is not None, f"Test {suite}::{test_name} not found in results"
-        if result["status"] == "failed":
+        if result["status"] == "skipped":
+            pytest.skip(result.get("reason", ""))
+        elif result["status"] == "failed":
             pytest.fail(result["error"])
         elif result["status"] == "error":
             pytest.fail(f"{result['error']}\n{result.get('traceback', '')}")
@@ -190,6 +186,8 @@ TestKV = binding_suite(
         "get_multiple_keys_json",
         "put_kwargs_expiration_ttl",
         "put_kwargs_metadata",
+        "none_options_put",
+        "none_options_list",
     ],
 )
 
@@ -218,6 +216,8 @@ TestR2 = binding_suite(
         "multipart_abort",
         "put_kwargs_custom_metadata",
         "list_kwargs_prefix",
+        "none_options_put",
+        "none_options_list",
     ],
 )
 
@@ -242,6 +242,8 @@ TestD1 = binding_suite(
         "session_bookmark",
         "session_batch",
         "raw_kwargs_column_names",
+        "none_options_raw",
+        "bind_null",
         "invalid_sql_raises_error",
     ],
 )

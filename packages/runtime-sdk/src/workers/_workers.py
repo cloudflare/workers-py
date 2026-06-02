@@ -1021,7 +1021,7 @@ def _raise_on_disabled_type(value):
 
 def _python_to_rpc_default_converter(obj, convert, cache):
     if obj is None:
-        return obj
+        return jsnull
 
     if isinstance(obj, _RPCWrapper):
         return obj._binding
@@ -1041,6 +1041,16 @@ def _python_to_rpc_default_converter(obj, convert, cache):
     return obj
 
 
+def _replace_none_with_jsnull(value):
+    if value is None:
+        return jsnull
+    if isinstance(value, dict):
+        return {k: _replace_none_with_jsnull(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_replace_none_with_jsnull(v) for v in value]
+    return value
+
+
 def python_to_rpc(value) -> JsProxy:
     """
     Converts Python objects defined in this module (Response, Request, etc) and native Python types
@@ -1050,8 +1060,13 @@ def python_to_rpc(value) -> JsProxy:
     it does not support serializing all Python object types.
     """
 
+    if value is None:
+        return jsnull
+
     if isinstance(value, _RPCWrapper):
         return value._binding
+
+    value = _replace_none_with_jsnull(value)
 
     # `to_js` won't always call the default_converter, for example when a list of tuples is passed
     _raise_on_disabled_type(value)
@@ -1112,16 +1127,6 @@ class _RPCWrapper:
 class _FetcherWrapper(_RPCWrapper):
     def fetch(self, *args, **kwargs):
         return fetch(*args, fetcher=self._binding.fetch, **kwargs)
-
-
-class _D1DatabaseWrapper(_RPCWrapper):
-    def bind(self, *args):
-        """
-        D1.bind() requires extra conversion (None => jsnull).
-        """
-        js_args = [jsnull if a is None else python_to_rpc(a) for a in args]
-        result = self._binding.bind(*js_args)
-        return self._convert_result(result)
 
 
 class _DurableObjectNamespaceWrapper:
@@ -1244,7 +1249,7 @@ class _EnvWrapper:
             return _RPCWrapper(binding)
 
         if _is_js_instance(binding, "D1Database"):
-            return _D1DatabaseWrapper(binding)
+            return _RPCWrapper(binding)
 
         return binding
 

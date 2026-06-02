@@ -175,13 +175,6 @@ async def test_bind_types(env):
         db.prepare(
             f"INSERT INTO {TEST_TABLE_TYPES} (id, txt, num, intval) VALUES (?, ?, ?, ?)"
         )
-        .bind(1, None, None, None)
-        .run()
-    )
-    await (
-        db.prepare(
-            f"INSERT INTO {TEST_TABLE_TYPES} (id, txt, num, intval) VALUES (?, ?, ?, ?)"
-        )
         .bind(2, "hello, D1!", 3.14, 42)
         .run()
     )
@@ -195,17 +188,6 @@ async def test_bind_types(env):
         .bind(4, False)
         .run()
     )
-
-    row1 = (
-        await db.prepare(
-            f"SELECT txt, num, intval FROM {TEST_TABLE_TYPES} WHERE id = ?"
-        )
-        .bind(1)
-        .first()
-    )
-    assert row1["txt"] is None, f"expected None, got {row1['txt']!r}"
-    assert row1["num"] is None, f"expected None, got {row1['num']!r}"
-    assert row1["intval"] is None, f"expected None, got {row1['intval']!r}"
 
     row2 = (
         await db.prepare(
@@ -438,6 +420,53 @@ async def test_raw_kwargs_column_names(env):
     assert rows[1] == ["kwargs_raw", "kv"], f"row mismatch: {rows[1]!r}"
 
 
+async def test_bind_null(env):
+    import sys
+
+    if sys.version_info < (3, 13):
+        from worker import SkipTest
+
+        raise SkipTest("Pyodide 0.26 (Python 3.12) cannot represent JS null")
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    await (
+        db.prepare(
+            f"INSERT INTO {TEST_TABLE_TYPES} (id, txt, num, intval) VALUES (?, ?, ?, ?)"
+        )
+        .bind(1, None, None, None)
+        .run()
+    )
+    row = (
+        await db.prepare(
+            f"SELECT txt, num, intval FROM {TEST_TABLE_TYPES} WHERE id = ?"
+        )
+        .bind(1)
+        .first()
+    )
+    assert row["txt"] is None, f"expected None, got {row['txt']!r}"
+    assert row["num"] is None, f"expected None, got {row['num']!r}"
+    assert row["intval"] is None, f"expected None, got {row['intval']!r}"
+
+
+async def test_none_options_raw(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("none_raw", "nr")
+        .run()
+    )
+    rows = (
+        await db.prepare(f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1")
+        .bind("none_raw")
+        .raw(None)
+    )
+    assert len(rows) == 1, f"expected 1 row, got {len(rows)}"
+    assert rows[0] == ["none_raw", "nr"], f"row mismatch: {rows[0]!r}"
+
+
 D1_TESTS = {
     "insert_and_select_via_run": test_insert_and_select_via_run,
     "all_returns_results": test_all_returns_results,
@@ -456,6 +485,8 @@ D1_TESTS = {
     "session_prepare_and_query": test_session_prepare_and_query,
     "session_bookmark": test_session_bookmark,
     "session_batch": test_session_batch,
+    "bind_null": test_bind_null,
     "raw_kwargs_column_names": test_raw_kwargs_column_names,
+    "none_options_raw": test_none_options_raw,
     "invalid_sql_raises_error": test_invalid_sql_raises_error,
 }
