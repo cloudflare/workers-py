@@ -5,7 +5,9 @@
 # behaviour doesn't need to strictly be held consistent. In fact it uses the JS fetch, so it's not
 # going to follow the SDK at all.
 
+import asyncio
 import os
+import sys
 from contextlib import asynccontextmanager
 from functools import wraps
 
@@ -24,6 +26,12 @@ async def noop(*args):
 # pytest-asyncio relies on these but in Pyodide < 0.29 WebLoop does not implement them
 WebLoop.shutdown_asyncgens = noop
 WebLoop.shutdown_default_executor = noop
+
+# Pyodide 0.26.0a2's _cancel_all_tasks calls task.exception() on pending tasks,
+# which raises InvalidStateError under Pyodide's WebLoop.
+# Ignore this error to prevent pytest-asyncio from crashing.
+if sys.version_info < (3, 13):
+    asyncio.runners._cancel_all_tasks = lambda loop: None  # type: ignore[attr-defined]
 
 
 @asynccontextmanager

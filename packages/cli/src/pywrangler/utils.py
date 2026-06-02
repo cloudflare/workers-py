@@ -390,9 +390,17 @@ def get_uv_pyodide_interp_name() -> str:
 
 
 def get_pyodide_index() -> str:
+    """
+    Get the Pyodide index URL based on the Python version.
+    This doesn't have to match the Pyodide version that Python workers use,
+    as long as they are ABI compatible.
+
+    When updating this, run scripts/compare_pyodide_index.py to see if there are missing
+    packages in the index.
+    """
     match get_python_version():
         case "3.12":
             v = "0.27.7"
         case "3.13":
-            v = "0.28.3"
+            v = "0.29.3"
     return "https://index.pyodide.org/" + v

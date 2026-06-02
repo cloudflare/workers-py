@@ -18,6 +18,7 @@ from typing import Any, Literal, NotRequired, TypedDict
 
 import pytest
 import requests
+from conftest import COMPAT_DATES, replace_compat_date
 
 TEST_DIR: Path = Path(__file__).parent
 BINDINGS_TEST_DIR: Path = TEST_DIR / "bindings-test"
@@ -65,12 +66,27 @@ def _wait_for_ready(process: subprocess.Popen[str], base_url: str) -> None:
     pytest.fail(f"pywrangler dev did not become ready within {DEV_STARTUP_TIMEOUT}s")
 
 
+@pytest.fixture(scope="module", params=COMPAT_DATES)
+def compat_date(request: pytest.FixtureRequest) -> str:
+    return request.param
+
+
 @pytest.fixture(scope="module")
+<<<<<<< HEAD
 def dev_server(tmp_path_factory: Any) -> Generator[str]:
+||||||| 806edef
+def dev_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[str]:
+=======
+def dev_server(
+    tmp_path_factory: pytest.TempPathFactory, compat_date: str
+) -> Generator[str]:
+>>>>>>> origin/main
     """Start a pywrangler dev server on a free port and yield its base URL."""
     tmp_path = tmp_path_factory.mktemp("bindings_test")
     target = tmp_path / "bindings-test"
     shutil.copytree(BINDINGS_TEST_DIR, target)
+
+    replace_compat_date(target / "wrangler.jsonc", compat_date)
 
     subprocess.run(
         ["uv", "run", "--with", WORKERS_PY, "pywrangler", "sync"],
@@ -113,15 +129,17 @@ def dev_server(tmp_path_factory: Any) -> Generator[str]:
         process.wait()
 
 
-_test_suite_cache: dict[str, SuiteResults] = {}
+# key: (dev server url, test suite)
+_test_suite_cache: dict[tuple[str, str], SuiteResults] = {}
 
 
 def _get_test_results(dev_server: str, suite: str) -> SuiteResults:
-    if suite not in _test_suite_cache:
+    key = (dev_server, suite)
+    if key not in _test_suite_cache:
         resp = requests.get(f"{dev_server}/run-tests/{suite}", timeout=60)
         assert resp.ok, f"Suite '{suite}' returned {resp.status_code}: {resp.text}"
-        _test_suite_cache[suite] = resp.json()
-    return _test_suite_cache[suite]
+        _test_suite_cache[key] = resp.json()
+    return _test_suite_cache[key]
 
 
 def _make_test(suite: str, test_name: str) -> Callable:
