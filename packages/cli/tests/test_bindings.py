@@ -7,10 +7,11 @@ those endpoints, and maps each in-worker test to a pytest test case.
 The in-worker tests are ordinary pytest modules (src/test_<binding>.py); worker.py runs
 pytest against them and returns per-test results.
 
-To add a new binding: create src/test_<binding>.py in bindings-test/ with pytest tests,
-register the suite name in worker.py's SUITES, then add a TestXxx class below.
+To add a new binding: create src/test_<binding>.py in bindings-test/ with pytest tests
+and add any required binding to wrangler.jsonc.
 """
 
+import ast
 import functools
 import os
 import shutil
@@ -27,6 +28,7 @@ from conftest import COMPAT_DATES, replace_compat_date
 
 TEST_DIR: Path = Path(__file__).parent
 BINDINGS_TEST_DIR: Path = TEST_DIR / "bindings-test"
+BINDINGS_SRC_DIR: Path = BINDINGS_TEST_DIR / "src"
 WORKERS_PY: Path = TEST_DIR.parent
 WORKERS_RUNTIME_SDK: Path = WORKERS_PY.parent / "runtime-sdk" / "src"
 
@@ -161,9 +163,31 @@ def binding_suite(suite: str, tests: list[str]) -> type:
     )
 
 
-TestKV = binding_suite(
-    "kv",
-    [
-        "put_and_get",
-    ],
-)
+def _discover_test_names(module_path: Path) -> list[str]:
+    """Return the suite-relative names of test functions defined in a module.
+
+    Parses the source statically (no import) and strips the ``test_`` prefix so
+    the names match the keys returned by the in-worker ResultCollector.
+    """
+    tree = ast.parse(module_path.read_text())
+    return [
+        node.name[len("test_") :]
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+        and node.name.startswith("test_")
+    ]
+
+
+def _discover_suites() -> dict[str, list[str]]:
+    """Map each ``test_<suite>.py`` module to its discovered test names."""
+    return {
+        module_path.stem[len("test_") :]: _discover_test_names(module_path)
+        for module_path in sorted(BINDINGS_SRC_DIR.glob("test_*.py"))
+    }
+
+
+# Generate a TestXxx class per discovered suite so each in-worker test surfaces
+# as its own pytest case without manual registration.
+for _suite, _test_names in _discover_suites().items():
+    _suite_cls = binding_suite(_suite, _test_names)
+    globals()[_suite_cls.__name__] = _suite_cls

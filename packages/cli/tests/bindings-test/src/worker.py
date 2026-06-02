@@ -5,21 +5,16 @@ tests (see test_kv.py). The `/run-tests/<suite>` endpoint runs pytest against th
 module inside workerd and returns per-test results as JSON, which the host-side
 test_bindings.py maps onto individual pytest cases.
 
-To add a new binding: create `src/test_<binding>.py` with pytest tests, register the
-suite name in SUITES below, then add a TestXxx class in tests/test_bindings.py.
+To add a new binding: create `src/test_<binding>.py` with pytest tests.
 """
 
 import asyncio
+import importlib.util
 import sys
 
 import pytest
 from pyodide.webloop import WebLoop
 from workers import Response, WorkerEntrypoint
-
-# Suite name -> pytest module to run for that suite.
-SUITES = {
-    "kv": "test_kv",
-}
 
 
 async def _noop(*args):
@@ -99,13 +94,10 @@ class Default(WorkerEntrypoint):
         return Response.json({"error": "not found"}, status=404)
 
     def _run_suite(self, suite_name):
-        module = SUITES.get(suite_name)
-        if module is None:
+        module = f"test_{suite_name}"
+        if importlib.util.find_spec(module) is None:
             return Response.json(
-                {
-                    "error": f"Unknown suite '{suite_name}'",
-                    "available": list(SUITES.keys()),
-                },
+                {"error": f"Unknown suite '{suite_name}' (no module '{module}')"},
                 status=404,
             )
 
