@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.10.0 (2026-06-02)
+
+### Features
+
+- Update Python 3.13 package index from Pyodide 0.28.3 to 0.29.3
+  ([#117](https://github.com/cloudflare/workers-py/pull/117),
+  [`9c322af`](https://github.com/cloudflare/workers-py/commit/9c322af22c29223d2452fa532cfeae27d9ee0767))
+
+
 ## v1.9.5 (2026-06-01)
 
 ### Bug Fixes
