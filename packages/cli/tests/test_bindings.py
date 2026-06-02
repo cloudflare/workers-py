@@ -4,10 +4,15 @@ The worker at bindings-test/src/worker.py exposes /run-tests/{suite} endpoints t
 binding tests inside workerd and return JSON results. This file starts the dev server, calls
 those endpoints, and maps each in-worker test to a pytest test case.
 
-To add a new binding: create src/<binding>_test.py in bindings-test/, register it in
-worker.py's ALL_TESTS, then add a TestXxx class below.
+The in-worker tests are ordinary pytest modules (src/test_<binding>.py); worker.py runs
+pytest against them and returns per-test results.
+
+To add a new binding: create src/test_<binding>.py in bindings-test/ with pytest tests,
+register the suite name in worker.py's SUITES, then add a TestXxx class below.
 """
 
+import functools
+import os
 import shutil
 import socket
 import subprocess
@@ -82,10 +87,12 @@ def dev_server(
 
     replace_compat_date(target / "wrangler.jsonc", compat_date)
 
+    env = os.environ | {"_PYODIDE_EXTRA_MOUNTS": str(tmp_path)}
     subprocess.run(
         ["uv", "run", "--with", WORKERS_PY, "pywrangler", "sync"],
         cwd=target,
         check=True,
+        env=env,
     )
 
     shutil.copytree(WORKERS_RUNTIME_SDK, target / "python_modules", dirs_exist_ok=True)
@@ -110,6 +117,7 @@ def dev_server(
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        env=env,
     )
 
     _wait_for_ready(process, base_url)
@@ -123,17 +131,11 @@ def dev_server(
         process.wait()
 
 
-# key: (dev server url, test suite)
-_test_suite_cache: dict[tuple[str, str], SuiteResults] = {}
-
-
+@functools.cache
 def _get_test_results(dev_server: str, suite: str) -> SuiteResults:
-    key = (dev_server, suite)
-    if key not in _test_suite_cache:
-        resp = requests.get(f"{dev_server}/run-tests/{suite}", timeout=60)
-        assert resp.ok, f"Suite '{suite}' returned {resp.status_code}: {resp.text}"
-        _test_suite_cache[key] = resp.json()
-    return _test_suite_cache[key]
+    resp = requests.get(f"{dev_server}/run-tests/{suite}", timeout=60)
+    assert resp.ok, f"Suite '{suite}' returned {resp.status_code}: {resp.text}"
+    return resp.json()
 
 
 def _make_test(suite: str, test_name: str) -> Callable:
