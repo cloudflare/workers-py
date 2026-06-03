@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.11.0 (2026-06-03)
+
+### Features
+
+- Reverts #117
+  ([`973379e`](https://github.com/cloudflare/workers-py/commit/973379ea67188275f28387b7d22d5bbdcf61fe06))
+
+
 ## v1.10.0 (2026-06-02)
 
 ### Features
