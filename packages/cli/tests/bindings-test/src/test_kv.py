@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 
 async def _cleanup_kv(kv):
     cursor = None
@@ -15,6 +17,7 @@ async def _cleanup_kv(kv):
         cursor = result.get("cursor")
 
 
+@pytest.mark.asyncio
 async def test_put_and_get_text(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -25,6 +28,7 @@ async def test_put_and_get_text(env):
     assert result == value, f"expected {value!r}, got {result!r}"
 
 
+@pytest.mark.asyncio
 async def test_get_nonexistent(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -32,6 +36,7 @@ async def test_get_nonexistent(env):
     assert result is None, f"expected None, got {result!r}"
 
 
+@pytest.mark.asyncio
 async def test_put_and_get_json(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -43,6 +48,7 @@ async def test_put_and_get_json(env):
     assert result == payload, f"json mismatch: {result!r}"
 
 
+@pytest.mark.asyncio
 async def test_put_overwrite(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -55,6 +61,7 @@ async def test_put_overwrite(env):
     assert second == "version2"
 
 
+@pytest.mark.asyncio
 async def test_put_empty_value(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -64,6 +71,7 @@ async def test_put_empty_value(env):
     assert result == "", f"expected empty string, got {result!r}"
 
 
+@pytest.mark.asyncio
 async def test_delete(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -75,12 +83,14 @@ async def test_delete(env):
     assert result is None, f"expected None after delete, got {result!r}"
 
 
+@pytest.mark.asyncio
 async def test_delete_nonexistent(env):
     kv = env.KV
     await _cleanup_kv(kv)
     await kv.delete("_test:does_not_exist_67890")
 
 
+@pytest.mark.asyncio
 async def test_put_with_metadata(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -93,6 +103,7 @@ async def test_put_with_metadata(env):
     assert result["metadata"] == metadata, f"metadata mismatch: {result['metadata']!r}"
 
 
+@pytest.mark.asyncio
 async def test_get_with_metadata_nonexistent(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -103,6 +114,7 @@ async def test_get_with_metadata_nonexistent(env):
     )
 
 
+@pytest.mark.asyncio
 async def test_put_with_expiration_ttl(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -116,6 +128,7 @@ async def test_put_with_expiration_ttl(env):
     assert matching[0].get("expiration") is not None, "expected expiration to be set"
 
 
+@pytest.mark.asyncio
 async def test_list_basic(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -130,6 +143,7 @@ async def test_list_basic(env):
         assert f"_test:list_basic:{i}" in names, f"missing key {i}"
 
 
+@pytest.mark.asyncio
 async def test_list_with_prefix(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -144,6 +158,7 @@ async def test_list_with_prefix(env):
     )
 
 
+@pytest.mark.asyncio
 async def test_list_with_limit_and_cursor(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -161,6 +176,7 @@ async def test_list_with_limit_and_cursor(env):
     assert page3["list_complete"], "expected list_complete=True on last page"
 
 
+@pytest.mark.asyncio
 async def test_list_empty_prefix(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -169,6 +185,7 @@ async def test_list_empty_prefix(env):
     assert result["list_complete"]
 
 
+@pytest.mark.asyncio
 async def test_list_with_metadata(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -184,6 +201,7 @@ async def test_list_with_metadata(env):
     )
 
 
+@pytest.mark.asyncio
 async def test_get_with_metadata_has_metadata(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -195,6 +213,7 @@ async def test_get_with_metadata_has_metadata(env):
     assert result["metadata"] == metadata, f"metadata mismatch: {result['metadata']!r}"
 
 
+@pytest.mark.asyncio
 async def test_get_type_as_options_dict(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -206,6 +225,7 @@ async def test_get_type_as_options_dict(env):
     assert result["x"] == "hello"
 
 
+@pytest.mark.asyncio
 async def test_get_arraybuffer(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -217,6 +237,7 @@ async def test_get_arraybuffer(env):
     assert len(result) > 0
 
 
+@pytest.mark.asyncio
 async def test_get_multiple_keys(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -229,6 +250,7 @@ async def test_get_multiple_keys(env):
     assert result.get("_test:multi:nonexistent") is None
 
 
+@pytest.mark.asyncio
 async def test_get_multiple_keys_json(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -240,6 +262,7 @@ async def test_get_multiple_keys_json(env):
     assert result["_test:multi_json:b"]["val"] == "b"
 
 
+@pytest.mark.asyncio
 async def test_put_kwargs_expiration_ttl(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -253,6 +276,7 @@ async def test_put_kwargs_expiration_ttl(env):
     assert matching[0].get("expiration") is not None, "expected expiration to be set"
 
 
+@pytest.mark.asyncio
 async def test_put_kwargs_metadata(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -263,6 +287,7 @@ async def test_put_kwargs_metadata(env):
     assert result["metadata"]["source"] == "kwargs"
 
 
+@pytest.mark.asyncio
 async def test_none_options_put(env):
     kv = env.KV
     await _cleanup_kv(kv)
@@ -271,37 +296,10 @@ async def test_none_options_put(env):
     assert result == "value", f"expected 'value', got {result!r}"
 
 
+@pytest.mark.asyncio
 async def test_none_options_list(env):
     kv = env.KV
     await _cleanup_kv(kv)
     await kv.put("_test:none_list", "val")
     result = await kv.list(None)
     assert result["list_complete"] is True
-
-
-KV_TESTS = {
-    "put_and_get_text": test_put_and_get_text,
-    "get_nonexistent": test_get_nonexistent,
-    "put_and_get_json": test_put_and_get_json,
-    "put_overwrite": test_put_overwrite,
-    "put_empty_value": test_put_empty_value,
-    "delete": test_delete,
-    "delete_nonexistent": test_delete_nonexistent,
-    "put_with_metadata": test_put_with_metadata,
-    "get_with_metadata_nonexistent": test_get_with_metadata_nonexistent,
-    "put_with_expiration_ttl": test_put_with_expiration_ttl,
-    "list_basic": test_list_basic,
-    "list_with_prefix": test_list_with_prefix,
-    "list_with_limit_and_cursor": test_list_with_limit_and_cursor,
-    "list_empty_prefix": test_list_empty_prefix,
-    "list_with_metadata": test_list_with_metadata,
-    "get_with_metadata_has_metadata": test_get_with_metadata_has_metadata,
-    "get_type_as_options_dict": test_get_type_as_options_dict,
-    "get_arraybuffer": test_get_arraybuffer,
-    "get_multiple_keys": test_get_multiple_keys,
-    "get_multiple_keys_json": test_get_multiple_keys_json,
-    "put_kwargs_expiration_ttl": test_put_kwargs_expiration_ttl,
-    "put_kwargs_metadata": test_put_kwargs_metadata,
-    "none_options_put": test_none_options_put,
-    "none_options_list": test_none_options_list,
-}

@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 
 async def _cleanup_r2(bucket):
     cursor = None
@@ -16,6 +18,7 @@ async def _cleanup_r2(bucket):
         cursor = result.cursor
 
 
+@pytest.mark.asyncio
 async def test_put_and_get_text(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -32,6 +35,7 @@ async def test_put_and_get_text(env):
     assert body["bodyUsed"] is True
 
 
+@pytest.mark.asyncio
 async def test_put_and_get_json(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -50,6 +54,7 @@ async def test_put_and_get_json(env):
     assert parsed == payload, f"json mismatch: {parsed!r}"
 
 
+@pytest.mark.asyncio
 async def test_put_with_http_metadata(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -75,6 +80,7 @@ async def test_put_with_http_metadata(env):
     assert meta["cacheControl"] == "max-age=3600"
 
 
+@pytest.mark.asyncio
 async def test_put_with_custom_metadata(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -88,6 +94,7 @@ async def test_put_with_custom_metadata(env):
     )
 
 
+@pytest.mark.asyncio
 async def test_head_object(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -103,6 +110,7 @@ async def test_head_object(env):
     assert head["version"] is not None
 
 
+@pytest.mark.asyncio
 async def test_get_nonexistent(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -110,6 +118,7 @@ async def test_get_nonexistent(env):
     assert result is None, f"expected None, got {result!r}"
 
 
+@pytest.mark.asyncio
 async def test_head_nonexistent(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -117,6 +126,7 @@ async def test_head_nonexistent(env):
     assert result is None, f"expected None, got {result!r}"
 
 
+@pytest.mark.asyncio
 async def test_delete_single(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -128,6 +138,7 @@ async def test_delete_single(env):
     assert result is None, "object still exists after delete"
 
 
+@pytest.mark.asyncio
 async def test_delete_multiple(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -140,6 +151,7 @@ async def test_delete_multiple(env):
         assert result is None, f"{key} still exists after batch delete"
 
 
+@pytest.mark.asyncio
 async def test_list_basic(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -153,6 +165,7 @@ async def test_list_basic(env):
         assert f"_test/list_basic/{i}" in keys, f"missing key {i}"
 
 
+@pytest.mark.asyncio
 async def test_list_with_prefix(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -167,6 +180,7 @@ async def test_list_with_prefix(env):
     )
 
 
+@pytest.mark.asyncio
 async def test_list_with_limit_and_cursor(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -190,6 +204,7 @@ async def test_list_with_limit_and_cursor(env):
     assert not page3["truncated"], "expected truncated=False on last page"
 
 
+@pytest.mark.asyncio
 async def test_list_with_delimiter(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -205,6 +220,7 @@ async def test_list_with_delimiter(env):
     assert "_test/delim/dir2/" in prefixes, f"missing dir2 prefix: {prefixes!r}"
 
 
+@pytest.mark.asyncio
 async def test_overwrite_object(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -217,6 +233,7 @@ async def test_overwrite_object(env):
     assert second == "version2"
 
 
+@pytest.mark.asyncio
 async def test_put_empty_body(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -230,6 +247,7 @@ async def test_put_empty_body(env):
     assert text == "", f"expected empty string, got {text!r}"
 
 
+@pytest.mark.asyncio
 async def test_get_range_offset_length(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -242,6 +260,7 @@ async def test_get_range_offset_length(env):
     assert text == "456789", f"range mismatch: {text!r}"
 
 
+@pytest.mark.asyncio
 async def test_get_range_suffix(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -254,6 +273,7 @@ async def test_get_range_suffix(env):
     assert text == "CDEF", f"suffix mismatch: {text!r}"
 
 
+@pytest.mark.asyncio
 async def test_r2object_properties(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -279,6 +299,7 @@ async def test_r2object_properties(env):
     assert head["customMetadata"] == {"foo": "bar"}
 
 
+@pytest.mark.asyncio
 async def test_multipart_upload(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -308,6 +329,7 @@ async def test_multipart_upload(env):
     assert text == part1_data + part2_data, "multipart content mismatch"
 
 
+@pytest.mark.asyncio
 async def test_multipart_abort(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -320,6 +342,7 @@ async def test_multipart_abort(env):
     assert result is None, "object should not exist after abort"
 
 
+@pytest.mark.asyncio
 async def test_put_kwargs_custom_metadata(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -330,6 +353,7 @@ async def test_put_kwargs_custom_metadata(env):
     assert head.customMetadata == {"source": "kwargs"}
 
 
+@pytest.mark.asyncio
 async def test_list_kwargs_prefix(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -342,6 +366,7 @@ async def test_list_kwargs_prefix(env):
     assert all(k.startswith("_test/kw_a/") for k in keys)
 
 
+@pytest.mark.asyncio
 async def test_none_options_put(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
@@ -353,37 +378,10 @@ async def test_none_options_put(env):
     assert text == "value", f"expected 'value', got {text!r}"
 
 
+@pytest.mark.asyncio
 async def test_none_options_list(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
     await bucket.put("_test/none_list", "val")
     result = await bucket.list(None)
     assert len(result.objects) >= 1
-
-
-R2_TESTS = {
-    "put_and_get_text": test_put_and_get_text,
-    "put_and_get_json": test_put_and_get_json,
-    "put_with_http_metadata": test_put_with_http_metadata,
-    "put_with_custom_metadata": test_put_with_custom_metadata,
-    "head_object": test_head_object,
-    "get_nonexistent": test_get_nonexistent,
-    "head_nonexistent": test_head_nonexistent,
-    "delete_single": test_delete_single,
-    "delete_multiple": test_delete_multiple,
-    "list_basic": test_list_basic,
-    "list_with_prefix": test_list_with_prefix,
-    "list_with_limit_and_cursor": test_list_with_limit_and_cursor,
-    "list_with_delimiter": test_list_with_delimiter,
-    "overwrite_object": test_overwrite_object,
-    "put_empty_body": test_put_empty_body,
-    "get_range_offset_length": test_get_range_offset_length,
-    "get_range_suffix": test_get_range_suffix,
-    "r2object_properties": test_r2object_properties,
-    "multipart_upload": test_multipart_upload,
-    "multipart_abort": test_multipart_abort,
-    "put_kwargs_custom_metadata": test_put_kwargs_custom_metadata,
-    "list_kwargs_prefix": test_list_kwargs_prefix,
-    "none_options_put": test_none_options_put,
-    "none_options_list": test_none_options_list,
-}

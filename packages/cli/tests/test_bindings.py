@@ -4,17 +4,23 @@ The worker at bindings-test/src/worker.py exposes /run-tests/{suite} endpoints t
 binding tests inside workerd and return JSON results. This file starts the dev server, calls
 those endpoints, and maps each in-worker test to a pytest test case.
 
-To add a new binding: create src/<binding>_test.py in bindings-test/, register it in
-worker.py's ALL_TESTS, then add a TestXxx class below.
+The in-worker tests are ordinary pytest modules (src/test_<binding>.py); worker.py runs
+pytest against them and returns per-test results.
+
+To add a new binding: create src/test_<binding>.py in bindings-test/ with pytest tests
+and add any required binding to wrangler.jsonc.
 """
 
+import ast
+import functools
+import os
 import shutil
 import socket
 import subprocess
 import time
 from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import Any, Literal, NotRequired, TypedDict
+from typing import Any, Literal, TypedDict
 
 import pytest
 import requests
@@ -22,6 +28,7 @@ from conftest import COMPAT_DATES, replace_compat_date
 
 TEST_DIR: Path = Path(__file__).parent
 BINDINGS_TEST_DIR: Path = TEST_DIR / "bindings-test"
+BINDINGS_SRC_DIR: Path = BINDINGS_TEST_DIR / "src"
 WORKERS_PY: Path = TEST_DIR.parent
 WORKERS_RUNTIME_SDK: Path = WORKERS_PY.parent / "runtime-sdk" / "src"
 
@@ -30,9 +37,10 @@ DEV_POLL_INTERVAL: float = 0.5
 
 
 class BindingTestResult(TypedDict):
-    status: Literal["passed", "failed", "error"]
-    error: NotRequired[str]
-    traceback: NotRequired[str]
+    status: Literal["passed", "failed", "error", "skipped"]
+    error: str
+    traceback: str
+    reason: str
 
 
 SuiteResults = dict[str, BindingTestResult]
@@ -79,6 +87,7 @@ def dev_server(
     tmp_path = tmp_path_factory.mktemp("bindings_test")
     target = tmp_path / "bindings-test"
     shutil.copytree(BINDINGS_TEST_DIR, target)
+    env = os.environ | {"_PYODIDE_EXTRA_MOUNTS": str(tmp_path)}
 
     replace_compat_date(target / "wrangler.jsonc", compat_date)
 
@@ -86,6 +95,7 @@ def dev_server(
         ["uv", "run", "--with", WORKERS_PY, "pywrangler", "sync"],
         cwd=target,
         check=True,
+        env=env,
     )
 
     shutil.copytree(WORKERS_RUNTIME_SDK, target / "python_modules", dirs_exist_ok=True)
@@ -110,6 +120,7 @@ def dev_server(
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        env=env,
     )
 
     _wait_for_ready(process, base_url)
@@ -123,17 +134,11 @@ def dev_server(
         process.wait()
 
 
-# key: (dev server url, test suite)
-_test_suite_cache: dict[tuple[str, str], SuiteResults] = {}
-
-
+@functools.cache
 def _get_test_results(dev_server: str, suite: str) -> SuiteResults:
-    key = (dev_server, suite)
-    if key not in _test_suite_cache:
-        resp = requests.get(f"{dev_server}/run-tests/{suite}", timeout=60)
-        assert resp.ok, f"Suite '{suite}' returned {resp.status_code}: {resp.text}"
-        _test_suite_cache[key] = resp.json()
-    return _test_suite_cache[key]
+    resp = requests.get(f"{dev_server}/run-tests/{suite}", timeout=60)
+    assert resp.ok, f"Suite '{suite}' returned {resp.status_code}: {resp.text}"
+    return resp.json()
 
 
 def _make_test(suite: str, test_name: str) -> Callable:
@@ -161,89 +166,31 @@ def binding_suite(suite: str, tests: list[str]) -> type:
     )
 
 
-TestKV = binding_suite(
-    "kv",
-    [
-        "put_and_get_text",
-        "get_nonexistent",
-        "put_and_get_json",
-        "put_overwrite",
-        "put_empty_value",
-        "delete",
-        "delete_nonexistent",
-        "put_with_metadata",
-        "get_with_metadata_nonexistent",
-        "put_with_expiration_ttl",
-        "list_basic",
-        "list_with_prefix",
-        "list_with_limit_and_cursor",
-        "list_empty_prefix",
-        "list_with_metadata",
-        "get_with_metadata_has_metadata",
-        "get_type_as_options_dict",
-        "get_arraybuffer",
-        "get_multiple_keys",
-        "get_multiple_keys_json",
-        "put_kwargs_expiration_ttl",
-        "put_kwargs_metadata",
-        "none_options_put",
-        "none_options_list",
-    ],
-)
+def _discover_test_names(module_path: Path) -> list[str]:
+    """Return the suite-relative names of test functions defined in a module.
 
-TestR2 = binding_suite(
-    "r2",
-    [
-        "put_and_get_text",
-        "put_and_get_json",
-        "put_with_http_metadata",
-        "put_with_custom_metadata",
-        "head_object",
-        "get_nonexistent",
-        "head_nonexistent",
-        "delete_single",
-        "delete_multiple",
-        "list_basic",
-        "list_with_prefix",
-        "list_with_limit_and_cursor",
-        "list_with_delimiter",
-        "overwrite_object",
-        "put_empty_body",
-        "get_range_offset_length",
-        "get_range_suffix",
-        "r2object_properties",
-        "multipart_upload",
-        "multipart_abort",
-        "put_kwargs_custom_metadata",
-        "list_kwargs_prefix",
-        "none_options_put",
-        "none_options_list",
-    ],
-)
+    Parses the source statically (no import) and strips the ``test_`` prefix so
+    the names match the keys returned by the in-worker ResultCollector.
+    """
+    tree = ast.parse(module_path.read_text())
+    return [
+        node.name[len("test_") :]
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+        and node.name.startswith("test_")
+    ]
 
-TestD1 = binding_suite(
-    "d1",
-    [
-        "insert_and_select_via_run",
-        "all_returns_results",
-        "first_returns_single_row",
-        "first_with_column_name",
-        "first_on_empty_result",
-        "raw_returns_arrays",
-        "raw_with_column_names",
-        "bind_types",
-        "exec_create_and_query",
-        "exec_multiple_statements",
-        "batch_multiple_inserts",
-        "run_metadata_fields",
-        "update_row",
-        "delete_row",
-        "session_prepare_and_query",
-        "session_bookmark",
-        "session_batch",
-        "raw_kwargs_column_names",
-        "none_options_raw",
-        "bind_null",
-        "invalid_sql_raises_error",
-    ],
-)
+
+def _discover_suites() -> dict[str, list[str]]:
+    """Map each ``test_<suite>.py`` module to its discovered test names."""
+    return {
+        module_path.stem[len("test_") :]: _discover_test_names(module_path)
+        for module_path in sorted(BINDINGS_SRC_DIR.glob("test_*.py"))
+    }
+
+
+# Generate a TestXxx class per discovered suite so each in-worker test surfaces
+# as its own pytest case without manual registration.
+for _suite, _test_names in _discover_suites().items():
+    _suite_cls = binding_suite(_suite, _test_names)
+    globals()[_suite_cls.__name__] = _suite_cls

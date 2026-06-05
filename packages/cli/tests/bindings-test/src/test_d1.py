@@ -1,3 +1,5 @@
+import pytest
+
 TEST_TABLE = "_test_d1"
 TEST_TABLE_TYPES = "_test_d1_types"
 TEST_TABLE_BATCH = "_test_d1_batch"
@@ -34,6 +36,7 @@ async def _ensure_tables(db):
     )
 
 
+@pytest.mark.asyncio
 async def test_insert_and_select_via_run(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -59,6 +62,7 @@ async def test_insert_and_select_via_run(env):
     assert rows[0]["value"] == "hello"
 
 
+@pytest.mark.asyncio
 async def test_all_returns_results(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -79,6 +83,7 @@ async def test_all_returns_results(env):
     assert rows[0]["name"] == "all_test"
 
 
+@pytest.mark.asyncio
 async def test_first_returns_single_row(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -99,6 +104,7 @@ async def test_first_returns_single_row(env):
     assert row["value"] == "fv"
 
 
+@pytest.mark.asyncio
 async def test_first_with_column_name(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -116,6 +122,7 @@ async def test_first_with_column_name(env):
     assert value == "col_val", f"expected 'col_val', got {value!r}"
 
 
+@pytest.mark.asyncio
 async def test_first_on_empty_result(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -128,6 +135,7 @@ async def test_first_on_empty_result(env):
     assert row is None, f"expected None, got {row!r}"
 
 
+@pytest.mark.asyncio
 async def test_raw_returns_arrays(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -147,6 +155,7 @@ async def test_raw_returns_arrays(env):
     assert rows[0] == ["raw_test", "rv"], f"row mismatch: {rows!r}"
 
 
+@pytest.mark.asyncio
 async def test_raw_with_column_names(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -166,6 +175,7 @@ async def test_raw_with_column_names(env):
     assert rows[1] == ["raw_cols", "rc"], f"row mismatch: {rows[1]!r}"
 
 
+@pytest.mark.asyncio
 async def test_bind_types(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -214,6 +224,7 @@ async def test_bind_types(env):
     assert row4["intval"] == 0, f"False should be 0, got {row4['intval']}"
 
 
+@pytest.mark.asyncio
 async def test_exec_create_and_query(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -224,6 +235,7 @@ async def test_exec_create_and_query(env):
     assert result["duration"] >= 0, f"expected duration >= 0, got {result['duration']}"
 
 
+@pytest.mark.asyncio
 async def test_exec_multiple_statements(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -237,6 +249,7 @@ async def test_exec_multiple_statements(env):
     assert rows == [["a"], ["b"]], f"row mismatch: {rows!r}"
 
 
+@pytest.mark.asyncio
 async def test_batch_multiple_inserts(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -262,6 +275,7 @@ async def test_batch_multiple_inserts(env):
     assert [row["val"] for row in rows] == ["batch_a", "batch_b", "batch_c"]
 
 
+@pytest.mark.asyncio
 async def test_run_metadata_fields(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -287,6 +301,7 @@ async def test_run_metadata_fields(env):
     assert meta["changed_db"] is True
 
 
+@pytest.mark.asyncio
 async def test_update_row(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -311,6 +326,7 @@ async def test_update_row(env):
     assert row["value"] == "new_value", f"expected 'new_value', got {row['value']!r}"
 
 
+@pytest.mark.asyncio
 async def test_delete_row(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -333,6 +349,7 @@ async def test_delete_row(env):
     assert row is None, f"row should be deleted, got {row!r}"
 
 
+@pytest.mark.asyncio
 async def test_session_prepare_and_query(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -349,6 +366,7 @@ async def test_session_prepare_and_query(env):
     assert result["results"][0]["cnt"] >= 1
 
 
+@pytest.mark.asyncio
 async def test_session_bookmark(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -367,6 +385,7 @@ async def test_session_bookmark(env):
     assert len(bookmark_after) > 0, "bookmark should be non-empty"
 
 
+@pytest.mark.asyncio
 async def test_session_batch(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -390,6 +409,7 @@ async def test_session_batch(env):
     assert rows["results"][1]["val"] == "sb"
 
 
+@pytest.mark.asyncio
 async def test_invalid_sql_raises_error(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -401,6 +421,7 @@ async def test_invalid_sql_raises_error(env):
     assert raised, "expected error on invalid SQL"
 
 
+@pytest.mark.asyncio
 async def test_raw_kwargs_column_names(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -420,13 +441,12 @@ async def test_raw_kwargs_column_names(env):
     assert rows[1] == ["kwargs_raw", "kv"], f"row mismatch: {rows[1]!r}"
 
 
+@pytest.mark.asyncio
 async def test_bind_null(env):
     import sys
 
     if sys.version_info < (3, 13):
-        from worker import SkipTest
-
-        raise SkipTest("Pyodide 0.26 (Python 3.12) cannot represent JS null")
+        pytest.skip("Pyodide 0.26 (Python 3.12) cannot represent JS null")
     db = env.DB
     await _cleanup_d1(db)
     await _ensure_tables(db)
@@ -449,6 +469,7 @@ async def test_bind_null(env):
     assert row["intval"] is None, f"expected None, got {row['intval']!r}"
 
 
+@pytest.mark.asyncio
 async def test_none_options_raw(env):
     db = env.DB
     await _cleanup_d1(db)
@@ -465,28 +486,3 @@ async def test_none_options_raw(env):
     )
     assert len(rows) == 1, f"expected 1 row, got {len(rows)}"
     assert rows[0] == ["none_raw", "nr"], f"row mismatch: {rows[0]!r}"
-
-
-D1_TESTS = {
-    "insert_and_select_via_run": test_insert_and_select_via_run,
-    "all_returns_results": test_all_returns_results,
-    "first_returns_single_row": test_first_returns_single_row,
-    "first_with_column_name": test_first_with_column_name,
-    "first_on_empty_result": test_first_on_empty_result,
-    "raw_returns_arrays": test_raw_returns_arrays,
-    "raw_with_column_names": test_raw_with_column_names,
-    "bind_types": test_bind_types,
-    "exec_create_and_query": test_exec_create_and_query,
-    "exec_multiple_statements": test_exec_multiple_statements,
-    "batch_multiple_inserts": test_batch_multiple_inserts,
-    "run_metadata_fields": test_run_metadata_fields,
-    "update_row": test_update_row,
-    "delete_row": test_delete_row,
-    "session_prepare_and_query": test_session_prepare_and_query,
-    "session_bookmark": test_session_bookmark,
-    "session_batch": test_session_batch,
-    "bind_null": test_bind_null,
-    "raw_kwargs_column_names": test_raw_kwargs_column_names,
-    "none_options_raw": test_none_options_raw,
-    "invalid_sql_raises_error": test_invalid_sql_raises_error,
-}
