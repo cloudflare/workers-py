@@ -1,11 +1,8 @@
 import logging
-import subprocess as sp
 import tempfile
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
-
-import click
 
 from .utils import (
     get_lockfile_path,
@@ -13,6 +10,7 @@ from .utils import (
     get_pyodide_index,
     get_uv_pyodide_interp_name,
     read_pyproject_toml,
+    run_command,
 )
 
 logger = logging.getLogger(__name__)
@@ -46,9 +44,6 @@ def _compile_requirements(
     Writes the compiled output to *lockfile_path*. When *lockfile_path* already
     exists, ``uv pip compile`` uses it as a constraint source so pinned versions
     are preserved across re-runs (no silent upgrades).
-
-    Uses subprocess directly (instead of run_command) to keep stdout and stderr
-    separate — uv writes the compiled output to stdout but warnings to stderr.
     """
     with tempfile.NamedTemporaryFile(mode="w", suffix=".in", delete=False) as req_file:
         req_file.write("\n".join(requirements))
@@ -75,25 +70,9 @@ def _compile_requirements(
         if upgrade:
             cmd.append("--upgrade")
 
-        # TODO: use run_command function instead of sp.run
-        #       like other functions. It requires
-        #       updating the run_command function to handle stdout and stderr separately
-        logger.debug(f"Running: {' '.join(cmd)}")
-        result = sp.run(
-            cmd,
-            cwd=get_project_root(),
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            check=False,
-        )
+        run_command(cmd, cwd=get_project_root(), capture_output=True)
     finally:
         Path(req_in_path).unlink(missing_ok=True)
-
-    if result.returncode != 0:
-        error_output = (result.stderr or result.stdout or "").strip()
-        logger.error(f"uv pip compile failed:\n{error_output}")
-        raise click.exceptions.Exit(code=1)
 
     return _read_lockfile_requirements(lockfile_path)
 

@@ -2,7 +2,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-import pywrnagler.utils as pywrangler_utils
+import pywrangler.utils as pywrangler_utils
 
 import pywrangler.resolve as pywrangler_resolve
 import pywrangler.sync as pywrangler_sync
