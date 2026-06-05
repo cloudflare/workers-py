@@ -2,6 +2,32 @@
 
 <!-- version list -->
 
+## v1.11.0 (2026-06-03)
+
+### Features
+
+- Reverts #117
+  ([`973379e`](https://github.com/cloudflare/workers-py/commit/973379ea67188275f28387b7d22d5bbdcf61fe06))
+
+
+## v1.10.0 (2026-06-02)
+
+### Features
+
+- Update Python 3.13 package index from Pyodide 0.28.3 to 0.29.3
+  ([#117](https://github.com/cloudflare/workers-py/pull/117),
+  [`9c322af`](https://github.com/cloudflare/workers-py/commit/9c322af22c29223d2452fa532cfeae27d9ee0767))
+
+
+## v1.9.5 (2026-06-01)
+
+### Bug Fixes
+
+- Don't install Pyodide interpreter onto user's PATH
+  ([#115](https://github.com/cloudflare/workers-py/pull/115),
+  [`e6e78c4`](https://github.com/cloudflare/workers-py/commit/e6e78c4f22dd1219ac1e4c83cb57f3cb2b997d9b))
+
+
 ## v1.9.4 (2026-05-19)
 
 ### Bug Fixes

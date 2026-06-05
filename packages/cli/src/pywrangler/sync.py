@@ -145,7 +145,6 @@ def create_pyodide_venv() -> None:
     logger.debug(f"Creating Pyodide virtual environment at {pyodide_venv_path}...")
     pyodide_venv_path.parent.mkdir(parents=True, exist_ok=True)
     interp_name = get_uv_pyodide_interp_name()
-    run_command(["uv", "python", "install", interp_name])
     run_command(["uv", "venv", str(pyodide_venv_path), "--python", interp_name])
 
 

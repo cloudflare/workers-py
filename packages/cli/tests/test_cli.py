@@ -721,6 +721,47 @@ def test_check_wrangler_version_insufficient(mock_run_command):
         check_wrangler_version()
 
 
+def test_create_pyodide_venv_does_not_put_interpreter_on_path(test_dir, tmp_path):
+    """`create_pyodide_venv` must not place an interpreter on the user's PATH.
+
+    Integration test (exercises real `uv`). As of uv 0.8, `uv python install` links
+    a versioned executable (for the Pyodide build, `pyodide3.12`) into uv's
+    executable directory, which is on PATH. That shadows real CPython for other tools
+    on the system, so the venv must be created without it.
+
+    We redirect uv's executable and install directories to a temp location and assert
+    the executable directory stays empty. The assertion holds regardless of whether
+    venv creation ultimately succeeds: PATH pollution happens during interpreter
+    *installation*, before venv creation can fail (e.g. when the host Node.js cannot
+    run the wasm interpreter to query it).
+    """
+    create_test_pyproject(test_dir, dependencies=[])
+    create_test_wrangler_jsonc(test_dir, python_version="3.12")
+
+    bin_dir = tmp_path / "uv-bin"
+    install_dir = tmp_path / "uv-pythons"
+    env = {
+        "UV_PYTHON_BIN_DIR": str(bin_dir),
+        "UV_PYTHON_INSTALL_DIR": str(install_dir),
+    }
+
+    import click
+
+    with patch.dict(os.environ, env):
+        try:
+            pywrangler_sync.create_pyodide_venv()
+        except click.exceptions.Exit:
+            # Venv creation can fail when the host Node.js can't query the wasm
+            # interpreter; the PATH-pollution assertion below is the point.
+            pass
+
+    leaked = sorted(p.name for p in bin_dir.iterdir()) if bin_dir.exists() else []
+    assert leaked == [], (
+        f"create_pyodide_venv leaked executable(s) onto PATH via UV_PYTHON_BIN_DIR: "
+        f"{leaked}"
+    )
+
+
 # Tests for PYWRANGLER_LOG environment variable
 
 
