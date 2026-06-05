@@ -1,9 +1,6 @@
 import logging
 import os
 import shutil
-import tempfile
-from collections.abc import Iterator
-from contextlib import contextmanager
 from pathlib import Path
 
 import click
@@ -23,6 +20,7 @@ from .utils import (
     get_pywrangler_version,
     get_uv_pyodide_interp_name,
     run_command,
+    temp_requirements_file,
 )
 
 logger = logging.getLogger(__name__)
@@ -146,15 +144,6 @@ def create_pyodide_venv() -> None:
     pyodide_venv_path.parent.mkdir(parents=True, exist_ok=True)
     interp_name = get_uv_pyodide_interp_name()
     run_command(["uv", "venv", str(pyodide_venv_path), "--python", interp_name])
-
-
-@contextmanager
-def temp_requirements_file(requirements: list[str]) -> Iterator[str]:
-    # Write dependencies to a requirements.txt-style temp file.
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt") as temp_file:
-        temp_file.write("\n".join(requirements))
-        temp_file.flush()
-        yield temp_file.name
 
 
 def _install_requirements_to_vendor(plan: InstallPlan) -> str | None:

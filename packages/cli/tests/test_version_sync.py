@@ -2,10 +2,10 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
-import pywrangler.utils as pywrangler_utils
 
 import pywrangler.resolve as pywrangler_resolve
 import pywrangler.sync as pywrangler_sync
+import pywrangler.utils as pywrangler_utils
 from pywrangler.resolve import InstallPlan
 
 
@@ -197,8 +197,8 @@ class TestSyncTokenVersion:
     def project_root(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text("[project]\nname='x'\nversion='0.0.0'\n")
-        monkeypatch.setattr(pywrangler_sync, "find_pyproject_toml", lambda: pyproject)
-        monkeypatch.setattr(pywrangler_sync, "get_project_root", lambda: tmp_path)
+        monkeypatch.chdir(tmp_path)
+        pywrangler_utils.find_pyproject_toml.cache_clear()
         return tmp_path
 
     def test_write_sync_token_records_current_version(
@@ -303,9 +303,8 @@ class TestSyncNeededWithLockfile:
     def project_root(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
         pyproject = tmp_path / "pyproject.toml"
         pyproject.write_text("[project]\nname='x'\nversion='0.0.0'\n")
-        monkeypatch.setattr(pywrangler_sync, "find_pyproject_toml", lambda: pyproject)
-        monkeypatch.setattr(pywrangler_sync, "get_project_root", lambda: tmp_path)
-        monkeypatch.setattr(pywrangler_resolve, "get_project_root", lambda: tmp_path)
+        monkeypatch.chdir(tmp_path)
+        pywrangler_utils.find_pyproject_toml.cache_clear()
         monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.0.0")
         return tmp_path
 

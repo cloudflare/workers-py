@@ -1,5 +1,4 @@
 import logging
-import tempfile
 import tomllib
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -11,6 +10,7 @@ from .utils import (
     get_uv_pyodide_interp_name,
     read_pyproject_toml,
     run_command,
+    temp_requirements_file,
 )
 
 logger = logging.getLogger(__name__)
@@ -45,12 +45,7 @@ def _compile_requirements(
     exists, ``uv pip compile`` uses it as a constraint source so pinned versions
     are preserved across re-runs (no silent upgrades).
     """
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".in", delete=False) as req_file:
-        req_file.write("\n".join(requirements))
-        req_file.flush()
-        req_in_path = req_file.name
-
-    try:
+    with temp_requirements_file(requirements) as req_in_path:
         cmd = [
             "uv",
             "pip",
@@ -71,8 +66,6 @@ def _compile_requirements(
             cmd.append("--upgrade")
 
         run_command(cmd, cwd=get_project_root(), capture_output=True)
-    finally:
-        Path(req_in_path).unlink(missing_ok=True)
 
     return _read_lockfile_requirements(lockfile_path)
 
