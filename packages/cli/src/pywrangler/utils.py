@@ -38,6 +38,8 @@ _LOG_LEVEL_MAP = {
     "error": logging.ERROR,
 }
 
+LOCKFILE_NAME = "pylock.toml"
+
 
 def setup_logging() -> int:
     """
@@ -404,3 +406,7 @@ def get_pyodide_index() -> str:
         case "3.13":
             v = "0.28.3"
     return "https://index.pyodide.org/" + v
+
+
+def get_lockfile_path() -> Path:
+    return get_project_root() / LOCKFILE_NAME

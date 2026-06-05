@@ -10,13 +10,13 @@ import click
 
 from .resolve import (
     InstallPlan,
-    get_lockfile_path,
     resolve_requirements,
 )
 from .utils import (
     check_uv_version,
     check_wrangler_config,
     find_pyproject_toml,
+    get_lockfile_path,
     get_project_root,
     get_pyodide_index,
     get_python_version,

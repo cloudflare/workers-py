@@ -8,6 +8,7 @@ from pathlib import Path
 import click
 
 from .utils import (
+    get_lockfile_path,
     get_project_root,
     get_pyodide_index,
     get_uv_pyodide_interp_name,
@@ -17,7 +18,6 @@ from .utils import (
 logger = logging.getLogger(__name__)
 
 MANAGED_SDK_PACKAGE = "workers-runtime-sdk"
-LOCKFILE_NAME = "pylock.toml"
 
 
 @dataclass
@@ -33,10 +33,6 @@ def parse_requirements() -> list[str]:
 
     # Extract dependencies from [project.dependencies]
     return pyproject_data.get("project", {}).get("dependencies", [])
-
-
-def get_lockfile_path() -> Path:
-    return get_project_root() / LOCKFILE_NAME
 
 
 def _compile_requirements(
@@ -133,7 +129,7 @@ def resolve_requirements(*, upgrade: bool = False) -> InstallPlan:
 
     requirements = _compile_requirements(deps, lockfile, upgrade=upgrade)
 
-    logger.info("Resolved %d requirements from %s.", len(requirements), LOCKFILE_NAME)
+    logger.info("Resolved %d requirements from %s.", len(requirements), lockfile)
     for req in requirements:
         logger.debug("  - %s", req)
     return InstallPlan(requirements=requirements, lockfile=lockfile)

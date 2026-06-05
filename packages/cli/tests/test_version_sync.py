@@ -2,6 +2,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pytest
+import pywrnagler.utils as pywrangler_utils
 
 import pywrangler.resolve as pywrangler_resolve
 import pywrangler.sync as pywrangler_sync
@@ -286,7 +287,7 @@ class TestResolveRequirements:
         return_value=["click==8.1.7"],
     )
     @patch.object(pywrangler_resolve, "parse_requirements", return_value=["click>=8.0"])
-    @patch.object(pywrangler_resolve, "get_lockfile_path")
+    @patch.object(pywrangler_utils, "get_lockfile_path")
     def test_compiles_from_deps(
         self, mock_lockpath, mock_parse, mock_compile, tmp_path
     ):
