@@ -31,7 +31,7 @@ async def test_put_and_get_text(env):
     body = await bucket.get(key)
     assert body is not None, "get returned None"
     text = await body.text()
-    assert text == value, f"text mismatch: {text!r}"
+    assert text == value
     assert body["bodyUsed"] is True
 
 
@@ -51,7 +51,7 @@ async def test_put_and_get_json(env):
     body = await bucket.get(key)
     assert body is not None, "get returned None"
     parsed = await body.json()
-    assert parsed == payload, f"json mismatch: {parsed!r}"
+    assert parsed == payload
 
 
 @pytest.mark.asyncio
@@ -115,7 +115,7 @@ async def test_get_nonexistent(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
     result = await bucket.get("_test/does_not_exist_12345")
-    assert result is None, f"expected None, got {result!r}"
+    assert result is None
 
 
 @pytest.mark.asyncio
@@ -123,7 +123,7 @@ async def test_head_nonexistent(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
     result = await bucket.head("_test/does_not_exist_12345")
-    assert result is None, f"expected None, got {result!r}"
+    assert result is None
 
 
 @pytest.mark.asyncio
@@ -148,7 +148,7 @@ async def test_delete_multiple(env):
     await bucket.delete(keys)
     for key in keys:
         result = await bucket.head(key)
-        assert result is None, f"{key} still exists after batch delete"
+        assert result is None
 
 
 @pytest.mark.asyncio
@@ -160,7 +160,7 @@ async def test_list_basic(env):
     result = await bucket.list({"prefix": "_test/list_basic/"})
     objects = result["objects"]
     keys = [obj.key for obj in objects]
-    assert len(objects) >= 3, f"expected >= 3 objects, got {len(objects)}"
+    assert len(objects) >= 3
     for i in range(3):
         assert f"_test/list_basic/{i}" in keys, f"missing key {i}"
 
@@ -174,7 +174,7 @@ async def test_list_with_prefix(env):
     await bucket.put("_test/prefix_b/1", "b1")
     result = await bucket.list({"prefix": "_test/prefix_a/"})
     keys = [obj.key for obj in result["objects"]]
-    assert len(keys) == 2, f"expected 2 objects, got {len(keys)}"
+    assert len(keys) == 2
     assert all(k.startswith("_test/prefix_a/") for k in keys), (
         f"prefix filter failed: {keys!r}"
     )
@@ -215,9 +215,9 @@ async def test_list_with_delimiter(env):
     result = await bucket.list({"prefix": "_test/delim/", "delimiter": "/"})
     object_keys = [obj.key for obj in result["objects"]]
     prefixes = result["delimitedPrefixes"]
-    assert "_test/delim/root_file" in object_keys, f"missing root file: {object_keys!r}"
-    assert "_test/delim/dir1/" in prefixes, f"missing dir1 prefix: {prefixes!r}"
-    assert "_test/delim/dir2/" in prefixes, f"missing dir2 prefix: {prefixes!r}"
+    assert "_test/delim/root_file" in object_keys
+    assert "_test/delim/dir1/" in prefixes
+    assert "_test/delim/dir2/" in prefixes
 
 
 @pytest.mark.asyncio
@@ -240,11 +240,11 @@ async def test_put_empty_body(env):
     key = "_test/empty_body"
     obj = await bucket.put(key, None)
     assert obj is not None, "put returned None"
-    assert obj.size == 0, f"expected size 0, got {obj.size}"
+    assert obj.size == 0
     body = await bucket.get(key)
     assert body is not None, "get returned None"
     text = await body.text()
-    assert text == "", f"expected empty string, got {text!r}"
+    assert text == ""
 
 
 @pytest.mark.asyncio
@@ -257,7 +257,7 @@ async def test_get_range_offset_length(env):
     body = await bucket.get(key, {"range": {"offset": 4, "length": 6}})
     assert body is not None, "get returned None"
     text = await body.text()
-    assert text == "456789", f"range mismatch: {text!r}"
+    assert text == "456789"
 
 
 @pytest.mark.asyncio
@@ -270,7 +270,7 @@ async def test_get_range_suffix(env):
     body = await bucket.get(key, {"range": {"suffix": 4}})
     assert body is not None, "get returned None"
     text = await body.text()
-    assert text == "CDEF", f"suffix mismatch: {text!r}"
+    assert text == "CDEF"
 
 
 @pytest.mark.asyncio
@@ -362,7 +362,7 @@ async def test_list_kwargs_prefix(env):
     await bucket.put("_test/kw_b/1", "b1")
     result = await bucket.list(prefix="_test/kw_a/")
     keys = [obj.key for obj in result.objects]
-    assert len(keys) == 2, f"expected 2, got {len(keys)}"
+    assert len(keys) == 2
     assert all(k.startswith("_test/kw_a/") for k in keys)
 
 
@@ -375,7 +375,7 @@ async def test_none_options_put(env):
     body = await bucket.get(key)
     assert body is not None
     text = await body.text()
-    assert text == "value", f"expected 'value', got {text!r}"
+    assert text == "value"
 
 
 @pytest.mark.asyncio

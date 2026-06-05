@@ -4,17 +4,14 @@ import pytest
 
 
 async def _cleanup_kv(kv):
-    cursor = None
+    options = {"prefix": "_test:", "limit": 1000}
     while True:
-        options = {"prefix": "_test:", "limit": 1000}
-        if cursor:
-            options["cursor"] = cursor
         result = await kv.list(options)
         for key_entry in result["keys"]:
             await kv.delete(key_entry["name"])
         if result["list_complete"]:
             break
-        cursor = result.get("cursor")
+        options["cursor"] = result.get("cursor")
 
 
 @pytest.mark.asyncio
@@ -25,7 +22,7 @@ async def test_put_and_get_text(env):
     value = "hello from KV"
     await kv.put(key, value)
     result = await kv.get(key)
-    assert result == value, f"expected {value!r}, got {result!r}"
+    assert result == value
 
 
 @pytest.mark.asyncio
@@ -33,7 +30,7 @@ async def test_get_nonexistent(env):
     kv = env.KV
     await _cleanup_kv(kv)
     result = await kv.get("_test:does_not_exist_12345")
-    assert result is None, f"expected None, got {result!r}"
+    assert result is None
 
 
 @pytest.mark.asyncio
@@ -44,8 +41,8 @@ async def test_put_and_get_json(env):
     payload = {"message": "hello", "numbers": [1, 2, 3]}
     await kv.put(key, json.dumps(payload))
     result = await kv.get(key, "json")
-    assert isinstance(result, dict), f"expected dict, got {type(result)}: {result!r}"
-    assert result == payload, f"json mismatch: {result!r}"
+    assert isinstance(result, dict)
+    assert result == payload
 
 
 @pytest.mark.asyncio
@@ -68,7 +65,7 @@ async def test_put_empty_value(env):
     key = "_test:empty_value"
     await kv.put(key, "")
     result = await kv.get(key)
-    assert result == "", f"expected empty string, got {result!r}"
+    assert result == ""
 
 
 @pytest.mark.asyncio
@@ -80,7 +77,7 @@ async def test_delete(env):
     assert await kv.get(key) == "to be deleted"
     await kv.delete(key)
     result = await kv.get(key)
-    assert result is None, f"expected None after delete, got {result!r}"
+    assert result is None
 
 
 @pytest.mark.asyncio
@@ -100,7 +97,7 @@ async def test_put_with_metadata(env):
     result = await kv.getWithMetadata(key)
     assert result["value"] == "metadata test"
     assert result["metadata"] is not None, "expected metadata"
-    assert result["metadata"] == metadata, f"metadata mismatch: {result['metadata']!r}"
+    assert result["metadata"] == metadata
 
 
 @pytest.mark.asyncio
@@ -108,10 +105,8 @@ async def test_get_with_metadata_nonexistent(env):
     kv = env.KV
     await _cleanup_kv(kv)
     result = await kv.getWithMetadata("_test:does_not_exist_meta")
-    assert result["value"] is None, f"expected None value, got {result['value']!r}"
-    assert result["metadata"] is None, (
-        f"expected None metadata, got {result['metadata']!r}"
-    )
+    assert result["value"] is None
+    assert result["metadata"] is None
 
 
 @pytest.mark.asyncio
@@ -121,7 +116,7 @@ async def test_put_with_expiration_ttl(env):
     key = "_test:expiration_ttl"
     await kv.put(key, "expires soon", {"expirationTtl": 60})
     result = await kv.get(key)
-    assert result == "expires soon", f"value mismatch: {result!r}"
+    assert result == "expires soon"
     listed = await kv.list({"prefix": key})
     matching = [k for k in listed["keys"] if k["name"] == key]
     assert len(matching) == 1, "key not found in list"
@@ -137,7 +132,7 @@ async def test_list_basic(env):
     result = await kv.list({"prefix": "_test:list_basic:"})
     keys = result["keys"]
     names = [k["name"] for k in keys]
-    assert len(keys) >= 3, f"expected >= 3 keys, got {len(keys)}"
+    assert len(keys) >= 3
     assert result["list_complete"]
     for i in range(3):
         assert f"_test:list_basic:{i}" in names, f"missing key {i}"
@@ -152,7 +147,7 @@ async def test_list_with_prefix(env):
     await kv.put("_test:prefix_b:1", "b1")
     result = await kv.list({"prefix": "_test:prefix_a:"})
     names = [k["name"] for k in result["keys"]]
-    assert len(names) == 2, f"expected 2 keys, got {len(names)}"
+    assert len(names) == 2
     assert all(n.startswith("_test:prefix_a:") for n in names), (
         f"prefix filter failed: {names!r}"
     )
@@ -166,13 +161,13 @@ async def test_list_with_limit_and_cursor(env):
     for i in range(5):
         await kv.put(f"{prefix}{i:03d}", f"val-{i}")
     page1 = await kv.list({"prefix": prefix, "limit": 2})
-    assert len(page1["keys"]) == 2, f"first page: expected 2, got {len(page1['keys'])}"
+    assert len(page1["keys"]) == 2
     assert not page1["list_complete"], "expected list_complete=False"
     assert page1.get("cursor") is not None, "expected cursor on first page"
     page2 = await kv.list({"prefix": prefix, "limit": 2, "cursor": page1["cursor"]})
-    assert len(page2["keys"]) == 2, f"second page: expected 2, got {len(page2['keys'])}"
+    assert len(page2["keys"]) == 2
     page3 = await kv.list({"prefix": prefix, "limit": 2, "cursor": page2["cursor"]})
-    assert len(page3["keys"]) == 1, f"third page: expected 1, got {len(page3['keys'])}"
+    assert len(page3["keys"]) == 1
     assert page3["list_complete"], "expected list_complete=True on last page"
 
 
@@ -181,7 +176,7 @@ async def test_list_empty_prefix(env):
     kv = env.KV
     await _cleanup_kv(kv)
     result = await kv.list({"prefix": "_test:nonexistent_prefix_xyz:"})
-    assert len(result["keys"]) == 0, f"expected 0 keys, got {len(result['keys'])}"
+    assert len(result["keys"]) == 0
     assert result["list_complete"]
 
 
@@ -194,7 +189,7 @@ async def test_list_with_metadata(env):
     await kv.put(key, "has metadata", {"metadata": metadata})
     result = await kv.list({"prefix": key})
     matching = [k for k in result["keys"] if k["name"] == key]
-    assert len(matching) == 1, f"expected one key, got {len(matching)}"
+    assert len(matching) == 1
     assert matching[0].get("metadata") is not None, "expected metadata in list result"
     assert matching[0]["metadata"] == metadata, (
         f"metadata mismatch: {matching[0]['metadata']!r}"
@@ -210,7 +205,7 @@ async def test_get_with_metadata_has_metadata(env):
     await kv.put(key, "value with meta", {"metadata": metadata})
     result = await kv.getWithMetadata(key)
     assert result["value"] == "value with meta"
-    assert result["metadata"] == metadata, f"metadata mismatch: {result['metadata']!r}"
+    assert result["metadata"] == metadata
 
 
 @pytest.mark.asyncio
@@ -221,7 +216,7 @@ async def test_get_type_as_options_dict(env):
     payload = {"x": "hello"}
     await kv.put(key, json.dumps(payload))
     result = await kv.get(key, {"type": "json"})
-    assert isinstance(result, dict), f"expected dict, got {type(result)}: {result!r}"
+    assert isinstance(result, dict)
     assert result["x"] == "hello"
 
 
@@ -233,7 +228,7 @@ async def test_get_arraybuffer(env):
     await kv.put(key, "binary test data")
     result = await kv.get(key, "arrayBuffer")
     assert result is not None
-    assert isinstance(result, memoryview), f"expected memoryview, got {type(result)}"
+    assert isinstance(result, memoryview)
     assert len(result) > 0
 
 
@@ -244,7 +239,7 @@ async def test_get_multiple_keys(env):
     await kv.put("_test:multi:a", "val-a")
     await kv.put("_test:multi:b", "val-b")
     result = await kv.get(["_test:multi:a", "_test:multi:b", "_test:multi:nonexistent"])
-    assert isinstance(result, dict), f"expected dict from multi-get, got {type(result)}"
+    assert isinstance(result, dict)
     assert result.get("_test:multi:a") == "val-a"
     assert result.get("_test:multi:b") == "val-b"
     assert result.get("_test:multi:nonexistent") is None
@@ -257,7 +252,7 @@ async def test_get_multiple_keys_json(env):
     await kv.put("_test:multi_json:a", json.dumps({"val": "a"}))
     await kv.put("_test:multi_json:b", json.dumps({"val": "b"}))
     result = await kv.get(["_test:multi_json:a", "_test:multi_json:b"], "json")
-    assert isinstance(result, dict), f"expected dict, got {type(result)}"
+    assert isinstance(result, dict)
     assert result["_test:multi_json:a"]["val"] == "a"
     assert result["_test:multi_json:b"]["val"] == "b"
 
@@ -269,7 +264,7 @@ async def test_put_kwargs_expiration_ttl(env):
     key = "_test:kwargs_ttl"
     await kv.put(key, "kwargs ttl", expirationTtl=60)
     result = await kv.get(key)
-    assert result == "kwargs ttl", f"expected 'kwargs ttl', got {result!r}"
+    assert result == "kwargs ttl"
     listed = await kv.list(prefix=key)
     matching = [k for k in listed["keys"] if k["name"] == key]
     assert len(matching) == 1
@@ -293,7 +288,7 @@ async def test_none_options_put(env):
     await _cleanup_kv(kv)
     await kv.put("_test:none_opts", "value", None)
     result = await kv.get("_test:none_opts")
-    assert result == "value", f"expected 'value', got {result!r}"
+    assert result == "value"
 
 
 @pytest.mark.asyncio

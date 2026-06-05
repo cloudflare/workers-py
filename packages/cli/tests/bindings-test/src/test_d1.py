@@ -1,4 +1,5 @@
 import pytest
+from pyodide.ffi import JsException
 
 TEST_TABLE = "_test_d1"
 TEST_TABLE_TYPES = "_test_d1_types"
@@ -46,7 +47,7 @@ async def test_insert_and_select_via_run(env):
         .bind("run_test", "hello")
         .run()
     )
-    assert insert_result["success"] is True, f"insert failed: {insert_result!r}"
+    assert insert_result["success"] is True
     meta = insert_result["meta"]
     assert meta["changes"] >= 1
     assert meta["last_row_id"] > 0
@@ -57,7 +58,7 @@ async def test_insert_and_select_via_run(env):
         .run()
     )
     rows = select_result["results"]
-    assert len(rows) == 1, f"expected 1 row, got {len(rows)}"
+    assert len(rows) == 1
     assert rows[0]["name"] == "run_test"
     assert rows[0]["value"] == "hello"
 
@@ -79,7 +80,7 @@ async def test_all_returns_results(env):
     )
     assert result["success"] is True
     rows = result["results"]
-    assert len(rows) >= 1, f"expected >= 1 row, got {len(rows)}"
+    assert len(rows) >= 1
     assert rows[0]["name"] == "all_test"
 
 
@@ -99,7 +100,7 @@ async def test_first_returns_single_row(env):
         .first()
     )
     assert row is not None, "first() returned None"
-    assert isinstance(row, dict), f"expected dict, got {type(row)}: {row}"
+    assert isinstance(row, dict)
     assert row["name"] == "first_test"
     assert row["value"] == "fv"
 
@@ -119,7 +120,7 @@ async def test_first_with_column_name(env):
         .bind("first_col")
         .first("value")
     )
-    assert value == "col_val", f"expected 'col_val', got {value!r}"
+    assert value == "col_val"
 
 
 @pytest.mark.asyncio
@@ -132,7 +133,7 @@ async def test_first_on_empty_result(env):
         .bind("__nonexistent__xyz__")
         .first()
     )
-    assert row is None, f"expected None, got {row!r}"
+    assert row is None
 
 
 @pytest.mark.asyncio
@@ -150,9 +151,9 @@ async def test_raw_returns_arrays(env):
         .bind("raw_test")
         .raw()
     )
-    assert isinstance(rows, list), f"expected list, got {type(rows)}"
-    assert len(rows) == 1, f"expected 1 row, got {len(rows)}"
-    assert rows[0] == ["raw_test", "rv"], f"row mismatch: {rows!r}"
+    assert isinstance(rows, list)
+    assert len(rows) == 1
+    assert rows[0] == ["raw_test", "rv"]
 
 
 @pytest.mark.asyncio
@@ -170,9 +171,9 @@ async def test_raw_with_column_names(env):
         .bind("raw_cols")
         .raw({"columnNames": True})
     )
-    assert len(rows) == 2, f"expected header + data, got {len(rows)} rows"
-    assert rows[0] == ["name", "value"], f"header mismatch: {rows[0]!r}"
-    assert rows[1] == ["raw_cols", "rc"], f"row mismatch: {rows[1]!r}"
+    assert len(rows) == 2
+    assert rows[0] == ["name", "value"]
+    assert rows[1] == ["raw_cols", "rc"]
 
 
 @pytest.mark.asyncio
@@ -220,8 +221,8 @@ async def test_bind_types(env):
         .bind(4)
         .first()
     )
-    assert row3["intval"] == 1, f"True should be 1, got {row3['intval']}"
-    assert row4["intval"] == 0, f"False should be 0, got {row4['intval']}"
+    assert row3["intval"] == 1
+    assert row4["intval"] == 0
 
 
 @pytest.mark.asyncio
@@ -231,8 +232,8 @@ async def test_exec_create_and_query(env):
     result = await db.exec(
         f"CREATE TABLE IF NOT EXISTS {EXEC_TABLE} (id INTEGER PRIMARY KEY, val TEXT)"
     )
-    assert result["count"] >= 1, f"expected count >= 1, got {result['count']}"
-    assert result["duration"] >= 0, f"expected duration >= 0, got {result['duration']}"
+    assert result["count"] >= 1
+    assert result["duration"] >= 0
 
 
 @pytest.mark.asyncio
@@ -244,9 +245,9 @@ async def test_exec_multiple_statements(env):
         f"INSERT INTO {EXEC_MULTI_TABLE} (val) VALUES ('a');\n"
         f"INSERT INTO {EXEC_MULTI_TABLE} (val) VALUES ('b');"
     )
-    assert result["count"] >= 3, f"expected count >= 3, got {result['count']}"
+    assert result["count"] >= 3
     rows = await db.prepare(f"SELECT val FROM {EXEC_MULTI_TABLE} ORDER BY val").raw()
-    assert rows == [["a"], ["b"]], f"row mismatch: {rows!r}"
+    assert rows == [["a"], ["b"]]
 
 
 @pytest.mark.asyncio
@@ -271,7 +272,7 @@ async def test_batch_multiple_inserts(env):
         f"SELECT id, val FROM {TEST_TABLE_BATCH} ORDER BY id"
     ).all()
     rows = all_rows["results"]
-    assert len(rows) == 3, f"expected 3 rows, got {len(rows)}"
+    assert len(rows) == 3
     assert [row["val"] for row in rows] == ["batch_a", "batch_b", "batch_c"]
 
 
@@ -296,7 +297,7 @@ async def test_run_metadata_fields(env):
         "rows_written",
         "size_after",
     ]:
-        assert key in meta, f"missing {key!r} in meta: {meta!r}"
+        assert key in meta
     assert meta["changes"] >= 1
     assert meta["changed_db"] is True
 
@@ -323,7 +324,7 @@ async def test_update_row(env):
         .bind(row_id)
         .first()
     )
-    assert row["value"] == "new_value", f"expected 'new_value', got {row['value']!r}"
+    assert row["value"] == "new_value"
 
 
 @pytest.mark.asyncio
@@ -346,7 +347,7 @@ async def test_delete_row(env):
         .bind(row_id)
         .first()
     )
-    assert row is None, f"row should be deleted, got {row!r}"
+    assert row is None
 
 
 @pytest.mark.asyncio
@@ -373,16 +374,12 @@ async def test_session_bookmark(env):
     await _ensure_tables(db)
     session = db.withSession()
     bookmark_before = session.getBookmark()
-    assert bookmark_before is None, (
-        f"expected None before query, got {bookmark_before!r}"
-    )
+    assert bookmark_before is None
     await session.prepare("SELECT 1").all()
     bookmark_after = session.getBookmark()
-    assert bookmark_after is not None, "expected bookmark after query, got None"
-    assert isinstance(bookmark_after, str), (
-        f"expected string, got {type(bookmark_after)}"
-    )
-    assert len(bookmark_after) > 0, "bookmark should be non-empty"
+    assert bookmark_after is not None
+    assert isinstance(bookmark_after, str)
+    assert len(bookmark_after) > 0
 
 
 @pytest.mark.asyncio
@@ -413,12 +410,8 @@ async def test_session_batch(env):
 async def test_invalid_sql_raises_error(env):
     db = env.DB
     await _cleanup_d1(db)
-    raised = False
-    try:
+    with pytest.raises(JsException, match="syntax error"):
         await db.prepare("INVALID SQL GIBBERISH").run()
-    except Exception:
-        raised = True
-    assert raised, "expected error on invalid SQL"
 
 
 @pytest.mark.asyncio
@@ -436,9 +429,9 @@ async def test_raw_kwargs_column_names(env):
         .bind("kwargs_raw")
         .raw(columnNames=True)
     )
-    assert len(rows) == 2, f"expected header + data, got {len(rows)} rows"
-    assert rows[0] == ["name", "value"], f"header mismatch: {rows[0]!r}"
-    assert rows[1] == ["kwargs_raw", "kv"], f"row mismatch: {rows[1]!r}"
+    assert len(rows) == 2
+    assert rows[0] == ["name", "value"]
+    assert rows[1] == ["kwargs_raw", "kv"]
 
 
 @pytest.mark.asyncio
@@ -464,9 +457,9 @@ async def test_bind_null(env):
         .bind(1)
         .first()
     )
-    assert row["txt"] is None, f"expected None, got {row['txt']!r}"
-    assert row["num"] is None, f"expected None, got {row['num']!r}"
-    assert row["intval"] is None, f"expected None, got {row['intval']!r}"
+    assert row["txt"] is None
+    assert row["num"] is None
+    assert row["intval"] is None
 
 
 @pytest.mark.asyncio
@@ -484,5 +477,5 @@ async def test_none_options_raw(env):
         .bind("none_raw")
         .raw(None)
     )
-    assert len(rows) == 1, f"expected 1 row, got {len(rows)}"
-    assert rows[0] == ["none_raw", "nr"], f"row mismatch: {rows[0]!r}"
+    assert len(rows) == 1
+    assert rows[0] == ["none_raw", "nr"]
