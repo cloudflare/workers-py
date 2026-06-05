@@ -1,6 +1,5 @@
 import logging
 import tomllib
-from dataclasses import dataclass, field
 from pathlib import Path
 
 from .utils import (
@@ -18,12 +17,24 @@ logger = logging.getLogger(__name__)
 MANAGED_SDK_PACKAGE = "workers-runtime-sdk"
 
 
-@dataclass
 class InstallPlan:
-    """Requirements resolved for installation (requirements.txt-style strings)."""
+    def __init__(self, lockfile: Path) -> None:
+        self.lockfile = lockfile
+        self.requirements: list[tuple[str, str]] = []
 
-    requirements: list[str] = field(default_factory=list)
-    lockfile: Path | None = None
+        with open(lockfile, "rb") as f:
+            data = tomllib.load(f)
+
+        for pkg in data.get("packages", []):
+            name = pkg.get("name")
+            version = pkg.get("version")
+            if not name or not version:
+                logger.warning("Skipping malformed lockfile entry: %s", pkg)
+                continue
+            self.requirements.append((name, version))
+
+    def to_requirement_strings(self) -> list[str]:
+        return [f"{name}=={version}" for name, version in self.requirements]
 
 
 def parse_requirements() -> list[str]:
@@ -33,13 +44,13 @@ def parse_requirements() -> list[str]:
     return pyproject_data.get("project", {}).get("dependencies", [])
 
 
-def _compile_requirements(
+def _compile_lockfile(
     requirements: list[str],
     lockfile_path: Path,
     *,
     upgrade: bool = False,
-) -> list[str]:
-    """Run ``uv pip compile`` targeting Pyodide and return pinned requirement strings.
+) -> None:
+    """Run ``uv pip compile`` targeting Pyodide.
 
     Writes the compiled output to *lockfile_path*. When *lockfile_path* already
     exists, ``uv pip compile`` uses it as a constraint source so pinned versions
@@ -67,24 +78,6 @@ def _compile_requirements(
 
         run_command(cmd, cwd=get_project_root(), capture_output=True)
 
-    return _read_lockfile_requirements(lockfile_path)
-
-
-def _read_lockfile_requirements(lockfile_path: Path) -> list[str]:
-    """Read pinned ``name==version`` pairs from a ``pylock.toml`` file."""
-    with open(lockfile_path, "rb") as f:
-        data = tomllib.load(f)
-
-    results = []
-    for pkg in data.get("packages", []):
-        name = pkg.get("name")
-        version = pkg.get("version")
-        if not name or not version:
-            logger.warning("Skipping malformed lockfile entry: %s", pkg)
-            continue
-        results.append(f"{name}=={version}")
-    return results
-
 
 def resolve_requirements(*, upgrade: bool = False) -> InstallPlan:
     """Build an InstallPlan by compiling dependencies for the Pyodide target.
@@ -99,9 +92,10 @@ def resolve_requirements(*, upgrade: bool = False) -> InstallPlan:
     deps = parse_requirements()
     deps.append(MANAGED_SDK_PACKAGE)
 
-    requirements = _compile_requirements(deps, lockfile, upgrade=upgrade)
+    _compile_lockfile(deps, lockfile, upgrade=upgrade)
+    plan = InstallPlan(lockfile)
 
-    logger.info("Resolved %d requirements from %s.", len(requirements), lockfile)
-    for req in requirements:
-        logger.debug("  - %s", req)
-    return InstallPlan(requirements=requirements, lockfile=lockfile)
+    logger.info("Resolved %d requirements from %s.", len(plan.requirements), lockfile)
+    for name, version in plan.requirements:
+        logger.debug("  - %s==%s", name, version)
+    return plan

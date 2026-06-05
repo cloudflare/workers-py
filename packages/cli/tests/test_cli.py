@@ -441,7 +441,11 @@ def test_sync_command_with_changed_timestamps(
     """Test that the sync command runs when timestamps indicate changes."""
     from pywrangler.resolve import InstallPlan
 
-    mock_resolve.return_value = InstallPlan(requirements=["click>=8.0"])
+    lockfile = test_dir / "pylock.toml"
+    lockfile.write_text(
+        'lock-version = "1.0"\n[[packages]]\nname = "click"\nversion = "8.1.7"\n'
+    )
+    mock_resolve.return_value = InstallPlan(lockfile)
 
     # Create the pyproject.toml file
     create_test_pyproject(test_dir)
@@ -477,7 +481,11 @@ def test_sync_command_with_force_flag(
     """Test that the sync command runs when the --force flag is used, regardless of timestamps."""
     from pywrangler.resolve import InstallPlan
 
-    mock_resolve.return_value = InstallPlan(requirements=["click>=8.0"])
+    lockfile = test_dir / "pylock.toml"
+    lockfile.write_text(
+        'lock-version = "1.0"\n[[packages]]\nname = "click"\nversion = "8.1.7"\n'
+    )
+    mock_resolve.return_value = InstallPlan(lockfile)
 
     create_test_pyproject(test_dir)
     create_test_wrangler_jsonc(test_dir)

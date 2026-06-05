@@ -9,6 +9,15 @@ import pywrangler.utils as pywrangler_utils
 from pywrangler.resolve import InstallPlan
 
 
+def _make_plan(tmp_path: Path, packages: list[tuple[str, str]]) -> InstallPlan:
+    lockfile = tmp_path / "pylock.toml"
+    lines = ['lock-version = "1.0"']
+    for name, version in packages:
+        lines.append(f'[[packages]]\nname = "{name}"\nversion = "{version}"')
+    lockfile.write_text("\n".join(lines) + "\n")
+    return InstallPlan(lockfile)
+
+
 def test_parse_pip_freeze():
     result = pywrangler_sync._parse_pip_freeze(
         "shapely==2.0.7\nnumpy==1.26.4\nclick==8.1.7\n"
@@ -34,7 +43,7 @@ class TestInstallRequirements:
     @patch.object(pywrangler_sync, "_get_vendor_package_versions")
     @patch.object(pywrangler_sync, "_install_requirements_to_venv")
     def test_native_error_shown_before_pyodide_error(
-        self, mock_venv, mock_get_vendor, mock_vendor, caplog
+        self, mock_venv, mock_get_vendor, mock_vendor, caplog, tmp_path
     ):
         mocked_pyodide_error = "Pyodide install failed: no solution found"
         mock_vendor.return_value = mocked_pyodide_error
@@ -45,7 +54,13 @@ class TestInstallRequirements:
         import click
         import pytest
 
-        plan = InstallPlan(requirements=["nonexistent-package", "workers-runtime-sdk"])
+        plan = _make_plan(
+            tmp_path,
+            [
+                ("nonexistent-package", "1.0.0"),
+                ("workers-runtime-sdk", "1.0.0"),
+            ],
+        )
         with pytest.raises(click.exceptions.Exit):
             pywrangler_sync.install_requirements(plan)
 
@@ -55,12 +70,12 @@ class TestInstallRequirements:
 
         passed_plan = mock_vendor.call_args_list[0][0][0]
         assert passed_plan.requirements == [
-            "nonexistent-package",
-            "workers-runtime-sdk",
+            ("nonexistent-package", "1.0.0"),
+            ("workers-runtime-sdk", "1.0.0"),
         ]
         assert mock_venv.call_args_list[0][0][0] == [
-            "nonexistent-package",
-            "workers-runtime-sdk",
+            "nonexistent-package==1.0.0",
+            "workers-runtime-sdk==1.0.0",
         ]
 
         log_messages = [record.message for record in caplog.records]
@@ -80,7 +95,7 @@ class TestInstallRequirements:
     @patch.object(pywrangler_sync, "_get_vendor_package_versions")
     @patch.object(pywrangler_sync, "_install_requirements_to_venv")
     def test_only_pyodide_error_shown_when_native_succeeds(
-        self, mock_venv, mock_get_vendor, mock_vendor, caplog
+        self, mock_venv, mock_get_vendor, mock_vendor, caplog, tmp_path
     ):
         mocked_pyodide_error = "Pyodide install failed: no solution found"
         mock_vendor.return_value = mocked_pyodide_error
@@ -90,7 +105,13 @@ class TestInstallRequirements:
         import click
         import pytest
 
-        plan = InstallPlan(requirements=["some-package", "workers-runtime-sdk"])
+        plan = _make_plan(
+            tmp_path,
+            [
+                ("some-package", "1.0.0"),
+                ("workers-runtime-sdk", "1.0.0"),
+            ],
+        )
         with pytest.raises(click.exceptions.Exit):
             pywrangler_sync.install_requirements(plan)
 
@@ -101,14 +122,14 @@ class TestInstallRequirements:
 
         passed_plan = mock_vendor.call_args_list[0][0][0]
         assert passed_plan.requirements == [
-            "some-package",
-            "workers-runtime-sdk",
+            ("some-package", "1.0.0"),
+            ("workers-runtime-sdk", "1.0.0"),
         ]
 
         # native installation should be called with the original requirements
         assert mock_venv.call_args_list[0][0][0] == [
-            "some-package",
-            "workers-runtime-sdk",
+            "some-package==1.0.0",
+            "workers-runtime-sdk==1.0.0",
         ]
 
         log_messages = [record.message for record in caplog.records]
@@ -123,7 +144,7 @@ class TestInstallRequirements:
     @patch.object(pywrangler_sync, "_get_vendor_package_versions")
     @patch.object(pywrangler_sync, "_install_requirements_to_venv")
     def test_pyodide_install_succeeds_but_native_installation_fail(
-        self, mock_venv, mock_get_vendor, mock_vendor, caplog
+        self, mock_venv, mock_get_vendor, mock_vendor, caplog, tmp_path
     ):
         mocked_native_error = "Native install failed: package not found"
         mock_vendor.return_value = None
@@ -136,7 +157,13 @@ class TestInstallRequirements:
         import click
         import pytest
 
-        plan = InstallPlan(requirements=["some-package", "workers-runtime-sdk"])
+        plan = _make_plan(
+            tmp_path,
+            [
+                ("some-package", "1.0.0"),
+                ("workers-runtime-sdk", "1.0.0"),
+            ],
+        )
         with pytest.raises(click.exceptions.Exit):
             pywrangler_sync.install_requirements(plan)
 
@@ -146,8 +173,8 @@ class TestInstallRequirements:
 
         passed_plan = mock_vendor.call_args_list[0][0][0]
         assert passed_plan.requirements == [
-            "some-package",
-            "workers-runtime-sdk",
+            ("some-package", "1.0.0"),
+            ("workers-runtime-sdk", "1.0.0"),
         ]
         assert mock_venv.call_args_list[0][0][0] == [
             "some-package==1.0.0",
@@ -166,7 +193,7 @@ class TestInstallRequirements:
     @patch.object(pywrangler_sync, "_get_vendor_package_versions")
     @patch.object(pywrangler_sync, "_install_requirements_to_venv")
     def test_known_pyodide_errors(
-        self, mock_venv, mock_get_vendor, mock_vendor, caplog
+        self, mock_venv, mock_get_vendor, mock_vendor, caplog, tmp_path
     ):
         common_errors = {
             "invalid peer certificate": "Are your systems certificates correctly installed? Do you have an Enterprise VPN enabled?",
@@ -182,7 +209,13 @@ class TestInstallRequirements:
             import click
             import pytest
 
-            plan = InstallPlan(requirements=["some-package", "workers-runtime-sdk"])
+            plan = _make_plan(
+                tmp_path,
+                [
+                    ("some-package", "1.0.0"),
+                    ("workers-runtime-sdk", "1.0.0"),
+                ],
+            )
             with pytest.raises(click.exceptions.Exit):
                 pywrangler_sync.install_requirements(plan)
 
@@ -262,38 +295,57 @@ class TestSyncTokenVersion:
         assert pywrangler_sync.is_sync_needed() is True
 
 
-class TestReadLockfileRequirements:
-    def test_reads_packages_from_pylock(self, tmp_path):
+class TestInstallPlan:
+    def test_parses_packages_from_pylock(self, tmp_path):
         lockfile = tmp_path / "pylock.toml"
         lockfile.write_text(
             'lock-version = "1.0"\n'
             '[[packages]]\nname = "click"\nversion = "8.1.7"\n'
             '[[packages]]\nname = "numpy"\nversion = "2.0.2"\n'
         )
-        result = pywrangler_resolve._read_lockfile_requirements(lockfile)
-        assert result == ["click==8.1.7", "numpy==2.0.2"]
+        plan = InstallPlan(lockfile)
+        assert plan.requirements == [("click", "8.1.7"), ("numpy", "2.0.2")]
+        assert plan.lockfile == lockfile
 
     def test_empty_packages(self, tmp_path):
         lockfile = tmp_path / "pylock.toml"
         lockfile.write_text('lock-version = "1.0"\n')
-        result = pywrangler_resolve._read_lockfile_requirements(lockfile)
-        assert result == []
+        plan = InstallPlan(lockfile)
+        assert plan.requirements == []
+
+    def test_to_requirement_strings(self, tmp_path):
+        lockfile = tmp_path / "pylock.toml"
+        lockfile.write_text(
+            'lock-version = "1.0"\n'
+            '[[packages]]\nname = "click"\nversion = "8.1.7"\n'
+            '[[packages]]\nname = "numpy"\nversion = "2.0.2"\n'
+        )
+        plan = InstallPlan(lockfile)
+        assert plan.to_requirement_strings() == ["click==8.1.7", "numpy==2.0.2"]
 
 
 class TestResolveRequirements:
-    @patch.object(
-        pywrangler_resolve,
-        "_compile_requirements",
-        return_value=["click==8.1.7"],
-    )
+    @patch.object(pywrangler_resolve, "_compile_lockfile")
     @patch.object(pywrangler_resolve, "parse_requirements", return_value=["click>=8.0"])
     @patch.object(pywrangler_utils, "get_lockfile_path")
     def test_compiles_from_deps(
         self, mock_lockpath, mock_parse, mock_compile, tmp_path
     ):
-        mock_lockpath.return_value = tmp_path / "pylock.toml"
+        lockfile = tmp_path / "pylock.toml"
+        mock_lockpath.return_value = lockfile
+
+        def write_lockfile(reqs, path, **kwargs):
+            path.write_text(
+                'lock-version = "1.0"\n'
+                '[[packages]]\nname = "click"\nversion = "8.1.7"\n'
+                '[[packages]]\nname = "workers-runtime-sdk"\nversion = "1.1.5"\n'
+            )
+
+        mock_compile.side_effect = write_lockfile
+
         plan = pywrangler_resolve.resolve_requirements()
-        assert plan.requirements == ["click==8.1.7"]
+        assert ("click", "8.1.7") in plan.requirements
+        assert ("workers-runtime-sdk", "1.1.5") in plan.requirements
         mock_parse.assert_called_once()
         mock_compile.assert_called_once()
 

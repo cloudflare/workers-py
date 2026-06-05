@@ -15,7 +15,6 @@ from .utils import (
     find_pyproject_toml,
     get_lockfile_path,
     get_project_root,
-    get_pyodide_index,
     get_python_version,
     get_pywrangler_version,
     get_uv_pyodide_interp_name,
@@ -147,10 +146,7 @@ def create_pyodide_venv() -> None:
 
 
 def _install_requirements_to_vendor(plan: InstallPlan) -> str | None:
-    """Install packages to the Pyodide vendor directory.
-
-    When the plan has a lockfile (pylock.toml), installs directly from it.
-    Otherwise falls back to a temp requirements file with dynamic resolution.
+    """Install packages to the Pyodide vendor directory from pylock.toml.
 
     Returns:
         Error message string if installation failed, None if successful.
@@ -183,41 +179,21 @@ def _install_requirements_to_vendor(plan: InstallPlan) -> str | None:
         shutil.rmtree(pyodide_site_packages)
         pyodide_site_packages.mkdir()
 
-    if plan.lockfile and plan.lockfile.is_file():
-        result = run_command(
-            [
-                "uv",
-                "pip",
-                "install",
-                "--no-build",
-                "-r",
-                str(plan.lockfile),
-                "--preview-features",
-                "pylock",
-            ],
-            capture_output=True,
-            check=False,
-            env=os.environ | {"VIRTUAL_ENV": str(get_pyodide_venv_path())},
-        )
-    else:
-        with temp_requirements_file(plan.requirements) as requirements_file:
-            result = run_command(
-                [
-                    "uv",
-                    "pip",
-                    "install",
-                    "--no-build",
-                    "-r",
-                    requirements_file,
-                    "--extra-index-url",
-                    get_pyodide_index(),
-                    "--index-strategy",
-                    "unsafe-best-match",
-                ],
-                capture_output=True,
-                check=False,
-                env=os.environ | {"VIRTUAL_ENV": str(get_pyodide_venv_path())},
-            )
+    result = run_command(
+        [
+            "uv",
+            "pip",
+            "install",
+            "--no-build",
+            "-r",
+            str(plan.lockfile),
+            "--preview-features",
+            "pylock",
+        ],
+        capture_output=True,
+        check=False,
+        env=os.environ | {"VIRTUAL_ENV": str(get_pyodide_venv_path())},
+    )
 
     if result.returncode != 0:
         return result.stdout.strip()
@@ -324,7 +300,9 @@ def install_requirements(plan: InstallPlan) -> None:
     # If the installation to the Pyodide vendor directory fails, use the original requirements
     # to see if it fails in the native venv as well.
     host_requirements = (
-        plan.requirements if pyodide_error else _get_vendor_package_versions()
+        plan.to_requirement_strings()
+        if pyodide_error
+        else _get_vendor_package_versions()
     )
     native_error = _install_requirements_to_venv(host_requirements)
 
