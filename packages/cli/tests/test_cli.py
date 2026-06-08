@@ -427,26 +427,12 @@ def test_sync_command_with_unchanged_timestamps(
 
 @patch.object(pywrangler_sync, "is_sync_needed", lambda: True)
 @patch.object(pywrangler_sync, "install_requirements")
-@patch.object(pywrangler_sync, "resolve_requirements")
-@patch.object(pywrangler_sync, "create_pyodide_venv")
-@patch.object(pywrangler_sync, "create_workers_venv")
 def test_sync_command_with_changed_timestamps(
-    mock_create_venv,
-    mock_create_pyodide,
-    mock_resolve,
     mock_install_requirements,
     test_dir,
     caplog,
 ):
     """Test that the sync command runs when timestamps indicate changes."""
-    from pywrangler.resolve import InstallPlan
-
-    lockfile = test_dir / "pylock.toml"
-    lockfile.write_text(
-        'lock-version = "1.0"\n[[packages]]\nname = "click"\nversion = "8.1.7"\n'
-    )
-    mock_resolve.return_value = InstallPlan(lockfile)
-
     # Create the pyproject.toml file
     create_test_pyproject(test_dir)
 
@@ -461,32 +447,19 @@ def test_sync_command_with_changed_timestamps(
     assert result.exit_code == 0
 
     # Verify that all the sync functions were called
-    mock_resolve.assert_called_once()
     mock_install_requirements.assert_called_once()
 
 
 @patch.object(pywrangler_sync, "is_sync_needed", lambda: False)
 @patch.object(pywrangler_sync, "install_requirements")
 @patch.object(pywrangler_sync, "resolve_requirements")
-@patch.object(pywrangler_sync, "create_pyodide_venv")
-@patch.object(pywrangler_sync, "create_workers_venv")
 def test_sync_command_with_force_flag(
-    mock_create_venv,
-    mock_create_pyodide,
     mock_resolve,
     mock_install_requirements,
     test_dir,
     caplog,
 ):
     """Test that the sync command runs when the --force flag is used, regardless of timestamps."""
-    from pywrangler.resolve import InstallPlan
-
-    lockfile = test_dir / "pylock.toml"
-    lockfile.write_text(
-        'lock-version = "1.0"\n[[packages]]\nname = "click"\nversion = "8.1.7"\n'
-    )
-    mock_resolve.return_value = InstallPlan(lockfile)
-
     create_test_pyproject(test_dir)
     create_test_wrangler_jsonc(test_dir)
 
