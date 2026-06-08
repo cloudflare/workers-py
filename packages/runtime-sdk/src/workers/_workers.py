@@ -958,16 +958,16 @@ class JsDict(dict):
         self[name] = value
 
 
-def _normalize_result(obj):
+def _replace_jsnull_with_none(obj):
     """
     Recursively converts JS objects to Python objects.
     """
     if obj is jsnull:
         return None
     if isinstance(obj, dict):
-        return JsDict({k: _normalize_result(v) for k, v in obj.items()})
+        return JsDict({k: _replace_jsnull_with_none(v) for k, v in obj.items()})
     if isinstance(obj, list):
-        return [_normalize_result(v) for v in obj]
+        return [_replace_jsnull_with_none(v) for v in obj]
     return obj
 
 
@@ -993,11 +993,11 @@ def python_from_rpc(obj: "JsProxy"):
 
     result = obj.to_py(default_converter=_python_from_rpc_default_converter)
 
-    return _normalize_result(result)
+    return _replace_jsnull_with_none(result)
 
 
 def _raise_on_disabled_type(value):
-    if isinstance(value, _RPCWrapper):
+    if isinstance(value, _BindingWrapper):
         return
 
     if _is_js_instance(value, "RegExp"):
@@ -1023,7 +1023,7 @@ def _python_to_rpc_default_converter(obj, convert, cache):
     if obj is None:
         return jsnull
 
-    if isinstance(obj, _RPCWrapper):
+    if isinstance(obj, _BindingWrapper):
         return obj._binding
 
     if hasattr(obj, "js_object"):
@@ -1063,7 +1063,7 @@ def python_to_rpc(value) -> JsProxy:
     if value is None:
         return jsnull
 
-    if isinstance(value, _RPCWrapper):
+    if isinstance(value, _BindingWrapper):
         return value._binding
 
     value = _replace_none_with_jsnull(value)
@@ -1080,7 +1080,7 @@ def python_to_rpc(value) -> JsProxy:
     return result
 
 
-class _RPCWrapper:
+class _BindingWrapper:
     def __init__(self, binding):
         self._binding = binding
 
@@ -1124,7 +1124,7 @@ class _RPCWrapper:
         return self._convert_result(getattr(self._binding, key))
 
 
-class _FetcherWrapper(_RPCWrapper):
+class _FetcherWrapper(_BindingWrapper):
     def fetch(self, *args, **kwargs):
         return fetch(*args, fetcher=self._binding.fetch, **kwargs)
 
@@ -1243,13 +1243,13 @@ class _EnvWrapper:
             return _WorkflowBindingWrapper(binding)
 
         if _is_js_instance(binding, "KvNamespace"):
-            return _RPCWrapper(binding)
+            return _BindingWrapper(binding)
 
         if _is_js_instance(binding, "R2Bucket"):
-            return _RPCWrapper(binding)
+            return _BindingWrapper(binding)
 
         if _is_js_instance(binding, "D1Database"):
-            return _RPCWrapper(binding)
+            return _BindingWrapper(binding)
 
         return binding
 
