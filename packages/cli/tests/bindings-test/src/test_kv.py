@@ -93,7 +93,7 @@ async def test_put_with_metadata(env):
     await _cleanup_kv(kv)
     key = "_test:metadata"
     metadata = {"author": "test-suite", "version": "1.0"}
-    await kv.put(key, "metadata test", {"metadata": metadata})
+    await kv.put(key, "metadata test", metadata=metadata)
     result = await kv.getWithMetadata(key)
     assert result["value"] == "metadata test"
     assert result["metadata"] is not None, "expected metadata"
@@ -114,10 +114,10 @@ async def test_put_with_expiration_ttl(env):
     kv = env.KV
     await _cleanup_kv(kv)
     key = "_test:expiration_ttl"
-    await kv.put(key, "expires soon", {"expirationTtl": 60})
+    await kv.put(key, "expires soon", expirationTtl=60)
     result = await kv.get(key)
     assert result == "expires soon"
-    listed = await kv.list({"prefix": key})
+    listed = await kv.list(prefix=key)
     matching = [k for k in listed["keys"] if k["name"] == key]
     assert len(matching) == 1, "key not found in list"
     assert matching[0].get("expiration") is not None, "expected expiration to be set"
@@ -129,7 +129,7 @@ async def test_list_basic(env):
     await _cleanup_kv(kv)
     for i in range(3):
         await kv.put(f"_test:list_basic:{i}", f"val-{i}")
-    result = await kv.list({"prefix": "_test:list_basic:"})
+    result = await kv.list(prefix="_test:list_basic:")
     keys = result["keys"]
     names = [k["name"] for k in keys]
     assert len(keys) >= 3
@@ -145,7 +145,7 @@ async def test_list_with_prefix(env):
     await kv.put("_test:prefix_a:1", "a1")
     await kv.put("_test:prefix_a:2", "a2")
     await kv.put("_test:prefix_b:1", "b1")
-    result = await kv.list({"prefix": "_test:prefix_a:"})
+    result = await kv.list(prefix="_test:prefix_a:")
     names = [k["name"] for k in result["keys"]]
     assert len(names) == 2
     assert all(n.startswith("_test:prefix_a:") for n in names), (
@@ -160,13 +160,13 @@ async def test_list_with_limit_and_cursor(env):
     prefix = "_test:paginate:"
     for i in range(5):
         await kv.put(f"{prefix}{i:03d}", f"val-{i}")
-    page1 = await kv.list({"prefix": prefix, "limit": 2})
+    page1 = await kv.list(prefix=prefix, limit=2)
     assert len(page1["keys"]) == 2
     assert not page1["list_complete"], "expected list_complete=False"
     assert page1.get("cursor") is not None, "expected cursor on first page"
-    page2 = await kv.list({"prefix": prefix, "limit": 2, "cursor": page1["cursor"]})
+    page2 = await kv.list(prefix=prefix, limit=2, cursor=page1["cursor"])
     assert len(page2["keys"]) == 2
-    page3 = await kv.list({"prefix": prefix, "limit": 2, "cursor": page2["cursor"]})
+    page3 = await kv.list(prefix=prefix, limit=2, cursor=page2["cursor"])
     assert len(page3["keys"]) == 1
     assert page3["list_complete"], "expected list_complete=True on last page"
 
@@ -175,7 +175,7 @@ async def test_list_with_limit_and_cursor(env):
 async def test_list_empty_prefix(env):
     kv = env.KV
     await _cleanup_kv(kv)
-    result = await kv.list({"prefix": "_test:nonexistent_prefix_xyz:"})
+    result = await kv.list(prefix="_test:nonexistent_prefix_xyz:")
     assert len(result["keys"]) == 0
     assert result["list_complete"]
 
@@ -186,8 +186,8 @@ async def test_list_with_metadata(env):
     await _cleanup_kv(kv)
     key = "_test:list_meta"
     metadata = {"tag": "listed"}
-    await kv.put(key, "has metadata", {"metadata": metadata})
-    result = await kv.list({"prefix": key})
+    await kv.put(key, "has metadata", metadata=metadata)
+    result = await kv.list(prefix=key)
     matching = [k for k in result["keys"] if k["name"] == key]
     assert len(matching) == 1
     assert matching[0].get("metadata") is not None, "expected metadata in list result"
@@ -202,7 +202,7 @@ async def test_get_with_metadata_has_metadata(env):
     await _cleanup_kv(kv)
     key = "_test:gwm_meta"
     metadata = {"env": "test", "version": 2}
-    await kv.put(key, "value with meta", {"metadata": metadata})
+    await kv.put(key, "value with meta", metadata=metadata)
     result = await kv.getWithMetadata(key)
     assert result["value"] == "value with meta"
     assert result["metadata"] == metadata
@@ -215,7 +215,7 @@ async def test_get_type_as_options_dict(env):
     key = "_test:get_type_opts"
     payload = {"x": "hello"}
     await kv.put(key, json.dumps(payload))
-    result = await kv.get(key, {"type": "json"})
+    result = await kv.get(key, type="json")
     assert isinstance(result, dict)
     assert result["x"] == "hello"
 
@@ -258,28 +258,28 @@ async def test_get_multiple_keys_json(env):
 
 
 @pytest.mark.asyncio
-async def test_put_kwargs_expiration_ttl(env):
+async def test_put_dict_expiration_ttl(env):
     kv = env.KV
     await _cleanup_kv(kv)
-    key = "_test:kwargs_ttl"
-    await kv.put(key, "kwargs ttl", expirationTtl=60)
+    key = "_test:dict_ttl"
+    await kv.put(key, "dict ttl", {"expirationTtl": 60})
     result = await kv.get(key)
-    assert result == "kwargs ttl"
-    listed = await kv.list(prefix=key)
+    assert result == "dict ttl"
+    listed = await kv.list({"prefix": key})
     matching = [k for k in listed["keys"] if k["name"] == key]
     assert len(matching) == 1
-    assert matching[0].get("expiration") is not None, "expected expiration to be set"
+    assert matching[0].get("expiration") is not None
 
 
 @pytest.mark.asyncio
-async def test_put_kwargs_metadata(env):
+async def test_put_dict_metadata(env):
     kv = env.KV
     await _cleanup_kv(kv)
-    key = "_test:kwargs_meta"
-    await kv.put(key, "kwargs meta", metadata={"source": "kwargs"})
+    key = "_test:dict_meta"
+    await kv.put(key, "dict meta", {"metadata": {"source": "dict"}})
     result = await kv.getWithMetadata(key)
-    assert result["value"] == "kwargs meta"
-    assert result["metadata"]["source"] == "kwargs"
+    assert result["value"] == "dict meta"
+    assert result["metadata"]["source"] == "dict"
 
 
 @pytest.mark.asyncio

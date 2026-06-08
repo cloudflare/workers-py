@@ -169,7 +169,7 @@ async def test_raw_with_column_names(env):
     rows = (
         await db.prepare(f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1")
         .bind("raw_cols")
-        .raw({"columnNames": True})
+        .raw(columnNames=True)
     )
     assert len(rows) == 2
     assert rows[0] == ["name", "value"]
@@ -415,23 +415,23 @@ async def test_invalid_sql_raises_error(env):
 
 
 @pytest.mark.asyncio
-async def test_raw_kwargs_column_names(env):
+async def test_raw_dict_column_names(env):
     db = env.DB
     await _cleanup_d1(db)
     await _ensure_tables(db)
     await (
         db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
-        .bind("kwargs_raw", "kv")
+        .bind("dict_raw", "dr")
         .run()
     )
     rows = await (
         db.prepare(f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1")
-        .bind("kwargs_raw")
-        .raw(columnNames=True)
+        .bind("dict_raw")
+        .raw({"columnNames": True})
     )
     assert len(rows) == 2
     assert rows[0] == ["name", "value"]
-    assert rows[1] == ["kwargs_raw", "kv"]
+    assert rows[1] == ["dict_raw", "dr"]
 
 
 @pytest.mark.asyncio

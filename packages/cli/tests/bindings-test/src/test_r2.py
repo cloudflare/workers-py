@@ -44,9 +44,7 @@ async def test_put_and_get_json(env):
     await bucket.put(
         key,
         json.dumps(payload),
-        {
-            "httpMetadata": {"contentType": "application/json"},
-        },
+        httpMetadata={"contentType": "application/json"},
     )
     body = await bucket.get(key)
     assert body is not None, "get returned None"
@@ -62,13 +60,11 @@ async def test_put_with_http_metadata(env):
     await bucket.put(
         key,
         "metadata test",
-        {
-            "httpMetadata": {
-                "contentType": "text/plain",
-                "contentLanguage": "en-US",
-                "contentDisposition": "inline",
-                "cacheControl": "max-age=3600",
-            },
+        httpMetadata={
+            "contentType": "text/plain",
+            "contentLanguage": "en-US",
+            "contentDisposition": "inline",
+            "cacheControl": "max-age=3600",
         },
     )
     head = await bucket.head(key)
@@ -86,7 +82,7 @@ async def test_put_with_custom_metadata(env):
     await _cleanup_r2(bucket)
     key = "_test/custom_meta"
     custom = {"author": "test-suite", "version": "1.0"}
-    await bucket.put(key, "custom metadata test", {"customMetadata": custom})
+    await bucket.put(key, "custom metadata test", customMetadata=custom)
     head = await bucket.head(key)
     assert head is not None, "head returned None"
     assert head["customMetadata"] == custom, (
@@ -157,7 +153,7 @@ async def test_list_basic(env):
     await _cleanup_r2(bucket)
     for i in range(3):
         await bucket.put(f"_test/list_basic/{i}", f"val-{i}")
-    result = await bucket.list({"prefix": "_test/list_basic/"})
+    result = await bucket.list(prefix="_test/list_basic/")
     objects = result["objects"]
     keys = [obj.key for obj in objects]
     assert len(objects) >= 3
@@ -172,7 +168,7 @@ async def test_list_with_prefix(env):
     await bucket.put("_test/prefix_a/1", "a1")
     await bucket.put("_test/prefix_a/2", "a2")
     await bucket.put("_test/prefix_b/1", "b1")
-    result = await bucket.list({"prefix": "_test/prefix_a/"})
+    result = await bucket.list(prefix="_test/prefix_a/")
     keys = [obj.key for obj in result["objects"]]
     assert len(keys) == 2
     assert all(k.startswith("_test/prefix_a/") for k in keys), (
@@ -187,17 +183,15 @@ async def test_list_with_limit_and_cursor(env):
     prefix = "_test/paginate/"
     for i in range(5):
         await bucket.put(f"{prefix}{i:03d}", f"val-{i}")
-    page1 = await bucket.list({"prefix": prefix, "limit": 2})
-    assert len(page1["objects"]) == 2, (
-        f"first page: expected 2, got {len(page1['objects'])}"
-    )
+    page1 = await bucket.list(prefix=prefix, limit=2)
+    objects1 = list(page1.objects)
+    assert len(objects1) == 2
     assert page1["truncated"], "expected truncated=True"
     assert page1["cursor"] is not None, "expected cursor"
-    page2 = await bucket.list({"prefix": prefix, "limit": 2, "cursor": page1["cursor"]})
-    assert len(page2["objects"]) == 2, (
-        f"second page: expected 2, got {len(page2['objects'])}"
-    )
-    page3 = await bucket.list({"prefix": prefix, "limit": 2, "cursor": page2["cursor"]})
+    page2 = await bucket.list(prefix=prefix, limit=2, cursor=page1["cursor"])
+    objects2 = list(page2["objects"])
+    assert len(objects2) == 2
+    page3 = await bucket.list(prefix=prefix, limit=2, cursor=page2["cursor"])
     assert len(page3["objects"]) == 1, (
         f"third page: expected 1, got {len(page3['objects'])}"
     )
@@ -212,7 +206,7 @@ async def test_list_with_delimiter(env):
     await bucket.put("_test/delim/dir1/file2", "f2")
     await bucket.put("_test/delim/dir2/file1", "f1")
     await bucket.put("_test/delim/root_file", "rf")
-    result = await bucket.list({"prefix": "_test/delim/", "delimiter": "/"})
+    result = await bucket.list(prefix="_test/delim/", delimiter="/")
     object_keys = [obj.key for obj in result["objects"]]
     prefixes = result["delimitedPrefixes"]
     assert "_test/delim/root_file" in object_keys
@@ -254,7 +248,7 @@ async def test_get_range_offset_length(env):
     key = "_test/range_test"
     content = "0123456789ABCDEF"
     await bucket.put(key, content)
-    body = await bucket.get(key, {"range": {"offset": 4, "length": 6}})
+    body = await bucket.get(key, range={"offset": 4, "length": 6})
     assert body is not None, "get returned None"
     text = await body.text()
     assert text == "456789"
@@ -267,7 +261,7 @@ async def test_get_range_suffix(env):
     key = "_test/range_suffix"
     content = "0123456789ABCDEF"
     await bucket.put(key, content)
-    body = await bucket.get(key, {"range": {"suffix": 4}})
+    body = await bucket.get(key, range={"suffix": 4})
     assert body is not None, "get returned None"
     text = await body.text()
     assert text == "CDEF"
@@ -282,10 +276,8 @@ async def test_r2object_properties(env):
     obj = await bucket.put(
         key,
         content,
-        {
-            "httpMetadata": {"contentType": "text/plain"},
-            "customMetadata": {"foo": "bar"},
-        },
+        httpMetadata={"contentType": "text/plain"},
+        customMetadata={"foo": "bar"},
     )
     assert obj["key"] == key
     assert obj["size"] == len(content)
@@ -306,9 +298,7 @@ async def test_multipart_upload(env):
     key = "_test/multipart"
     upload = await bucket.createMultipartUpload(
         key,
-        {
-            "customMetadata": {"uploadType": "multipart_test"},
-        },
+        customMetadata={"uploadType": "multipart_test"},
     )
     assert upload["key"] == key
     assert isinstance(upload["uploadId"], str) and upload["uploadId"]
@@ -343,27 +333,27 @@ async def test_multipart_abort(env):
 
 
 @pytest.mark.asyncio
-async def test_put_kwargs_custom_metadata(env):
+async def test_put_dict_custom_metadata(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
-    key = "_test/kwargs_meta"
-    await bucket.put(key, "kwargs test", customMetadata={"source": "kwargs"})
+    key = "_test/dict_meta"
+    await bucket.put(key, "dict test", {"customMetadata": {"source": "dict"}})
     head = await bucket.head(key)
     assert head is not None
-    assert head.customMetadata == {"source": "kwargs"}
+    assert head.customMetadata == {"source": "dict"}
 
 
 @pytest.mark.asyncio
-async def test_list_kwargs_prefix(env):
+async def test_list_dict_prefix(env):
     bucket = env.BUCKET
     await _cleanup_r2(bucket)
-    await bucket.put("_test/kw_a/1", "a1")
-    await bucket.put("_test/kw_a/2", "a2")
-    await bucket.put("_test/kw_b/1", "b1")
-    result = await bucket.list(prefix="_test/kw_a/")
+    await bucket.put("_test/dict_a/1", "a1")
+    await bucket.put("_test/dict_a/2", "a2")
+    await bucket.put("_test/dict_b/1", "b1")
+    result = await bucket.list({"prefix": "_test/dict_a/"})
     keys = [obj.key for obj in result.objects]
     assert len(keys) == 2
-    assert all(k.startswith("_test/kw_a/") for k in keys)
+    assert all(k.startswith("_test/dict_a/") for k in keys)
 
 
 @pytest.mark.asyncio
