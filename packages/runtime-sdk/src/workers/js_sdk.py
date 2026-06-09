@@ -2,6 +2,7 @@ import functools
 from typing import Any
 
 import _pyodide_entrypoint_helper
+from pyodide import __version__ as pyodide_version
 from pyodide.ffi import JsException
 
 
@@ -66,5 +67,9 @@ def patch_wait_until(ctx):
     """
     Patch the waitUntil method of the given context to ensure that async operations are properly handled.
     """
+    if pyodide_version == "0.26.0a2":
+        _pyodide_entrypoint_helper.patchWaitUntil(ctx)
+        return
+
     js_sdk = get_js_sdk()
     js_sdk.patchWaitUntil(ctx)
