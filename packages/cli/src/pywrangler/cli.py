@@ -12,6 +12,7 @@ from .utils import (
     WRANGLER_COMMAND,
     WRANGLER_CREATE_COMMAND,
     check_wrangler_version,
+    get_pywrangler_version,
     log_startup_info,
     run_command,
     setup_logging,
@@ -86,19 +87,9 @@ class ProxyToWranglerGroup(click.Group):
         return command
 
 
-def get_version() -> str:
-    """Get the version of pywrangler."""
-    try:
-        from importlib.metadata import version
-
-        return version("workers-py")
-    except Exception:
-        return "unknown"
-
-
 @click.group(cls=ProxyToWranglerGroup)
 @click.option("--debug", is_flag=True, help="Enable debug logging")
-@click.version_option(version=get_version(), prog_name="pywrangler")
+@click.version_option(version=get_pywrangler_version(), prog_name="pywrangler")
 def app(debug: bool = False) -> None:
     """
     A CLI tool for Cloudflare Workers.

@@ -1,4 +1,7 @@
+from pathlib import Path
 from unittest.mock import patch
+
+import pytest
 
 import pywrangler.sync as pywrangler_sync
 
@@ -175,3 +178,75 @@ class TestInstallRequirements:
 
             log_messages = [record.message for record in caplog.records]
             assert any(message in msg for msg in log_messages)
+
+
+class TestSyncTokenVersion:
+    """Tests for workers-py version tracking inside sync token files."""
+
+    @pytest.fixture
+    def project_root(self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+        pyproject = tmp_path / "pyproject.toml"
+        pyproject.write_text("[project]\nname='x'\nversion='0.0.0'\n")
+        monkeypatch.setattr(pywrangler_sync, "find_pyproject_toml", lambda: pyproject)
+        monkeypatch.setattr(pywrangler_sync, "get_project_root", lambda: tmp_path)
+        return tmp_path
+
+    def test_write_sync_token_records_current_version(
+        self, project_root: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.2.3")
+        token = project_root / ".venv-workers" / ".synced"
+
+        pywrangler_sync._write_sync_token(token)
+
+        assert token.is_file()
+        assert token.read_text().strip() == "1.2.3"
+
+    def test_sync_not_needed_when_version_matches(
+        self, project_root: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.2.3")
+        pywrangler_sync._write_sync_token(pywrangler_sync.get_vendor_token_path())
+        pywrangler_sync._write_sync_token(pywrangler_sync.get_venv_workers_token_path())
+
+        assert pywrangler_sync.is_sync_needed() is False
+
+    def test_sync_needed_when_version_changes(
+        self, project_root: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.2.3")
+        pywrangler_sync._write_sync_token(pywrangler_sync.get_vendor_token_path())
+        pywrangler_sync._write_sync_token(pywrangler_sync.get_venv_workers_token_path())
+
+        # Simulate upgrading workers-py without touching pyproject.toml.
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.2.4")
+
+        assert pywrangler_sync.is_sync_needed() is True
+
+    def test_sync_needed_when_only_vendor_version_changes(
+        self, project_root: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.2.3")
+        pywrangler_sync._write_sync_token(pywrangler_sync.get_venv_workers_token_path())
+        # vendor token written with an older version
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.0.0")
+        pywrangler_sync._write_sync_token(pywrangler_sync.get_vendor_token_path())
+
+        # Current version matches venv token but not vendor token.
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.2.3")
+
+        assert pywrangler_sync.is_sync_needed() is True
+
+    def test_sync_needed_when_token_missing_version(
+        self, project_root: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.2.3")
+        # Write empty tokens to simulate pre-existing `.synced` files from older CLI versions.
+        vendor_token = pywrangler_sync.get_vendor_token_path()
+        venv_token = pywrangler_sync.get_venv_workers_token_path()
+        vendor_token.parent.mkdir(parents=True, exist_ok=True)
+        venv_token.parent.mkdir(parents=True, exist_ok=True)
+        vendor_token.write_text("")
+        venv_token.write_text("")
+
+        assert pywrangler_sync.is_sync_needed() is True

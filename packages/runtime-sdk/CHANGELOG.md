@@ -2,6 +2,54 @@
 
 <!-- version list -->
 
+## v1.1.6 (2026-05-28)
+
+### Bug Fixes
+
+- Include asgi.py in the wheel ([#110](https://github.com/cloudflare/workers-py/pull/110),
+  [`cab6fab`](https://github.com/cloudflare/workers-py/commit/cab6fab48e63b05ac6d9b230c69657bde97eb0b8))
+
+
+## v1.1.5 (2026-05-19)
+
+### Bug Fixes
+
+- Wrap DurableObject.abort() so that python cleanup can be done before abort
+  ([#106](https://github.com/cloudflare/workers-py/pull/106),
+  [`bf6acf2`](https://github.com/cloudflare/workers-py/commit/bf6acf24429fb1525f34334ff2cefffa45b287ef))
+
+- **runtime-sdk**: Wrap DO.abort() to cleanup stale tasks before abortion
+  ([#106](https://github.com/cloudflare/workers-py/pull/106),
+  [`bf6acf2`](https://github.com/cloudflare/workers-py/commit/bf6acf24429fb1525f34334ff2cefffa45b287ef))
+
+
+## v1.1.4 (2026-05-06)
+
+### Bug Fixes
+
+- Make pth file not warn when run in native Python
+  ([#100](https://github.com/cloudflare/workers-py/pull/100),
+  [`3c60df6`](https://github.com/cloudflare/workers-py/commit/3c60df6fd59c3ab65adeb5216feee3d52345ebb7))
+
+
+## v1.1.3 (2026-05-04)
+
+### Bug Fixes
+
+- Add entropy import context for packages from workerd
+  ([#99](https://github.com/cloudflare/workers-py/pull/99),
+  [`6e574ca`](https://github.com/cloudflare/workers-py/commit/6e574ca000776645d3cf2883e515c96f49a43c2c))
+
+
+## v1.1.2 (2026-04-21)
+
+### Bug Fixes
+
+- Make top level asgi import work with snapshots
+  ([#93](https://github.com/cloudflare/workers-py/pull/93),
+  [`3dd4115`](https://github.com/cloudflare/workers-py/commit/3dd41151d201aca4e1b895638fd3926eb1c68756))
+
+
 ## v1.1.1 (2026-03-18)
 
 ### Bug Fixes

@@ -1,0 +1,27 @@
+using Workerd = import "/workerd/workerd.capnp";
+
+const config :Workerd.Config = (
+  services = [
+    (name = "main", worker = .mainWorker),
+  ],
+);
+
+const mainWorker :Workerd.Worker = (
+  modules = [
+    (name = "worker.py", pythonModule = embed "worker.py"),
+    %PYTHON_MODULES
+  ],
+  durableObjectNamespaces = [
+    (
+      className = "AbortingDurableObject",
+      uniqueKey = "210bd0cbd803ef7883a1ee9d86cce06e",
+      enableSql = true,
+    ),
+  ],
+  durableObjectStorage = (inMemory = void),
+  bindings = [
+    (name = "ABORTER", durableObjectNamespace = "AbortingDurableObject"),
+  ],
+  compatibilityDate = "%COMPAT_DATE",
+  compatibilityFlags = ["python_workers", "service_binding_extra_handlers", "enable_python_external_sdk"],
+);

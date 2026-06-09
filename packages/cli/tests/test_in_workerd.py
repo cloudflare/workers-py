@@ -1,13 +1,16 @@
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
 import pytest
+from conftest import COMPAT_DATES, replace_compat_date
 
 TEST_DIR = Path(__file__).parent
 WORKERD_TESTS = TEST_DIR / "workerd-test"
 WORKERS_PY = TEST_DIR.parent
 WORKERS_RUNTIME_SDK = WORKERS_PY.parent / "runtime-sdk" / "src"
+DISK_SERVICE_NAME = "TEST_TMPDIR"
 
 
 def discover_workerd_tests():
@@ -46,11 +49,35 @@ def embed(dir: Path, root: Path, level: int = 0):
     return modules
 
 
+@pytest.fixture(scope="module")
+def bundle_cache_dir(tmp_path_factory):
+    yield tmp_path_factory.mktemp("bundle_cache")
+
+
+@pytest.mark.parametrize("compat_date", COMPAT_DATES)
 @pytest.mark.parametrize("test_dir, wd_test_file", discover_workerd_tests())
-def test_in_workerd(tmp_path, test_dir, wd_test_file, pytestconfig):
+def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
+    tmp_path, test_dir, wd_test_file, compat_date, pytestconfig, bundle_cache_dir
+):
+    # FIXME:
+    # pywrangler sync fails to install pyodide packages in unittest environment + Python 3.12 + Linux
+    # This is reproducible only in the unittest environment, and doesn't happen
+    # when running the same worker manually.
+    if (
+        test_dir.name == "sdk"
+        and compat_date < "2025-09-29"
+        and sys.platform == "linux"
+    ):
+        pytest.xfail("pywrangler sync + uv + pyodide 3.12 on Linux")
+
     color = pytestconfig.get_terminal_writer().hasmarkup
     target = tmp_path / test_dir.name
+    disk_service_dir = target / DISK_SERVICE_NAME
     shutil.copytree(test_dir, target)
+    disk_service_dir.mkdir(exist_ok=True)
+
+    replace_compat_date(target / "wrangler.jsonc", compat_date)
+
     subprocess.run(
         ["uv", "run", "--with", WORKERS_PY, "pywrangler", "sync"],
         cwd=target,
@@ -72,14 +99,38 @@ def test_in_workerd(tmp_path, test_dir, wd_test_file, pytestconfig):
         wd_config.read_text()
         .replace("%PYTHON_MODULES", python_modules)
         .replace("%COLOR", str(color).lower())
+        .replace("%COMPAT_DATE", compat_date)
     )
     subprocess.run(
         ["npm", "i", "workerd"],
         cwd=target,
         check=True,
     )
+    workerd_common = [
+        "node_modules/workerd/bin/workerd",
+        "test",
+        wd_test_file,
+        "--experimental",
+        "--python-snapshot-dir",
+        ".",
+        f"-d{DISK_SERVICE_NAME}={disk_service_dir}",
+        "--pyodide-bundle-disk-cache-dir",
+        bundle_cache_dir / compat_date,
+    ]
     subprocess.run(
-        ["node_modules/workerd/bin/workerd", "test", wd_test_file, "--experimental"],
+        [
+            *workerd_common,
+            "--python-save-snapshot",
+        ],
+        cwd=target,
+        check=True,
+    )
+    subprocess.run(
+        [
+            *workerd_common,
+            "--python-load-snapshot",
+            "snapshot.bin",
+        ],
         cwd=target,
         check=True,
     )

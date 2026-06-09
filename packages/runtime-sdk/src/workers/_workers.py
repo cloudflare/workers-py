@@ -25,9 +25,6 @@ import _cloudflare_compat_flags
 # Get globals modules and import function from the entrypoint-helper
 import _pyodide_entrypoint_helper
 import js
-
-if TYPE_CHECKING:
-    from js import DurableObjectState, Env, ExecutionContext
 import pyodide.http
 from js import Object
 from pyodide import __version__ as pyodide_version
@@ -35,13 +32,20 @@ from pyodide.ffi import (
     JsBuffer,
     JsException,
     JsProxy,
+    create_once_callable,
     create_proxy,
     destroy_proxies,
     to_js,
 )
 from pyodide.http import pyfetch
 
+from workers.js_sdk import (
+    patch_wait_until,
+)
 from workers.workflows import NonRetryableError
+
+if TYPE_CHECKING:
+    from js import DurableObjectState, Env, ExecutionContext
 
 
 class Context(Protocol):
@@ -58,63 +62,6 @@ def _jsnull_to_none(x):
     if x is jsnull:
         return None
     return x
-
-
-def import_from_javascript(module_name: str) -> Any:
-    """
-    Import a JavaScript ES module from Python.
-
-    Args:
-        module_name: The name of the module to import. This can be a module name or a path.
-
-    Returns:
-        The imported module object.
-
-    Example:
-        cloudflare_workers = import_from_javascript("cloudflare:workers")
-        env = cloudflare_workers.env
-
-    Note:
-        Behind the scenes import_from_javascript uses JSPI to do imports but that means we need an
-        async context. To enable importing cloudflare:workers and cloudflare:sockets in the global
-        scope we specifically imported them in the global scope and exposed them here.
-    """
-    # Special case for global scope available modules
-    # JSPI won't work in the global scope in 0.26.0a2 so we need modules importable in the global
-    # scope to be imported beforehand.
-    if module_name == "cloudflare:workers":
-        return _pyodide_entrypoint_helper.cloudflareWorkersModule
-    elif module_name == "cloudflare:sockets":
-        return _pyodide_entrypoint_helper.cloudflareSocketsModule
-
-    try:
-        from pyodide.ffi import run_sync
-
-        # Call the JavaScript import function
-        return run_sync(_pyodide_entrypoint_helper.doAnImport(module_name))
-    except JsException as e:
-        raise ImportError(f"Failed to import '{module_name}': {e}") from e
-    except RuntimeError as e:
-        if e.args[0] == "No suspender":
-            raise ImportError(
-                f"Failed to import '{module_name}': Only 'cloudflare:workers' and 'cloudflare:sockets' are available in the global scope."
-            ) from e
-        raise
-    except ImportError as e:
-        if e.args[0].startswith("cannot import name 'run_sync' from 'pyodide.ffi'"):
-            raise ImportError(
-                f"Failed to import '{module_name}': Only 'cloudflare:workers' and 'cloudflare:sockets' are available until the next python runtime version."
-            ) from e
-        raise
-
-
-@functools.cache
-def get_js_sdk():
-    # IMPORTANT:
-    # The module name here must match how wrangler registers the JS modules
-    # while vendoring the python_modules directory.
-    # See: https://github.com/cloudflare/workers-sdk/pull/13311
-    return import_from_javascript("python_modules/workers/sdk.mjs")
 
 
 @contextmanager
@@ -1073,6 +1020,39 @@ class _DurableObjectNamespaceWrapper:
         )
 
 
+class DurableObjectAbort(BaseException):
+    pass
+
+
+class DurableObjectContext:
+    def __init__(self, ctx: "DurableObjectState"):
+        self._ctx = ctx
+
+    def __getattr__(self, name: str):
+        result = getattr(self._ctx, name)
+        setattr(self, name, result)
+        return result
+
+    def abort(self, reason: str | None = None):
+        # DurableObjectState.abort() terminates JS execution immediately. If Python
+        # calls it synchronously while asyncio is still running the task in the event loop,
+        # V8 unwinds the stack before asyncio can run its task-exit cleanup, leaving
+        # stale task state behind for the next request.
+        #
+        # Therefore, we queue the real abort into a microtask so Python can unwind first,
+        # then raise BaseException to stop user code without being swallowed by
+        # `except Exception` handlers.
+        ctx = self._ctx
+
+        if reason is None:
+            callback = create_once_callable(lambda: ctx.abort())
+        else:
+            callback = create_once_callable(lambda: ctx.abort(reason))
+
+        js.queueMicrotask(callback)
+        raise DurableObjectAbort(reason or "Durable Object abort requested")
+
+
 class _WorkflowInstanceWrapper:
     def __init__(self, binding):
         self._binding = binding
@@ -1340,11 +1320,12 @@ def _wrap_subclass(cls):
     original_init = cls.__init__
 
     def wrapped_init(self, *args, **kwargs):
+        args = list(args)
         if len(args) > 0:
-            js_sdk = get_js_sdk()
-            js_sdk.patchWaitUntil(args[0])
+            patch_wait_until(args[0])
+            if issubclass(cls, DurableObject):
+                args[0] = DurableObjectContext(args[0])
         if len(args) > 1:
-            args = list(args)
             args[1] = _EnvWrapper(args[1])
 
         original_init(self, *args, **kwargs)
@@ -1384,7 +1365,7 @@ class DurableObject:
     Base class used to define a Durable Object.
     """
 
-    ctx: "DurableObjectState"
+    ctx: "DurableObjectContext"
     env: "Env"
 
     def __init__(self, ctx: "DurableObjectState", env: "Env"):

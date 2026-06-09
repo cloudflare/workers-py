@@ -19,10 +19,12 @@ from ._workers import (
     WorkflowEntrypoint,
     fetch,
     handler,
-    import_from_javascript,
     patch_env,
     python_from_rpc,
     python_to_rpc,
+)
+from .js_sdk import (
+    import_from_javascript,
 )
 
 __all__ = [
