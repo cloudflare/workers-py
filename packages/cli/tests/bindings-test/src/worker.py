@@ -14,6 +14,9 @@ import sys
 
 import pytest
 from pyodide.webloop import WebLoop
+from worker_durable_object import (
+    TestDurableObject,  # noqa: F401 - import to trigger side effect of registering the Durable Object
+)
 from workers import Response, WorkerEntrypoint
 
 

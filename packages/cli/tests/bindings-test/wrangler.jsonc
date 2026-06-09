@@ -15,5 +15,13 @@
             "database_id": "00000000-0000-0000-0000-000000000000",
             "database_name": "test-db"
         }
+    ],
+    "durable_objects": {
+        "bindings": [
+            { "name": "TEST_DO", "class_name": "TestDurableObject" }
+        ]
+    },
+    "migrations": [
+        { "tag": "v1", "new_sqlite_classes": ["TestDurableObject"] }
     ]
 }

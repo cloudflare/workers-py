@@ -17,7 +17,6 @@ from collections.abc import (
 from contextlib import ExitStack, contextmanager
 from enum import StrEnum
 from http import HTTPMethod, HTTPStatus
-from types import LambdaType
 from typing import TYPE_CHECKING, Any, Never, Protocol, TypedDict, Unpack
 
 import _cloudflare_compat_flags
@@ -1000,10 +999,13 @@ def _raise_on_disabled_type(value):
     if isinstance(value, _BindingWrapper):
         return
 
+    if callable(value) and not isinstance(value, type):
+        return
+
     if _is_js_instance(value, "RegExp"):
         raise TypeError(f"{value.constructor.name} cannot be sent over RPC.")
 
-    if isinstance(value, (tuple, bytearray, LambdaType)):
+    if isinstance(value, (tuple, bytearray)):
         raise TypeError(f"{type(value)} cannot be sent over RPC.")
 
     if inspect.isawaitable(value):
@@ -1035,6 +1037,11 @@ def _python_to_rpc_default_converter(obj, convert, cache):
 
     if isinstance(obj, Exception):
         return js.Error.new(str(obj))
+
+    if callable(obj) and not isinstance(obj, type):
+        # Wrap function with create_proxy so that
+        # it doesn't get garbage collected
+        return create_proxy(obj)
 
     _raise_on_disabled_type(obj)
 
@@ -1158,6 +1165,9 @@ class DurableObjectContext:
 
     def __getattr__(self, name: str):
         result = getattr(self._ctx, name)
+        if _is_js_instance(result, "DurableObjectStorage"):
+            # durable_object.ctx.storage
+            result = _BindingWrapper(result)
         setattr(self, name, result)
         return result
 
