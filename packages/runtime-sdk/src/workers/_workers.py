@@ -770,6 +770,20 @@ class Request:
         return self.js_object.bodyUsed
 
     @property
+    def cf(self) -> "JsProxy | None":
+        """
+        Cloudflare-specific properties about the incoming request
+        (IncomingRequestCfProperties).  Access fields via attribute
+        notation, for example ``request.cf.colo``.
+
+        Returns None when not present (for example, in the dashboard/playground
+        preview or for requests constructed without a ``cf`` value).
+
+        See https://developers.cloudflare.com/workers/runtime-apis/request/#incomingrequestcfproperties
+        """
+        return _jsnull_to_none(self.js_object.cf)
+
+    @property
     def cache(self) -> str:
         return self.js_object.cache
 
