@@ -3,112 +3,143 @@ import sys
 
 import pytest
 
-# FIXME: This doesn't seem to happen in prod environment.
-#        But for some reason, pytest segfaults after running tests in dev environment (workerd).
-pytestmark = pytest.mark.skipif(
-    sys.version_info < (3, 13),
-    reason="pytest segfaults after running tests",
-)
+pytestmark = [
+    pytest.mark.skipif(
+        sys.version_info < (3, 13),
+        reason="pytest segfaults after running tests",
+    ),
+    pytest.mark.asyncio,
+]
+
+_send_cache = None
+_batch_cache = None
 
 
-async def _send_and_receive(env, body, **send_opts):
+def _find(messages, predicate):
+    return next(m for m in messages if predicate(m))
+
+
+async def _get_send_results(env):
+    global _send_cache
+    if _send_cache is not None:
+        return _send_cache
+
     from worker import RECEIVED_MESSAGES
 
     RECEIVED_MESSAGES.clear()
-    await env.TEST_QUEUE.send(body, **send_opts)
-    await asyncio.sleep(2)  # Wait for the message to be processed
-    assert len(RECEIVED_MESSAGES) > 0, "no messages received by consumer"
-    return RECEIVED_MESSAGES[-1]
+
+    # Send everything at once to reduce the overall test time
+    await env.TEST_QUEUE.send("hello queue")
+    await env.TEST_QUEUE.send({"key": "value", "number": 42})
+    await env.TEST_QUEUE.send(123)
+    await env.TEST_QUEUE.send("text message", contentType="text")
+    await env.TEST_QUEUE.send(None)
+    await env.TEST_QUEUE.send(True)
+    await env.TEST_QUEUE.send([1, 2, 3])
+    await env.TEST_QUEUE.send("")
+    await env.TEST_QUEUE.send({"outer": {"inner": "deep"}, "list": [1, 2]})
+
+    await asyncio.sleep(2)
+
+    assert len(RECEIVED_MESSAGES) >= 9
+    _send_cache = list(RECEIVED_MESSAGES)
+    return _send_cache
 
 
-@pytest.mark.asyncio
+async def _get_batch_results(env):
+    global _batch_cache
+    if _batch_cache is not None:
+        return _batch_cache
+
+    from worker import RECEIVED_MESSAGES
+
+    RECEIVED_MESSAGES.clear()
+
+    await env.TEST_QUEUE.sendBatch(
+        [
+            {"body": "batch 1"},
+            {"body": "batch 2"},
+            {"body": "batch 3"},
+        ]
+    )
+    await env.TEST_QUEUE.sendBatch(
+        [{"body": "text msg", "contentType": "text"}],
+        delaySeconds=0,
+    )
+
+    await asyncio.sleep(2)
+
+    assert len(RECEIVED_MESSAGES) >= 4
+    _batch_cache = list(RECEIVED_MESSAGES)
+    return _batch_cache
+
+
 async def test_send_string(env):
-    msg = await _send_and_receive(env, "hello queue")
-    assert msg["body"] == "hello queue"
+    msgs = await _get_send_results(env)
+    msg = _find(msgs, lambda m: m["body"] == "hello queue")
     assert isinstance(msg["id"], str)
     assert msg["attempts"] >= 1
 
 
-@pytest.mark.asyncio
 async def test_send_dict(env):
-    msg = await _send_and_receive(env, {"key": "value", "number": 42})
-    assert msg["body"]["key"] == "value"
+    msgs = await _get_send_results(env)
+    msg = _find(
+        msgs,
+        lambda m: isinstance(m["body"], dict) and m["body"].get("key") == "value",
+    )
     assert msg["body"]["number"] == 42
 
 
-@pytest.mark.asyncio
 async def test_send_number(env):
-    msg = await _send_and_receive(env, 123)
-    assert msg["body"] == 123
+    msgs = await _get_send_results(env)
+    _find(msgs, lambda m: m["body"] == 123)
 
 
-@pytest.mark.asyncio
 async def test_send_with_content_type(env):
-    msg = await _send_and_receive(env, "text message", contentType="text")
-    assert msg["body"] == "text message"
+    msgs = await _get_send_results(env)
+    _find(msgs, lambda m: m["body"] == "text message")
 
 
-@pytest.mark.asyncio
 async def test_send_none(env):
-    msg = await _send_and_receive(env, None)
-    assert msg["body"] is None
+    msgs = await _get_send_results(env)
+    _find(msgs, lambda m: m["body"] is None)
 
 
-@pytest.mark.asyncio
 async def test_send_bool(env):
-    msg = await _send_and_receive(env, True)
-    assert msg["body"] is True
+    msgs = await _get_send_results(env)
+    _find(msgs, lambda m: m["body"] is True)
 
 
-@pytest.mark.asyncio
 async def test_send_list(env):
-    msg = await _send_and_receive(env, [1, 2, 3])
-    assert msg["body"] == [1, 2, 3]
+    msgs = await _get_send_results(env)
+    _find(msgs, lambda m: m["body"] == [1, 2, 3])
 
 
-@pytest.mark.asyncio
 async def test_send_empty_string(env):
-    msg = await _send_and_receive(env, "")
-    assert msg["body"] == ""
+    msgs = await _get_send_results(env)
+    _find(msgs, lambda m: m["body"] == "")
 
 
-@pytest.mark.asyncio
+async def test_send_nested_dict(env):
+    msgs = await _get_send_results(env)
+    msg = _find(
+        msgs,
+        lambda m: isinstance(m["body"], dict)
+        and isinstance(m["body"].get("outer"), dict),
+    )
+    assert msg["body"]["outer"]["inner"] == "deep"
+    assert msg["body"]["list"] == [1, 2]
+
+
 async def test_send_batch(env):
-    from worker import RECEIVED_MESSAGES
-
-    RECEIVED_MESSAGES.clear()
-    batch = [
-        {"body": "batch 1"},
-        {"body": "batch 2"},
-        {"body": "batch 3"},
-    ]
-    await env.TEST_QUEUE.sendBatch(batch)
-    await asyncio.sleep(2)
-
-    assert len(RECEIVED_MESSAGES) >= 3
-    bodies = [m["body"] for m in RECEIVED_MESSAGES]
+    msgs = await _get_batch_results(env)
+    bodies = [m["body"] for m in msgs]
     assert "batch 1" in bodies
     assert "batch 2" in bodies
     assert "batch 3" in bodies
 
 
-@pytest.mark.asyncio
 async def test_send_batch_with_options(env):
-    from worker import RECEIVED_MESSAGES
-
-    RECEIVED_MESSAGES.clear()
-    batch = [
-        {"body": "text msg", "contentType": "text"},
-    ]
-    await env.TEST_QUEUE.sendBatch(batch, delaySeconds=0)
-    await asyncio.sleep(2)
-
-    assert len(RECEIVED_MESSAGES) >= 1
-    assert RECEIVED_MESSAGES[-1]["body"] == "text msg"
-
-
-@pytest.mark.asyncio
-async def test_send_nested_dict(env):
-    msg = await _send_and_receive(env, {"outer": {"inner": "deep"}, "list": [1, 2]})
-    assert msg["body"]["outer"]["inner"] == "deep"
-    assert msg["body"]["list"] == [1, 2]
+    msgs = await _get_batch_results(env)
+    bodies = [m["body"] for m in msgs]
+    assert "text msg" in bodies
