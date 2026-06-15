@@ -16,7 +16,7 @@ async def _send_and_receive(env, body, **send_opts):
 
     RECEIVED_MESSAGES.clear()
     await env.TEST_QUEUE.send(body, **send_opts)
-    await asyncio.sleep(2)
+    await asyncio.sleep(2)  # Wait for the message to be processed
     assert len(RECEIVED_MESSAGES) > 0, "no messages received by consumer"
     return RECEIVED_MESSAGES[-1]
 
