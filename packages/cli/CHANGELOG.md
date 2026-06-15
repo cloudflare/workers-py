@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.12.0 (2026-06-12)
+
+### Features
+
+- Implements cf accessor on Request
+  ([`5777f80`](https://github.com/cloudflare/workers-py/commit/5777f80ead8d9a3c452fe3b6b8f2dc041d6c80d3))
+
+
 ## v1.11.0 (2026-06-03)
 
 ### Features
