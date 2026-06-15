@@ -5,8 +5,10 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 import tomllib
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from datetime import datetime
 from functools import cache
 from pathlib import Path
@@ -37,6 +39,8 @@ _LOG_LEVEL_MAP = {
     "warn": logging.WARNING,  # alias
     "error": logging.ERROR,
 }
+
+LOCKFILE_NAME = "pylock.toml"
 
 
 def setup_logging() -> int:
@@ -404,3 +408,16 @@ def get_pyodide_index() -> str:
         case "3.13":
             v = "0.28.3"
     return "https://index.pyodide.org/" + v
+
+
+def get_lockfile_path() -> Path:
+    return get_project_root() / LOCKFILE_NAME
+
+
+@contextmanager
+def temp_requirements_file(requirements: list[str]) -> Iterator[str]:
+    # Write dependencies to a requirements.txt-style temp file.
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt") as temp_file:
+        temp_file.write("\n".join(requirements))
+        temp_file.flush()
+        yield temp_file.name

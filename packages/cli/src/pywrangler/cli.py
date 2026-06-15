@@ -127,14 +127,19 @@ def types_command(outdir: str | None, config: str | None) -> Never:
 
 @app.command("sync")
 @click.option("--force", is_flag=True, help="Force sync even if no changes detected")
-def sync_command(force: bool = False) -> None:
+@click.option(
+    "--upgrade",
+    is_flag=True,
+    help="Allow package upgrades, ignoring pinned versions in pylock.toml",
+)
+def sync_command(force: bool = False, upgrade: bool = False) -> None:
     """
     Installs Python packages from pyproject.toml into src/vendor.
 
     Also creates a virtual env for Workers that you can use for testing.
     """
 
-    sync(force, directly_requested=True)
+    sync(force, directly_requested=True, upgrade=upgrade)
     write_success("Sync process completed successfully.")
 
 
