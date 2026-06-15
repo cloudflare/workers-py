@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.13.0 (2026-06-15)
+
+### Features
+
+- Add lockfile support to pywrangler sync command
+  ([#108](https://github.com/cloudflare/workers-py/pull/108),
+  [`4844aea`](https://github.com/cloudflare/workers-py/commit/4844aea44005052054b2d5ff5022b3dcd5ab4c49))
+
+
 ## v1.12.0 (2026-06-12)
 
 ### Features
