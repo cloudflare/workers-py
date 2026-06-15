@@ -1,24 +1,25 @@
 import logging
 import os
 import shutil
-import tempfile
-from collections.abc import Iterator
-from contextlib import contextmanager
 from pathlib import Path
 
 import click
 
+from .resolve import (
+    InstallPlan,
+    resolve_requirements,
+)
 from .utils import (
     check_uv_version,
     check_wrangler_config,
     find_pyproject_toml,
+    get_lockfile_path,
     get_project_root,
-    get_pyodide_index,
     get_python_version,
     get_pywrangler_version,
     get_uv_pyodide_interp_name,
-    read_pyproject_toml,
     run_command,
+    temp_requirements_file,
 )
 
 logger = logging.getLogger(__name__)
@@ -144,30 +145,8 @@ def create_pyodide_venv() -> None:
     run_command(["uv", "venv", str(pyodide_venv_path), "--python", interp_name])
 
 
-def parse_requirements() -> list[str]:
-    pyproject_data = read_pyproject_toml()
-
-    # Extract dependencies from [project.dependencies]
-    dependencies = pyproject_data.get("project", {}).get("dependencies", [])
-
-    logger.info(f"Found {len(dependencies)} dependencies.")
-    if dependencies:
-        for dep in dependencies:
-            logger.debug(f"  - {dep}")
-    return dependencies
-
-
-@contextmanager
-def temp_requirements_file(requirements: list[str]) -> Iterator[str]:
-    # Write dependencies to a requirements.txt-style temp file.
-    with tempfile.NamedTemporaryFile(mode="w", suffix=".txt") as temp_file:
-        temp_file.write("\n".join(requirements))
-        temp_file.flush()
-        yield temp_file.name
-
-
-def _install_requirements_to_vendor(requirements: list[str]) -> str | None:
-    """Install packages to the Pyodide vendor directory.
+def _install_requirements_to_vendor(plan: InstallPlan) -> str | None:
+    """Install packages to the Pyodide vendor directory from pylock.toml.
 
     Returns:
         Error message string if installation failed, None if successful.
@@ -175,7 +154,7 @@ def _install_requirements_to_vendor(requirements: list[str]) -> str | None:
     vendor_path = get_vendor_modules_path()
     logger.debug(f"Using vendor path: {vendor_path}")
 
-    if len(requirements) == 0:
+    if len(plan.requirements) == 0:
         logger.warning(
             f"Requirements list is empty. No dependencies to install in {vendor_path}."
         )
@@ -200,29 +179,27 @@ def _install_requirements_to_vendor(requirements: list[str]) -> str | None:
         shutil.rmtree(pyodide_site_packages)
         pyodide_site_packages.mkdir()
 
-    with temp_requirements_file(requirements) as requirements_file:
-        result = run_command(
-            [
-                "uv",
-                "pip",
-                "install",
-                "--no-build",
-                "-r",
-                requirements_file,
-                "--extra-index-url",
-                get_pyodide_index(),
-                "--index-strategy",
-                "unsafe-best-match",
-            ],
-            capture_output=True,
-            check=False,
-            env=os.environ | {"VIRTUAL_ENV": str(get_pyodide_venv_path())},
-        )
-        if result.returncode != 0:
-            return result.stdout.strip()
+    result = run_command(
+        [
+            "uv",
+            "pip",
+            "install",
+            "--no-build",
+            "-r",
+            str(plan.lockfile),
+            "--preview-features",
+            "pylock",
+        ],
+        capture_output=True,
+        check=False,
+        env=os.environ | {"VIRTUAL_ENV": str(get_pyodide_venv_path())},
+    )
 
-        shutil.rmtree(vendor_path)
-        shutil.copytree(pyodide_site_packages, vendor_path)
+    if result.returncode != 0:
+        return result.stdout.strip()
+
+    shutil.rmtree(vendor_path)
+    shutil.copytree(pyodide_site_packages, vendor_path)
 
     # Create a pyvenv.cfg file in python_modules to mark it as a virtual environment
     (vendor_path / "pyvenv.cfg").touch()
@@ -313,18 +290,19 @@ def _get_vendor_package_versions() -> list[str]:
     return _parse_pip_freeze(result.stdout)
 
 
-def install_requirements(requirements: list[str]) -> None:
-    requirements.append("workers-runtime-sdk")
+def install_requirements(plan: InstallPlan) -> None:
     # First, install to the Pyodide vendor directory. This determines the exact package
     # versions that will run in production.
-    pyodide_error = _install_requirements_to_vendor(requirements)
+    pyodide_error = _install_requirements_to_vendor(plan)
 
     # Then install to .venv-workers using the pinned versions from vendor.
     # This ensures host packages accurately reflect what will run in production.
     # If the installation to the Pyodide vendor directory fails, use the original requirements
     # to see if it fails in the native venv as well.
     host_requirements = (
-        requirements if pyodide_error else _get_vendor_package_versions()
+        plan.to_requirement_strings()
+        if pyodide_error
+        else _get_vendor_package_versions()
     )
     native_error = _install_requirements_to_venv(host_requirements)
 
@@ -395,8 +373,8 @@ def _is_out_of_date(token: Path, time: float) -> bool:
 
 def is_sync_needed() -> bool:
     """
-    Checks if pyproject.toml has been modified since the last sync, or if the
-    workers-py version has changed since the last sync.
+    Checks if pyproject.toml or pylock.toml has been modified since the last
+    sync, or if the workers-py version has changed since the last sync.
 
     Returns:
         bool: True if sync is needed, False otherwise
@@ -406,13 +384,22 @@ def is_sync_needed() -> bool:
         # If pyproject.toml doesn't exist, we need to abort anyway
         return True
 
-    pyproject_mtime = pyproject_toml_path.stat().st_mtime
-    return _is_out_of_date(get_vendor_token_path(), pyproject_mtime) or _is_out_of_date(
-        get_venv_workers_token_path(), pyproject_mtime
+    latest_mtime = pyproject_toml_path.stat().st_mtime
+
+    lockfile = get_lockfile_path()
+    if lockfile.is_file():
+        latest_mtime = max(latest_mtime, lockfile.stat().st_mtime)
+
+    return _is_out_of_date(get_vendor_token_path(), latest_mtime) or _is_out_of_date(
+        get_venv_workers_token_path(), latest_mtime
     )
 
 
-def sync(force: bool = False, directly_requested: bool = False) -> None:
+def sync(
+    force: bool = False,
+    directly_requested: bool = False,
+    upgrade: bool = False,
+) -> None:
     # Check if requirements.txt does not exist.
     check_requirements_txt()
 
@@ -437,10 +424,10 @@ def sync(force: bool = False, directly_requested: bool = False) -> None:
     # Set up Pyodide virtual env
     create_pyodide_venv()
 
-    # Generate requirements.txt from pyproject.toml by directly parsing the TOML file then install into vendor folder.
-    requirements = parse_requirements()
-    if not requirements:
+    # Resolve dependencies via uv pip compile targeting Pyodide, then install into vendor folder.
+    plan = resolve_requirements(upgrade=upgrade)
+    if not plan.requirements:
         logger.warning(
             "No dependencies found in [project.dependencies] section of pyproject.toml."
         )
-    install_requirements(requirements)
+    install_requirements(plan)

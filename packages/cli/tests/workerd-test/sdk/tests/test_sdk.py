@@ -452,6 +452,28 @@ async def test_request_unit_tests():
 
 
 @pytest.mark.asyncio
+async def test_request_cf_property():
+    # A Request constructed without cf should return None.
+    req_no_cf = Request("https://test.com")
+    assert req_no_cf.cf is None
+
+    # Construct a JS Request with a cf object and wrap it in the Python Request.
+    js_req = js.Request.new(
+        "https://test.com",
+        to_js(
+            {"cf": {"colo": "DFW", "country": "US"}},
+            dict_converter=js.Object.fromEntries,
+        ),
+    )
+    req_with_cf = Request(js_req)
+    cf = req_with_cf.cf
+    assert cf is not None
+    assert isinstance(cf, JsProxy), f"Expected JsProxy, got {type(cf).__name__}"
+    assert cf.colo == "DFW"
+    assert cf.country == "US"
+
+
+@pytest.mark.asyncio
 async def test_can_use_event_decorator():
     @response_handler
     async def handler(request):
