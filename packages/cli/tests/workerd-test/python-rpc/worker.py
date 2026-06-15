@@ -41,6 +41,14 @@ class PythonRpcTester(WorkerEntrypoint):
         assert not isinstance(x, JsProxy)
         return x
 
+    async def supports_jsnull(self):
+        try:
+            from pyodide.ffi import jsnull  # noqa: F401
+
+            return True
+        except ImportError:
+            return False
+
     async def handle_response(self, response):
         # Verify that we receive a Python object here...
         assert isinstance(response, Response)
@@ -196,6 +204,16 @@ async def test(ctrl, env, ctx):  # noqa: PLR0915
 
     js_undefined = await env.PythonRpc.identity(js.undefined)
     assert js_undefined is None
+
+    nested_none = await env.PythonRpc.identity({"a": 1, "b": None, "c": {"d": None}})
+    assert nested_none["a"] == 1
+    assert nested_none["b"] is None
+    assert nested_none["c"]["d"] is None
+
+    nested_none_js = await env.JsRpc.identity({"a": 1, "b": None, "c": {"d": None}})
+    assert nested_none_js["a"] == 1
+    assert nested_none_js["b"] is None
+    assert nested_none_js["c"]["d"] is None
 
     js_date = await env.PythonRpc.identity(js.Date.new())
     assert isinstance(js_date, datetime)

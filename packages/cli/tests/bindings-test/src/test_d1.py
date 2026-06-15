@@ -1,0 +1,481 @@
+import pytest
+from pyodide.ffi import JsException
+
+TEST_TABLE = "_test_d1"
+TEST_TABLE_TYPES = "_test_d1_types"
+TEST_TABLE_BATCH = "_test_d1_batch"
+EXEC_TABLE = "_test_d1_exec_tmp"
+EXEC_MULTI_TABLE = "_test_d1_exec_multi"
+
+
+async def _cleanup_d1(db):
+    for table in [
+        TEST_TABLE,
+        TEST_TABLE_TYPES,
+        TEST_TABLE_BATCH,
+        EXEC_TABLE,
+        EXEC_MULTI_TABLE,
+    ]:
+        try:
+            await db.exec(f"DROP TABLE IF EXISTS {table}")
+        except Exception:
+            pass
+
+
+async def _ensure_tables(db):
+    await db.exec(
+        f"CREATE TABLE IF NOT EXISTS {TEST_TABLE} "
+        f"(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, value TEXT)"
+    )
+    await db.exec(
+        f"CREATE TABLE IF NOT EXISTS {TEST_TABLE_TYPES} "
+        f"(id INTEGER PRIMARY KEY, txt TEXT, num REAL, intval INTEGER)"
+    )
+    await db.exec(
+        f"CREATE TABLE IF NOT EXISTS {TEST_TABLE_BATCH} "
+        f"(id INTEGER PRIMARY KEY, val TEXT)"
+    )
+
+
+@pytest.mark.asyncio
+async def test_insert_and_select_via_run(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    insert_result = (
+        await db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("run_test", "hello")
+        .run()
+    )
+    assert insert_result["success"] is True
+    meta = insert_result["meta"]
+    assert meta["changes"] >= 1
+    assert meta["last_row_id"] > 0
+    row_id = meta["last_row_id"]
+    select_result = (
+        await db.prepare(f"SELECT id, name, value FROM {TEST_TABLE} WHERE id = ?")
+        .bind(row_id)
+        .run()
+    )
+    rows = select_result["results"]
+    assert len(rows) == 1
+    assert rows[0]["name"] == "run_test"
+    assert rows[0]["value"] == "hello"
+
+
+@pytest.mark.asyncio
+async def test_all_returns_results(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("all_test", "v1")
+        .run()
+    )
+    result = (
+        await db.prepare(f"SELECT name, value FROM {TEST_TABLE} WHERE name = ?")
+        .bind("all_test")
+        .all()
+    )
+    assert result["success"] is True
+    rows = result["results"]
+    assert len(rows) >= 1
+    assert rows[0]["name"] == "all_test"
+
+
+@pytest.mark.asyncio
+async def test_first_returns_single_row(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("first_test", "fv")
+        .run()
+    )
+    row = (
+        await db.prepare(f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1")
+        .bind("first_test")
+        .first()
+    )
+    assert row is not None, "first() returned None"
+    assert isinstance(row, dict)
+    assert row["name"] == "first_test"
+    assert row["value"] == "fv"
+
+
+@pytest.mark.asyncio
+async def test_first_with_column_name(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("first_col", "col_val")
+        .run()
+    )
+    value = (
+        await db.prepare(f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1")
+        .bind("first_col")
+        .first("value")
+    )
+    assert value == "col_val"
+
+
+@pytest.mark.asyncio
+async def test_first_on_empty_result(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    row = (
+        await db.prepare(f"SELECT * FROM {TEST_TABLE} WHERE name = ?")
+        .bind("__nonexistent__xyz__")
+        .first()
+    )
+    assert row is None
+
+
+@pytest.mark.asyncio
+async def test_raw_returns_arrays(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("raw_test", "rv")
+        .run()
+    )
+    rows = (
+        await db.prepare(f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1")
+        .bind("raw_test")
+        .raw()
+    )
+    assert isinstance(rows, list)
+    assert len(rows) == 1
+    assert rows[0] == ["raw_test", "rv"]
+
+
+@pytest.mark.asyncio
+async def test_raw_with_column_names(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("raw_cols", "rc")
+        .run()
+    )
+    rows = (
+        await db.prepare(f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1")
+        .bind("raw_cols")
+        .raw(columnNames=True)
+    )
+    assert len(rows) == 2
+    assert rows[0] == ["name", "value"]
+    assert rows[1] == ["raw_cols", "rc"]
+
+
+@pytest.mark.asyncio
+async def test_bind_types(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+
+    await (
+        db.prepare(
+            f"INSERT INTO {TEST_TABLE_TYPES} (id, txt, num, intval) VALUES (?, ?, ?, ?)"
+        )
+        .bind(2, "hello, D1!", 3.14, 42)
+        .run()
+    )
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE_TYPES} (id, intval) VALUES (?, ?)")
+        .bind(3, True)
+        .run()
+    )
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE_TYPES} (id, intval) VALUES (?, ?)")
+        .bind(4, False)
+        .run()
+    )
+
+    row2 = (
+        await db.prepare(
+            f"SELECT txt, num, intval FROM {TEST_TABLE_TYPES} WHERE id = ?"
+        )
+        .bind(2)
+        .first()
+    )
+    assert row2["txt"] == "hello, D1!"
+    assert abs(row2["num"] - 3.14) < 0.001
+    assert row2["intval"] == 42
+
+    row3 = (
+        await db.prepare(f"SELECT intval FROM {TEST_TABLE_TYPES} WHERE id = ?")
+        .bind(3)
+        .first()
+    )
+    row4 = (
+        await db.prepare(f"SELECT intval FROM {TEST_TABLE_TYPES} WHERE id = ?")
+        .bind(4)
+        .first()
+    )
+    assert row3["intval"] == 1
+    assert row4["intval"] == 0
+
+
+@pytest.mark.asyncio
+async def test_exec_create_and_query(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    result = await db.exec(
+        f"CREATE TABLE IF NOT EXISTS {EXEC_TABLE} (id INTEGER PRIMARY KEY, val TEXT)"
+    )
+    assert result["count"] >= 1
+    assert result["duration"] >= 0
+
+
+@pytest.mark.asyncio
+async def test_exec_multiple_statements(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    result = await db.exec(
+        f"CREATE TABLE IF NOT EXISTS {EXEC_MULTI_TABLE} (id INTEGER PRIMARY KEY, val TEXT);\n"
+        f"INSERT INTO {EXEC_MULTI_TABLE} (val) VALUES ('a');\n"
+        f"INSERT INTO {EXEC_MULTI_TABLE} (val) VALUES ('b');"
+    )
+    assert result["count"] >= 3
+    rows = await db.prepare(f"SELECT val FROM {EXEC_MULTI_TABLE} ORDER BY val").raw()
+    assert rows == [["a"], ["b"]]
+
+
+@pytest.mark.asyncio
+async def test_batch_multiple_inserts(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    statements = [
+        db.prepare(f"INSERT INTO {TEST_TABLE_BATCH} (id, val) VALUES (?, ?)").bind(
+            1, "batch_a"
+        ),
+        db.prepare(f"INSERT INTO {TEST_TABLE_BATCH} (id, val) VALUES (?, ?)").bind(
+            2, "batch_b"
+        ),
+        db.prepare(f"INSERT INTO {TEST_TABLE_BATCH} (id, val) VALUES (?, ?)").bind(
+            3, "batch_c"
+        ),
+    ]
+    results = await db.batch(statements)
+    assert results is not None, "batch returned None"
+    all_rows = await db.prepare(
+        f"SELECT id, val FROM {TEST_TABLE_BATCH} ORDER BY id"
+    ).all()
+    rows = all_rows["results"]
+    assert len(rows) == 3
+    assert [row["val"] for row in rows] == ["batch_a", "batch_b", "batch_c"]
+
+
+@pytest.mark.asyncio
+async def test_run_metadata_fields(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    result = (
+        await db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("meta_test", "mv")
+        .run()
+    )
+    assert result["success"] is True
+    meta = result["meta"]
+    for key in [
+        "duration",
+        "changes",
+        "last_row_id",
+        "changed_db",
+        "rows_read",
+        "rows_written",
+        "size_after",
+    ]:
+        assert key in meta
+    assert meta["changes"] >= 1
+    assert meta["changed_db"] is True
+
+
+@pytest.mark.asyncio
+async def test_update_row(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    insert_result = (
+        await db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("update_me", "old_value")
+        .run()
+    )
+    row_id = insert_result["meta"]["last_row_id"]
+    update_result = (
+        await db.prepare(f"UPDATE {TEST_TABLE} SET value = ? WHERE id = ?")
+        .bind("new_value", row_id)
+        .run()
+    )
+    assert update_result["meta"]["changes"] == 1
+    row = (
+        await db.prepare(f"SELECT value FROM {TEST_TABLE} WHERE id = ?")
+        .bind(row_id)
+        .first()
+    )
+    assert row["value"] == "new_value"
+
+
+@pytest.mark.asyncio
+async def test_delete_row(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    insert_result = (
+        await db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("delete_me", "gone")
+        .run()
+    )
+    row_id = insert_result["meta"]["last_row_id"]
+    delete_result = (
+        await db.prepare(f"DELETE FROM {TEST_TABLE} WHERE id = ?").bind(row_id).run()
+    )
+    assert delete_result["meta"]["changes"] == 1
+    row = (
+        await db.prepare(f"SELECT * FROM {TEST_TABLE} WHERE id = ?")
+        .bind(row_id)
+        .first()
+    )
+    assert row is None
+
+
+@pytest.mark.asyncio
+async def test_session_prepare_and_query(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("session_test", "sv")
+        .run()
+    )
+    session = db.withSession()
+    assert session is not None, "withSession() returned None"
+    result = await session.prepare(f"SELECT COUNT(*) as cnt FROM {TEST_TABLE}").all()
+    assert result["success"] is True
+    assert result["results"][0]["cnt"] >= 1
+
+
+@pytest.mark.asyncio
+async def test_session_bookmark(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    session = db.withSession()
+    bookmark_before = session.getBookmark()
+    assert bookmark_before is None
+    await session.prepare("SELECT 1").all()
+    bookmark_after = session.getBookmark()
+    assert bookmark_after is not None
+    assert isinstance(bookmark_after, str)
+    assert len(bookmark_after) > 0
+
+
+@pytest.mark.asyncio
+async def test_session_batch(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    session = db.withSession()
+    statements = [
+        session.prepare(f"INSERT INTO {TEST_TABLE_BATCH} (id, val) VALUES (?, ?)").bind(
+            1, "sa"
+        ),
+        session.prepare(f"INSERT INTO {TEST_TABLE_BATCH} (id, val) VALUES (?, ?)").bind(
+            2, "sb"
+        ),
+    ]
+    results = await session.batch(statements)
+    assert results is not None, "session batch returned None"
+    rows = await session.prepare(
+        f"SELECT id, val FROM {TEST_TABLE_BATCH} ORDER BY id"
+    ).all()
+    assert len(rows["results"]) == 2
+    assert rows["results"][0]["val"] == "sa"
+    assert rows["results"][1]["val"] == "sb"
+
+
+@pytest.mark.asyncio
+async def test_invalid_sql_raises_error(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    with pytest.raises(JsException, match="syntax error"):
+        await db.prepare("INVALID SQL GIBBERISH").run()
+
+
+@pytest.mark.asyncio
+async def test_raw_dict_column_names(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("dict_raw", "dr")
+        .run()
+    )
+    rows = await (
+        db.prepare(f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1")
+        .bind("dict_raw")
+        .raw({"columnNames": True})
+    )
+    assert len(rows) == 2
+    assert rows[0] == ["name", "value"]
+    assert rows[1] == ["dict_raw", "dr"]
+
+
+@pytest.mark.asyncio
+async def test_bind_null(env):
+    import sys
+
+    if sys.version_info < (3, 13):
+        pytest.skip("Pyodide 0.26 (Python 3.12) cannot represent JS null")
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    await (
+        db.prepare(
+            f"INSERT INTO {TEST_TABLE_TYPES} (id, txt, num, intval) VALUES (?, ?, ?, ?)"
+        )
+        .bind(1, None, None, None)
+        .run()
+    )
+    row = (
+        await db.prepare(
+            f"SELECT txt, num, intval FROM {TEST_TABLE_TYPES} WHERE id = ?"
+        )
+        .bind(1)
+        .first()
+    )
+    assert row["txt"] is None
+    assert row["num"] is None
+    assert row["intval"] is None
+
+
+@pytest.mark.asyncio
+async def test_none_options_raw(env):
+    db = env.DB
+    await _cleanup_d1(db)
+    await _ensure_tables(db)
+    await (
+        db.prepare(f"INSERT INTO {TEST_TABLE} (name, value) VALUES (?, ?)")
+        .bind("none_raw", "nr")
+        .run()
+    )
+    rows = (
+        await db.prepare(f"SELECT name, value FROM {TEST_TABLE} WHERE name = ? LIMIT 1")
+        .bind("none_raw")
+        .raw(None)
+    )
+    assert len(rows) == 1
+    assert rows[0] == ["none_raw", "nr"]

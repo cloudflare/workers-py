@@ -17,7 +17,6 @@ from collections.abc import (
 from contextlib import ExitStack, contextmanager
 from enum import StrEnum
 from http import HTTPMethod, HTTPStatus
-from types import LambdaType
 from typing import TYPE_CHECKING, Any, Never, Protocol, TypedDict, Unpack
 
 import _cloudflare_compat_flags
@@ -916,6 +915,9 @@ class Request:
 
 
 def _python_from_rpc_default_converter(value, convert, cache):
+    if value is jsnull:
+        return None
+
     if not hasattr(value, "constructor"):
         # Assume that the object doesn't need conversion as it's not a JS object.
         return value
@@ -947,6 +949,41 @@ def _python_from_rpc_default_converter(value, convert, cache):
     return value
 
 
+class JsDict(dict):
+    """
+    Python dictionary that allows attribute access to keys.
+
+    This is used to convert JS objects to Python dictionaries while maintaining
+    the ability to access keys as attributes.
+    """
+
+    def __getattr__(self, name):
+        # The limitation of this approach is that if there is a key that conflicts with a built-in
+        # method or attribute of the dict class, it will not be accessible through attribute access.
+        # But that is a reasonable trade-off for the convenience of being able to access keys as
+        # attributes.
+        try:
+            return self[name]
+        except KeyError:
+            raise AttributeError(name) from None
+
+    def __setattr__(self, name, value):
+        self[name] = value
+
+
+def _replace_jsnull_with_none(obj):
+    """
+    Recursively converts JS objects to Python objects.
+    """
+    if obj is jsnull:
+        return None
+    if isinstance(obj, dict):
+        return JsDict({k: _replace_jsnull_with_none(v) for k, v in obj.items()})
+    if isinstance(obj, list):
+        return [_replace_jsnull_with_none(v) for v in obj]
+    return obj
+
+
 def python_from_rpc(obj: "JsProxy"):
     """
     Converts JS objects like Response, Request, Blob, etc. to equivalent Python objects defined in
@@ -955,6 +992,9 @@ def python_from_rpc(obj: "JsProxy"):
     This method is used for Workers RPC in Python to convert JavaScript objects to Python. As such
     it does not support serializing all JS object types.
     """
+
+    if obj is jsnull:
+        return None
 
     if not hasattr(obj, "constructor"):
         return obj
@@ -966,14 +1006,20 @@ def python_from_rpc(obj: "JsProxy"):
 
     result = obj.to_py(default_converter=_python_from_rpc_default_converter)
 
-    return result
+    return _replace_jsnull_with_none(result)
 
 
 def _raise_on_disabled_type(value):
+    if isinstance(value, _BindingWrapper):
+        return
+
+    if callable(value) and not isinstance(value, type):
+        return
+
     if _is_js_instance(value, "RegExp"):
         raise TypeError(f"{value.constructor.name} cannot be sent over RPC.")
 
-    if isinstance(value, (tuple, bytearray, LambdaType)):
+    if isinstance(value, (tuple, bytearray)):
         raise TypeError(f"{type(value)} cannot be sent over RPC.")
 
     if inspect.isawaitable(value):
@@ -991,7 +1037,10 @@ def _raise_on_disabled_type(value):
 
 def _python_to_rpc_default_converter(obj, convert, cache):
     if obj is None:
-        return obj
+        return jsnull
+
+    if isinstance(obj, _BindingWrapper):
+        return obj._binding
 
     if hasattr(obj, "js_object"):
         return obj.js_object
@@ -1003,9 +1052,24 @@ def _python_to_rpc_default_converter(obj, convert, cache):
     if isinstance(obj, Exception):
         return js.Error.new(str(obj))
 
+    if callable(obj) and not isinstance(obj, type):
+        # Wrap function with create_proxy so that
+        # it doesn't get garbage collected
+        return create_proxy(obj)
+
     _raise_on_disabled_type(obj)
 
     return obj
+
+
+def _replace_none_with_jsnull(value):
+    if value is None:
+        return jsnull
+    if isinstance(value, dict):
+        return {k: _replace_none_with_jsnull(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [_replace_none_with_jsnull(v) for v in value]
+    return value
 
 
 def python_to_rpc(value) -> JsProxy:
@@ -1017,37 +1081,58 @@ def python_to_rpc(value) -> JsProxy:
     it does not support serializing all Python object types.
     """
 
+    if value is None:
+        return jsnull
+
+    if isinstance(value, _BindingWrapper):
+        return value._binding
+
+    value = _replace_none_with_jsnull(value)
+
     # `to_js` won't always call the default_converter, for example when a list of tuples is passed
     _raise_on_disabled_type(value)
 
     result = to_js(
         value,
         default_converter=_python_to_rpc_default_converter,
-        dict_converter=js.Map.new,
+        dict_converter=Object.fromEntries,
     )
 
     return result
 
 
-class _FetcherWrapper:
+class _BindingWrapper:
     def __init__(self, binding):
         self._binding = binding
+
+    def _convert_result(self, result):
+        converted = python_from_rpc(result)
+        if isinstance(converted, JsProxy):
+            # If the RPC result is another JsProxy, we assume that
+            # it is another RPC-wrapped object and wrap it as well.
+            # for example, d1.bind() returns the same object as a result.
+            # TODO: This is a bit of a hack. We should revisit when there are more
+            # bindings to support with different patterns.
+            return self.__class__(converted)
+        return converted
 
     def _getattr_helper(self, name):
         attr = getattr(self._binding, name)
 
         if not callable(attr):
-            return attr
+            return self._convert_result(attr)
 
-        # Not using `@functools.wraps(attr)` here because `attr` is a JS proxy.
-        async def wrapper(*args, **kwargs):
+        def wrapper(*args, **kwargs):
             js_args = [python_to_rpc(arg) for arg in args]
             js_kwargs = {k: python_to_rpc(v) for k, v in kwargs.items()}
             result = attr(*js_args, **js_kwargs)
             if hasattr(result, "then") and callable(result.then):
-                return python_from_rpc(await result)
-            else:
-                return python_from_rpc(result)
+
+                async def await_and_convert():
+                    return self._convert_result(await result)
+
+                return await_and_convert()
+            return self._convert_result(result)
 
         return wrapper
 
@@ -1056,6 +1141,11 @@ class _FetcherWrapper:
         setattr(self, name, result)
         return result
 
+    def __getitem__(self, key):
+        return self._convert_result(getattr(self._binding, key))
+
+
+class _FetcherWrapper(_BindingWrapper):
     def fetch(self, *args, **kwargs):
         return fetch(*args, fetcher=self._binding.fetch, **kwargs)
 
@@ -1089,6 +1179,9 @@ class DurableObjectContext:
 
     def __getattr__(self, name: str):
         result = getattr(self._ctx, name)
+        if _is_js_instance(result, "DurableObjectStorage"):
+            # durable_object.ctx.storage
+            result = _BindingWrapper(result)
         setattr(self, name, result)
         return result
 
@@ -1173,7 +1266,15 @@ class _EnvWrapper:
         if _is_js_instance(binding, "WorkflowImpl"):
             return _WorkflowBindingWrapper(binding)
 
-        # TODO: Implement APIs for bindings.
+        if _is_js_instance(binding, "KvNamespace"):
+            return _BindingWrapper(binding)
+
+        if _is_js_instance(binding, "R2Bucket"):
+            return _BindingWrapper(binding)
+
+        if _is_js_instance(binding, "D1Database"):
+            return _BindingWrapper(binding)
+
         return binding
 
     def __getattr__(self, name):

@@ -4,17 +4,23 @@ The worker at bindings-test/src/worker.py exposes /run-tests/{suite} endpoints t
 binding tests inside workerd and return JSON results. This file starts the dev server, calls
 those endpoints, and maps each in-worker test to a pytest test case.
 
-To add a new binding: create src/<binding>_test.py in bindings-test/, register it in
-worker.py's ALL_TESTS, then add a TestXxx class below.
+The in-worker tests are ordinary pytest modules (src/test_<binding>.py); worker.py runs
+pytest against them and returns per-test results.
+
+To add a new binding: create src/test_<binding>.py in bindings-test/ with pytest tests
+and add any required binding to wrangler.jsonc.
 """
 
+import ast
+import functools
+import os
 import shutil
 import socket
 import subprocess
 import time
 from collections.abc import Callable, Generator
 from pathlib import Path
-from typing import Any, Literal, NotRequired, TypedDict
+from typing import Any, Literal, TypedDict
 
 import pytest
 import requests
@@ -22,6 +28,7 @@ from conftest import COMPAT_DATES, replace_compat_date
 
 TEST_DIR: Path = Path(__file__).parent
 BINDINGS_TEST_DIR: Path = TEST_DIR / "bindings-test"
+BINDINGS_SRC_DIR: Path = BINDINGS_TEST_DIR / "src"
 WORKERS_PY: Path = TEST_DIR.parent
 WORKERS_RUNTIME_SDK: Path = WORKERS_PY.parent / "runtime-sdk" / "src"
 
@@ -30,9 +37,10 @@ DEV_POLL_INTERVAL: float = 0.5
 
 
 class BindingTestResult(TypedDict):
-    status: Literal["passed", "failed", "error"]
-    error: NotRequired[str]
-    traceback: NotRequired[str]
+    status: Literal["passed", "failed", "error", "skipped"]
+    error: str
+    traceback: str
+    reason: str
 
 
 SuiteResults = dict[str, BindingTestResult]
@@ -79,6 +87,7 @@ def dev_server(
     tmp_path = tmp_path_factory.mktemp("bindings_test")
     target = tmp_path / "bindings-test"
     shutil.copytree(BINDINGS_TEST_DIR, target)
+    env = os.environ | {"_PYODIDE_EXTRA_MOUNTS": str(tmp_path)}
 
     replace_compat_date(target / "wrangler.jsonc", compat_date)
 
@@ -86,6 +95,7 @@ def dev_server(
         ["uv", "run", "--with", WORKERS_PY, "pywrangler", "sync"],
         cwd=target,
         check=True,
+        env=env,
     )
 
     shutil.copytree(WORKERS_RUNTIME_SDK, target / "python_modules", dirs_exist_ok=True)
@@ -110,6 +120,7 @@ def dev_server(
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
         text=True,
+        env=env,
     )
 
     _wait_for_ready(process, base_url)
@@ -123,17 +134,11 @@ def dev_server(
         process.wait()
 
 
-# key: (dev server url, test suite)
-_test_suite_cache: dict[tuple[str, str], SuiteResults] = {}
-
-
+@functools.cache
 def _get_test_results(dev_server: str, suite: str) -> SuiteResults:
-    key = (dev_server, suite)
-    if key not in _test_suite_cache:
-        resp = requests.get(f"{dev_server}/run-tests/{suite}", timeout=60)
-        assert resp.ok, f"Suite '{suite}' returned {resp.status_code}: {resp.text}"
-        _test_suite_cache[key] = resp.json()
-    return _test_suite_cache[key]
+    resp = requests.get(f"{dev_server}/run-tests/{suite}", timeout=60)
+    assert resp.ok, f"Suite '{suite}' returned {resp.status_code}: {resp.text}"
+    return resp.json()
 
 
 def _make_test(suite: str, test_name: str) -> Callable:
@@ -141,7 +146,9 @@ def _make_test(suite: str, test_name: str) -> Callable:
         results = _get_test_results(dev_server, suite)
         result: BindingTestResult | None = results.get(test_name)
         assert result is not None, f"Test {suite}::{test_name} not found in results"
-        if result["status"] == "failed":
+        if result["status"] == "skipped":
+            pytest.skip(result.get("reason", ""))
+        elif result["status"] == "failed":
             pytest.fail(result["error"])
         elif result["status"] == "error":
             pytest.fail(f"{result['error']}\n{result.get('traceback', '')}")
@@ -159,9 +166,31 @@ def binding_suite(suite: str, tests: list[str]) -> type:
     )
 
 
-TestKV = binding_suite(
-    "kv",
-    [
-        "put_and_get",
-    ],
-)
+def _discover_test_names(module_path: Path) -> list[str]:
+    """Return the suite-relative names of test functions defined in a module.
+
+    Parses the source statically (no import) and strips the ``test_`` prefix so
+    the names match the keys returned by the in-worker ResultCollector.
+    """
+    tree = ast.parse(module_path.read_text())
+    return [
+        node.name[len("test_") :]
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+        and node.name.startswith("test_")
+    ]
+
+
+def _discover_suites() -> dict[str, list[str]]:
+    """Map each ``test_<suite>.py`` module to its discovered test names."""
+    return {
+        module_path.stem[len("test_") :]: _discover_test_names(module_path)
+        for module_path in sorted(BINDINGS_SRC_DIR.glob("test_*.py"))
+    }
+
+
+# Generate a TestXxx class per discovered suite so each in-worker test surfaces
+# as its own pytest case without manual registration.
+for _suite, _test_names in _discover_suites().items():
+    _suite_cls = binding_suite(_suite, _test_names)
+    globals()[_suite_cls.__name__] = _suite_cls
