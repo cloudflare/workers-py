@@ -79,6 +79,11 @@ class ResultCollector:
                         else "unknown error",
                         "traceback": report.longreprtext,
                     }
+        elif report.when in ("setup", "teardown") and report.skipped:
+            self.results[key] = {
+                "status": "skipped",
+                "reason": str(report.longrepr),
+            }
         elif report.when in ("setup", "teardown") and report.failed:
             self.results[key] = {
                 "status": "error",
@@ -96,6 +101,9 @@ class EnvPlugin:
         return self._env
 
 
+RECEIVED_MESSAGES = []
+
+
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
         from urllib.parse import urlparse
@@ -108,6 +116,17 @@ class Default(WorkerEntrypoint):
         if path == "/health":
             return Response.json({"ok": True})
         return Response.json({"error": "not found"}, status=404)
+
+    async def queue(self, batch):
+        for message in batch.messages:
+            RECEIVED_MESSAGES.append(
+                {
+                    "id": message.id,
+                    "body": message.body,
+                    "attempts": message.attempts,
+                }
+            )
+            message.ack()
 
     def _run_suite(self, suite_name):
         module = f"test_{suite_name}"
