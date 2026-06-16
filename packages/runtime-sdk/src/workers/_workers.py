@@ -1475,27 +1475,18 @@ async def _do_call(entrypoint, name, config, callback, *results):
     return result
 
 
-_INIT_WRAPPED = "__workers_init_wrapped__"
-
-
 def _wrap_subclass(cls):
     # Override the class __init__ so that we can wrap the `env` in the constructor.
     original_init = cls.__init__
 
     def wrapped_init(self, *args, **kwargs):
-        # Guard against double-wrapping in multi-level inheritance.
-        # __init_subclass__ fires for every subclass, so each level installs
-        # its own wrapped_init. The per-instance flag ensures ctx/env are
-        # wrapped only once, by the outermost wrapped_init.
-        if not hasattr(self, _INIT_WRAPPED):
-            args = list(args)
-            if len(args) > 0:
-                _pyodide_entrypoint_helper.patchWaitUntil(args[0])
-                if issubclass(cls, DurableObject):
-                    args[0] = DurableObjectContext(args[0])
-            if len(args) > 1:
-                args[1] = _EnvWrapper(args[1])
-            setattr(self, _INIT_WRAPPED, True)
+        args = list(args)
+        if len(args) > 0:
+            _pyodide_entrypoint_helper.patchWaitUntil(args[0])
+            if issubclass(cls, DurableObject):
+                args[0] = DurableObjectContext(args[0])
+        if len(args) > 1:
+            args[1] = _EnvWrapper(args[1])
 
         original_init(self, *args, **kwargs)
 
@@ -1542,7 +1533,8 @@ class DurableObject:
         self.env = env
 
     def __init_subclass__(cls, **_kwargs):
-        _wrap_subclass(cls)
+        if DurableObject in cls.__bases__:
+            _wrap_subclass(cls)
 
 
 class WorkerEntrypoint:
@@ -1558,7 +1550,10 @@ class WorkerEntrypoint:
         self.env = env
 
     def __init_subclass__(cls, **_kwargs: Any):
-        _wrap_subclass(cls)
+        # Make sure we do not apply the wrapper multiple times
+        # when inheriting from the base class
+        if WorkerEntrypoint in cls.__bases__:
+            _wrap_subclass(cls)
 
 
 class WorkflowEntrypoint:
@@ -1574,5 +1569,6 @@ class WorkflowEntrypoint:
         self.env = env
 
     def __init_subclass__(cls, **_kwargs: Any):
-        _wrap_subclass(cls)
+        if WorkflowEntrypoint in cls.__bases__:
+            _wrap_subclass(cls)
         _wrap_workflow_step(cls)
