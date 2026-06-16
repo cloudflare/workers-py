@@ -3,13 +3,28 @@
 # _wrap_subclass must not double-wrap ctx and env when the hierarchy is >1 deep.
 
 from workers import DurableObject, WorkerEntrypoint
-from workers._workers import _EnvWrapper
+from workers._workers import DurableObjectContext, _EnvWrapper
+
+
+def assert_wrapped_once(obj):
+    assert isinstance(obj.env, _EnvWrapper), "env should be an _EnvWrapper"
+    assert not isinstance(obj.env._env, _EnvWrapper), "env should not be double-wrapped"
+
+
+def assert_do_wrapped_once(obj):
+    assert_wrapped_once(obj)
+    assert isinstance(obj.ctx, DurableObjectContext), (
+        "ctx should be a DurableObjectContext"
+    )
+    assert not isinstance(obj.ctx._ctx, DurableObjectContext), (
+        "ctx should not be double-wrapped"
+    )
 
 
 class BaseDurableObject(DurableObject):
     def __init__(self, ctx, env):
         super().__init__(ctx, env)
-        # Fails if ctx is double-wrapped: DurableObjectContext(DurableObjectContext(...))
+        assert_do_wrapped_once(self)
         self.ctx.storage.sql.exec("SELECT NULL")
 
     async def shared_method(self):
@@ -20,13 +35,8 @@ class LeafDurableObject(BaseDurableObject):
     async def hello(self):
         return "hello from leaf"
 
-    async def check_env(self):
-        return self.env is not None
-
-    async def check_ctx(self):
-        return self.ctx is not None
-
-    async def check_storage(self):
+    async def verify_wrapping(self):
+        assert_do_wrapped_once(self)
         self.ctx.storage.sql.exec("SELECT NULL")
         return True
 
@@ -34,15 +44,15 @@ class LeafDurableObject(BaseDurableObject):
 class LeafDurableObjectWithInit(BaseDurableObject):
     def __init__(self, ctx, env):
         super().__init__(ctx, env)
+        assert_do_wrapped_once(self)
         self.custom_attr = "custom"
 
     async def hello(self):
         return "hello with init"
 
-    async def check_custom(self):
-        return self.custom_attr == "custom"
-
-    async def check_storage(self):
+    async def verify_wrapping(self):
+        assert_do_wrapped_once(self)
+        assert self.custom_attr == "custom"
         self.ctx.storage.sql.exec("SELECT NULL")
         return True
 
@@ -54,23 +64,16 @@ class BaseEntrypoint(WorkerEntrypoint):
 
 class Default(BaseEntrypoint):
     async def test(self, ctrl):
+        assert_wrapped_once(self)
+        assert self.get_name() == "base"
+
         id1 = self.env.DO_LEAF.idFromName("leaf-test")
         obj1 = self.env.DO_LEAF.get(id1)
         assert await obj1.hello() == "hello from leaf"
         assert await obj1.shared_method() == "from base"
-        assert await obj1.check_env()
-        assert await obj1.check_ctx()
-        assert await obj1.check_storage()
+        assert await obj1.verify_wrapping()
 
         id2 = self.env.DO_LEAF_INIT.idFromName("leaf-init-test")
         obj2 = self.env.DO_LEAF_INIT.get(id2)
         assert await obj2.hello() == "hello with init"
-        assert await obj2.check_custom()
-        assert await obj2.check_storage()
-
-        assert self.get_name() == "base"
-        assert self.env is not None
-
-        # env must be wrapped exactly once: _EnvWrapper(js_env), not _EnvWrapper(_EnvWrapper(js_env))
-        assert isinstance(self.env, _EnvWrapper)
-        assert not isinstance(self.env._env, _EnvWrapper)
+        assert await obj2.verify_wrapping()
