@@ -1105,6 +1105,13 @@ class _BindingWrapper:
     def __init__(self, binding):
         self._binding = binding
 
+    @property
+    def _real_name(self):
+        try:
+            return self._binding.constructor.name
+        except Exception:
+            return type(self).__name__
+
     def _convert_result(self, result):
         converted = python_from_rpc(result)
         if isinstance(converted, JsProxy):
@@ -1142,7 +1149,22 @@ class _BindingWrapper:
         return result
 
     def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._convert_result(self._binding[key])
         return self._convert_result(getattr(self._binding, key))
+
+    def __iter__(self):
+        binding = self._binding
+        if not hasattr(binding, "__iter__"):
+            raise TypeError(f"'{self._real_name}' object is not iterable")
+        for item in binding:
+            yield self._convert_result(item)
+
+    def __len__(self):
+        binding = self._binding
+        if not hasattr(binding, "length"):
+            raise TypeError(f"'{self._real_name}' object has no len()")
+        return binding.length
 
 
 class _FetcherWrapper(_BindingWrapper):
