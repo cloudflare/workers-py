@@ -117,7 +117,7 @@ class Default(WorkerEntrypoint):
             return Response.json({"ok": True})
         return Response.json({"error": "not found"}, status=404)
 
-    async def queue(self, batch):
+    async def queue(self, batch, env, ctx):
         for message in batch.messages:
             RECEIVED_MESSAGES.append(
                 {
