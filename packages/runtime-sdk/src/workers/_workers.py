@@ -1112,12 +1112,14 @@ class _BindingWrapper:
 
     def _convert_result(self, result):
         converted = python_from_rpc(result)
+
+        # After python_from_rpc, some objects may still be JsProxy objects.
+        # For now, we wrap all of them with the _BindingWrapper (or a subclass of it)
+        # so that accessing attributes on them will be properly converted.
+
+        # TODO: This is a bit of a hack. We should revisit when there are more
+        # bindings to support with different return types.
         if isinstance(converted, JsProxy):
-            # If the RPC result is another JsProxy, we assume that
-            # it is another RPC-wrapped object and wrap it as well.
-            # for example, d1.bind() returns the same object as a result.
-            # TODO: This is a bit of a hack. We should revisit when there are more
-            # bindings to support with different patterns.
             return self.__class__(converted)
         if isinstance(converted, list):
             return [
@@ -1587,9 +1589,9 @@ def _wrap_queue_handler(cls):
         return
 
     @functools.wraps(queue_fn)
-    async def wrapped_queue(self, batch, *_args, **_kwargs):
+    async def wrapped_queue(self, batch, *args, **kwargs):
         wrapped_batch = _BindingWrapper(batch)
-        result = queue_fn(self, wrapped_batch)
+        result = queue_fn(self, wrapped_batch, *args, **kwargs)
         if inspect.iscoroutine(result):
             result = await result
         return result
