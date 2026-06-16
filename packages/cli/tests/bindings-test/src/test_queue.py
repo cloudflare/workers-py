@@ -1,15 +1,8 @@
 import asyncio
-import sys
 
 import pytest
 
-pytestmark = [
-    pytest.mark.skipif(
-        sys.version_info < (3, 13),
-        reason="pytest segfaults after running tests",
-    ),
-    pytest.mark.asyncio,
-]
+pytestmark = pytest.mark.asyncio
 
 _cache = None
 

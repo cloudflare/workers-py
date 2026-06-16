@@ -11,6 +11,7 @@ To add a new binding: create `src/test_<binding>.py` with pytest tests.
 import asyncio
 import importlib.util
 import sys
+from asyncio import InvalidStateError
 
 import pytest
 from pyodide.webloop import WebLoop
@@ -28,11 +29,37 @@ async def _noop(*args):
 WebLoop.shutdown_asyncgens = _noop
 WebLoop.shutdown_default_executor = _noop
 
-# Pyodide 0.26.0a2's _cancel_all_tasks calls task.exception() on pending tasks,
-# which raises InvalidStateError under Pyodide's WebLoop.
-# Ignore this error to prevent pytest-asyncio from crashing.
+# Pyodide 0.26.0a2's WebLoop causes InvalidStateError when the
+# _cancel_all_tasks calls task.exception() on done-but-not-cancelled tasks.
+# Replace with a version that cancels tasks but tolerates that error.
 if sys.version_info < (3, 13):
-    asyncio.runners._cancel_all_tasks = lambda loop: None  # type: ignore[attr-defined]
+
+    def _cancel_all_tasks(loop):
+        to_cancel = asyncio.tasks.all_tasks(loop)
+        if not to_cancel:
+            return
+        for task in to_cancel:
+            task.cancel()
+        loop.run_until_complete(
+            asyncio.tasks.gather(*to_cancel, return_exceptions=True)
+        )
+        for task in to_cancel:
+            if task.cancelled():
+                continue
+            try:
+                if task.exception() is not None:
+                    loop.call_exception_handler(
+                        {
+                            "message": "unhandled exception during asyncio.run() shutdown",
+                            "exception": task.exception(),
+                            "task": task,
+                        }
+                    )
+            # Note: This exception catch is added from the original implementation
+            except (InvalidStateError, RuntimeError):
+                pass
+
+    asyncio.runners._cancel_all_tasks = _cancel_all_tasks  # type: ignore[attr-defined]
 
 
 class ResultCollector:
