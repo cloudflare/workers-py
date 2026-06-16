@@ -2,6 +2,23 @@
 
 <!-- version list -->
 
+## v1.3.0 (2026-06-15)
+
+### Features
+
+- **runtime-sdk**: Revise type conversion for Durable Object binding
+  ([#112](https://github.com/cloudflare/workers-py/pull/112),
+  [`b12650e`](https://github.com/cloudflare/workers-py/commit/b12650ef91bb71f4ebebd9827bad2d1f0946fd62))
+
+- **runtime-sdk**: Revise type conversion to support bindings more natively
+  ([#112](https://github.com/cloudflare/workers-py/pull/112),
+  [`b12650e`](https://github.com/cloudflare/workers-py/commit/b12650ef91bb71f4ebebd9827bad2d1f0946fd62))
+
+- **runtime-sdk**: Update js object conversion logic to support cloudflare bindings more natively.
+  ([#112](https://github.com/cloudflare/workers-py/pull/112),
+  [`b12650e`](https://github.com/cloudflare/workers-py/commit/b12650ef91bb71f4ebebd9827bad2d1f0946fd62))
+
+
 ## v1.2.0 (2026-06-12)
 
 ### Features
