@@ -319,8 +319,13 @@ def _manage_pyproxies():
         destroy_proxies(proxies)
 
 
-def _is_js_instance(val, js_cls_name):
-    return hasattr(val, "constructor") and val.constructor.name == js_cls_name
+def _is_js_instance(val, js_cls_names: str | set[str]):
+    if not hasattr(val, "constructor"):
+        return False
+    name = val.constructor.name
+    if isinstance(js_cls_names, set):
+        return name in js_cls_names
+    return name == js_cls_names
 
 
 try:
@@ -1107,13 +1112,20 @@ class _BindingWrapper:
 
     def _convert_result(self, result):
         converted = python_from_rpc(result)
+
+        # After python_from_rpc, some objects may still be JsProxy objects.
+        # For now, we wrap all of them with the _BindingWrapper (or a subclass of it)
+        # so that accessing attributes on them will be properly converted.
+
+        # TODO: This is a bit of a hack. We should revisit when there are more
+        # bindings to support with different return types.
         if isinstance(converted, JsProxy):
-            # If the RPC result is another JsProxy, we assume that
-            # it is another RPC-wrapped object and wrap it as well.
-            # for example, d1.bind() returns the same object as a result.
-            # TODO: This is a bit of a hack. We should revisit when there are more
-            # bindings to support with different patterns.
             return self.__class__(converted)
+        if isinstance(converted, list):
+            return [
+                self.__class__(item) if isinstance(item, JsProxy) else item
+                for item in converted
+            ]
         return converted
 
     def _getattr_helper(self, name):
@@ -1252,6 +1264,13 @@ class _WorkflowBindingWrapper:
 
 
 class _EnvWrapper:
+    _BINDING_TYPES = {
+        "KvNamespace",
+        "R2Bucket",
+        "D1Database",
+        "WorkerQueue",
+    }
+
     def __init__(self, env: Any):
         self._env = env
 
@@ -1266,13 +1285,7 @@ class _EnvWrapper:
         if _is_js_instance(binding, "WorkflowImpl"):
             return _WorkflowBindingWrapper(binding)
 
-        if _is_js_instance(binding, "KvNamespace"):
-            return _BindingWrapper(binding)
-
-        if _is_js_instance(binding, "R2Bucket"):
-            return _BindingWrapper(binding)
-
-        if _is_js_instance(binding, "D1Database"):
+        if _is_js_instance(binding, self._BINDING_TYPES):
             return _BindingWrapper(binding)
 
         return binding
@@ -1550,6 +1563,7 @@ class WorkerEntrypoint:
 
     def __init_subclass__(cls, **_kwargs: Any):
         _wrap_subclass(cls)
+        _wrap_queue_handler(cls)
 
 
 class WorkflowEntrypoint:
@@ -1567,3 +1581,19 @@ class WorkflowEntrypoint:
     def __init_subclass__(cls, **_kwargs: Any):
         _wrap_subclass(cls)
         _wrap_workflow_step(cls)
+
+
+def _wrap_queue_handler(cls):
+    queue_fn = getattr(cls, "queue", None)
+    if queue_fn is None:
+        return
+
+    @functools.wraps(queue_fn)
+    async def wrapped_queue(self, batch, *args, **kwargs):
+        wrapped_batch = _BindingWrapper(batch)
+        result = queue_fn(self, wrapped_batch, *args, **kwargs)
+        if inspect.iscoroutine(result):
+            result = await result
+        return result
+
+    cls.queue = wrapped_queue
