@@ -23,11 +23,17 @@ const mainWorker :Workerd.Worker = (
       uniqueKey = "b2c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5",
       enableSql = true,
     ),
+    (
+      className = "RedundantBaseDO",
+      uniqueKey = "c3d4e5f6a1b2c3d4e5f6a1b2c3d4e5f6",
+      enableSql = true,
+    ),
   ],
   durableObjectStorage = (localDisk = "TEST_TMPDIR"),
   bindings = [
     (name = "DO_LEAF", durableObjectNamespace = "LeafDurableObject"),
     (name = "DO_LEAF_INIT", durableObjectNamespace = "LeafDurableObjectWithInit"),
+    (name = "DO_REDUNDANT", durableObjectNamespace = "RedundantBaseDO"),
   ],
   compatibilityDate = "%COMPAT_DATE",
   compatibilityFlags = ["python_workers", "service_binding_extra_handlers", "enable_python_external_sdk"],

@@ -1475,6 +1475,26 @@ async def _do_call(entrypoint, name, config, callback, *results):
     return result
 
 
+def _is_direct_binding_subclass(cls: type, binding_cls: type) -> bool:
+    """
+    Checks if the class is a direct subclass of the binding class.
+
+    In order to prevent applying the wrapper multiple times,
+    we only want to apply the wrapper if the class is directly inheriting
+    from the binding class, not if it's inheriting from another class that
+    inherits from the binding class.
+
+    Examples:
+    - `class A(DurableObject)` -> True
+    - `class B(A)` -> False
+    - `class C(B)` -> False
+    - `class D(C, DurableObject)` -> False
+    """
+    return not any(
+        issubclass(b, binding_cls) for b in cls.__bases__ if b is not binding_cls
+    )
+
+
 def _wrap_subclass(cls):
     # Override the class __init__ so that we can wrap the `env` in the constructor.
     original_init = cls.__init__
@@ -1533,7 +1553,7 @@ class DurableObject:
         self.env = env
 
     def __init_subclass__(cls, **_kwargs):
-        if DurableObject in cls.__bases__:
+        if _is_direct_binding_subclass(cls, DurableObject):
             _wrap_subclass(cls)
 
 
@@ -1550,9 +1570,7 @@ class WorkerEntrypoint:
         self.env = env
 
     def __init_subclass__(cls, **_kwargs: Any):
-        # Make sure we do not apply the wrapper multiple times
-        # when inheriting from the base class
-        if WorkerEntrypoint in cls.__bases__:
+        if _is_direct_binding_subclass(cls, WorkerEntrypoint):
             _wrap_subclass(cls)
 
 
@@ -1569,6 +1587,6 @@ class WorkflowEntrypoint:
         self.env = env
 
     def __init_subclass__(cls, **_kwargs: Any):
-        if WorkflowEntrypoint in cls.__bases__:
+        if _is_direct_binding_subclass(cls, WorkflowEntrypoint):
             _wrap_subclass(cls)
         _wrap_workflow_step(cls)
