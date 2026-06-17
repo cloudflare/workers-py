@@ -375,3 +375,19 @@ async def test_none_options_list(env):
     await bucket.put("_test/none_list", "val")
     result = await bucket.list(None)
     assert len(result.objects) >= 1
+
+
+@pytest.mark.asyncio
+async def test_body_direct_to_response(env):
+    from workers import Response
+
+    bucket = env.BUCKET
+    await _cleanup_r2(bucket)
+    key = "_test/body_direct"
+    value = "stream me directly"
+    await bucket.put(key, value)
+    obj = await bucket.get(key)
+    assert obj is not None
+    resp = Response(obj.body, headers={"x-test": "ok"})
+    text = await resp.text()
+    assert text == value

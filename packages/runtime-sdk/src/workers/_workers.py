@@ -393,6 +393,15 @@ RESPONSE_ACCEPTED_TYPES = {
 }
 
 
+def _is_response_accepted_type(obj) -> bool:
+    """
+    Check if the given object is an accepted type for a Response body.
+    """
+    if hasattr(obj, "constructor"):
+        return obj.constructor.name in RESPONSE_ACCEPTED_TYPES
+    return False
+
+
 class Response(FetchResponse):
     """
     This class represents the response to an HTTP request, with a similar API to that of the web
@@ -415,7 +424,7 @@ class Response(FetchResponse):
         """
         # Verify passed in types.
         if hasattr(body, "constructor"):
-            if body.constructor.name not in RESPONSE_ACCEPTED_TYPES:
+            if not _is_response_accepted_type(body):
                 raise TypeError(
                     f"Unsupported type in Response: {body.constructor.name}"
                 )
@@ -1110,20 +1119,29 @@ class _BindingWrapper:
     def __init__(self, binding):
         self._binding = binding
 
+    def _should_wrap_nested_attribute(self, jsobj) -> bool:
+        if not isinstance(jsobj, JsProxy):
+            return False
+
+        return not _is_response_accepted_type(jsobj)
+
     def _convert_result(self, result):
         converted = python_from_rpc(result)
 
         # After python_from_rpc, some objects may still be JsProxy objects.
-        # For now, we wrap all of them with the _BindingWrapper (or a subclass of it)
+        # For now, we wrap all of them except the ones that are already accepted as responses
+        # with the _BindingWrapper (or a subclass of it)
         # so that accessing attributes on them will be properly converted.
 
         # TODO: This is a bit of a hack. We should revisit when there are more
         # bindings to support with different return types.
-        if isinstance(converted, JsProxy):
+        if self._should_wrap_nested_attribute(converted):
             return self.__class__(converted)
         if isinstance(converted, list):
             return [
-                self.__class__(item) if isinstance(item, JsProxy) else item
+                self.__class__(item)
+                if self._should_wrap_nested_attribute(item)
+                else item
                 for item in converted
             ]
         return converted
