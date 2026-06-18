@@ -1313,6 +1313,14 @@ class _EnvWrapper:
         "R2Bucket",
         "D1Database",
         "WorkerQueue",
+        "SendEmail",
+        "Ai",
+        "VectorizeIndexImpl",
+        "AnalyticsEngineDataset",
+        "LocalAnalyticsEngineDataset",
+        "ImagesBindingImpl",
+        "HostedImagesBindingImpl",
+        "Ratelimit",
     }
 
     def __init__(self, env: Any):

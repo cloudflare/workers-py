@@ -31,5 +31,12 @@
     },
     "migrations": [
         { "tag": "v1", "new_sqlite_classes": ["TestDurableObject"] }
+    ],
+    "analytics_engine_datasets": [
+        { "binding": "ANALYTICS", "dataset": "test-dataset" }
+    ],
+    "images": { "binding": "IMAGES" },
+    "ratelimits": [
+        { "name": "RATE_LIMITER", "namespace_id": "1001", "simple": { "period": 60, "limit": 100 } }
     ]
 }
