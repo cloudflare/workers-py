@@ -1315,6 +1315,11 @@ class _EnvWrapper:
         "WorkerQueue",
         "Ai",
         "VectorizeIndexImpl",
+        "AnalyticsEngineDataset",
+        "LocalAnalyticsEngineDataset",
+        "ImagesBindingImpl",
+        "HostedImagesBindingImpl",
+        "Ratelimit",
     }
 
     def __init__(self, env: Any):
