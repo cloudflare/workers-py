@@ -428,7 +428,7 @@ class Response(FetchResponse):
         """
         # Verify passed in types.
         js_type = _get_js_constructor_name(body)
-        if js_type not in RESPONSE_ACCEPTED_TYPES:
+        if js_type and js_type not in RESPONSE_ACCEPTED_TYPES:
             raise TypeError(f"Unsupported type in Response: {js_type}")
         elif not isinstance(body, str | FormData | bytes) and body is not None:
             raise TypeError(f"Unsupported type in Response: {type(body).__name__}")
