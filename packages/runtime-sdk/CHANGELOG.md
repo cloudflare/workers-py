@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.4.2 (2026-06-18)
+
+### Bug Fixes
+
+- Make iterables work correctly when returned from rpc call
+  ([#127](https://github.com/cloudflare/workers-py/pull/127),
+  [`36dc659`](https://github.com/cloudflare/workers-py/commit/36dc659d6ba394d75e3d11b3e78e2b08fcd91c9f))
+
+
 ## v1.4.1 (2026-06-18)
 
 ### Bug Fixes
