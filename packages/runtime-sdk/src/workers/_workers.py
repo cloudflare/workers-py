@@ -1313,6 +1313,8 @@ class _EnvWrapper:
         "R2Bucket",
         "D1Database",
         "WorkerQueue",
+        "Ai",
+        "VectorizeIndexImpl",
     }
 
     def __init__(self, env: Any):

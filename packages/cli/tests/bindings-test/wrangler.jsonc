@@ -31,5 +31,8 @@
     },
     "migrations": [
         { "tag": "v1", "new_sqlite_classes": ["TestDurableObject"] }
+    ],
+    "vectorize": [
+        { "binding": "VECTORIZE", "index_name": "test-index" }
     ]
 }
