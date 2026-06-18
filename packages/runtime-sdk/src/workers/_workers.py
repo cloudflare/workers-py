@@ -392,6 +392,19 @@ RESPONSE_ACCEPTED_TYPES = {
     "Response",
 }
 
+# JS built-in types that should NOT be wrapped in _BindingWrapper.
+# These have their own Python-side semantics (e.g. passed directly to Response())
+# and wrapping them breaks property access like `.constructor.name`.
+_JS_PASSTHROUGH_TYPES = RESPONSE_ACCEPTED_TYPES | {
+    "Headers",
+}
+
+
+def _get_js_constructor_name(obj) -> str | None:
+    if hasattr(obj, "constructor"):
+        return obj.constructor.name
+    return None
+
 
 class Response(FetchResponse):
     """
@@ -414,11 +427,10 @@ class Response(FetchResponse):
         https://developer.mozilla.org/en-US/docs/Web/API/Response/Response.
         """
         # Verify passed in types.
-        if hasattr(body, "constructor"):
-            if body.constructor.name not in RESPONSE_ACCEPTED_TYPES:
-                raise TypeError(
-                    f"Unsupported type in Response: {body.constructor.name}"
-                )
+        js_type = _get_js_constructor_name(body)
+        if js_type:
+            if js_type not in RESPONSE_ACCEPTED_TYPES:
+                raise TypeError(f"Unsupported type in Response: {js_type}")
         elif not isinstance(body, str | FormData | bytes) and body is not None:
             raise TypeError(f"Unsupported type in Response: {type(body).__name__}")
 
@@ -1110,20 +1122,29 @@ class _BindingWrapper:
     def __init__(self, binding):
         self._binding = binding
 
+    def _should_wrap_nested_attribute(self, jsobj) -> bool:
+        if not isinstance(jsobj, JsProxy):
+            return False
+
+        # TODO: This allowlist approach is a workaround. The long-term fix is to
+        # add dedicated Python wrappers for these types in python_from_rpc so they
+        # never reach _BindingWrapper in the first place.
+        js_type = _get_js_constructor_name(jsobj)
+        return js_type and js_type not in _JS_PASSTHROUGH_TYPES
+
     def _convert_result(self, result):
         converted = python_from_rpc(result)
 
         # After python_from_rpc, some objects may still be JsProxy objects.
-        # For now, we wrap all of them with the _BindingWrapper (or a subclass of it)
-        # so that accessing attributes on them will be properly converted.
-
-        # TODO: This is a bit of a hack. We should revisit when there are more
-        # bindings to support with different return types.
-        if isinstance(converted, JsProxy):
+        # We need to wrap them with _BindingWrapper (or a subclass of it) again
+        # to ensure that accessing attributes on them will be properly converted.
+        if self._should_wrap_nested_attribute(converted):
             return self.__class__(converted)
         if isinstance(converted, list):
             return [
-                self.__class__(item) if isinstance(item, JsProxy) else item
+                self.__class__(item)
+                if self._should_wrap_nested_attribute(item)
+                else item
                 for item in converted
             ]
         return converted
