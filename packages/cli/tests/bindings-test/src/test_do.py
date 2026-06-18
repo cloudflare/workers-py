@@ -92,6 +92,18 @@ async def test_sql_cursor_rows_read_written(env):
 
 
 @pytest.mark.asyncio
+async def test_sql_cursor_iter(env):
+    stub = await _get_stub(env)
+    await stub.test_sql_cursor_iter()
+
+
+@pytest.mark.asyncio
+async def test_sql_cursor_toarray_getitem_int(env):
+    stub = await _get_stub(env)
+    await stub.test_sql_cursor_toarray_getitem_int()
+
+
+@pytest.mark.asyncio
 async def test_sql_database_size(env):
     stub = await _get_stub(env)
     await stub.test_sql_database_size()

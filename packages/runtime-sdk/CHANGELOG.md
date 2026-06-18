@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v1.4.2 (2026-06-18)
+
+### Bug Fixes
+
+- Make iterables work correctly when returned from rpc call
+  ([#127](https://github.com/cloudflare/workers-py/pull/127),
+  [`36dc659`](https://github.com/cloudflare/workers-py/commit/36dc659d6ba394d75e3d11b3e78e2b08fcd91c9f))
+
+
+## v1.4.1 (2026-06-18)
+
+### Bug Fixes
+
+- Fix ReadableStream being incorrectly wrapped by BindingWrapper
+  ([#128](https://github.com/cloudflare/workers-py/pull/128),
+  [`85ad1f3`](https://github.com/cloudflare/workers-py/commit/85ad1f33d5f23fd932c0eac5cc5a9f7d39159423))
+
+
 ## v1.4.0 (2026-06-17)
 
 ### Features
