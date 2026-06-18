@@ -428,8 +428,9 @@ class Response(FetchResponse):
         """
         # Verify passed in types.
         js_type = _get_js_constructor_name(body)
-        if js_type and js_type not in RESPONSE_ACCEPTED_TYPES:
-            raise TypeError(f"Unsupported type in Response: {js_type}")
+        if js_type:
+            if js_type not in RESPONSE_ACCEPTED_TYPES:
+                raise TypeError(f"Unsupported type in Response: {js_type}")
         elif not isinstance(body, str | FormData | bytes) and body is not None:
             raise TypeError(f"Unsupported type in Response: {type(body).__name__}")
 
@@ -1129,7 +1130,7 @@ class _BindingWrapper:
         # add dedicated Python wrappers for these types in python_from_rpc so they
         # never reach _BindingWrapper in the first place.
         js_type = _get_js_constructor_name(jsobj)
-        return js_type not in _JS_PASSTHROUGH_TYPES
+        return js_type and js_type not in _JS_PASSTHROUGH_TYPES
 
     def _convert_result(self, result):
         converted = python_from_rpc(result)
