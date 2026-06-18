@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.4.1 (2026-06-18)
+
+### Bug Fixes
+
+- Fix ReadableStream being incorrectly wrapped by BindingWrapper
+  ([#128](https://github.com/cloudflare/workers-py/pull/128),
+  [`85ad1f3`](https://github.com/cloudflare/workers-py/commit/85ad1f33d5f23fd932c0eac5cc5a9f7d39159423))
+
+
 ## v1.4.0 (2026-06-17)
 
 ### Features
