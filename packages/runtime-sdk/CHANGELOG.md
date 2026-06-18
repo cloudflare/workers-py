@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.4.3 (2026-06-18)
+
+### Bug Fixes
+
+- Ensure Worker subclasses are wrapped only once
+  ([#126](https://github.com/cloudflare/workers-py/pull/126),
+  [`af8ec42`](https://github.com/cloudflare/workers-py/commit/af8ec42eed1e2bbe6da1dbd537eb7a475f7071fb))
+
+
 ## v1.4.2 (2026-06-18)
 
 ### Bug Fixes
