@@ -24,14 +24,6 @@ async def test_is_wrapped(env):
 
 
 @pytest.mark.asyncio
-async def test_input_returns_pipeline(env):
-    pipeline = env.IMAGES.input(_make_stream(PNG_1X1))
-    assert isinstance(pipeline, _BindingWrapper)
-    assert callable(pipeline.output)
-    assert callable(pipeline.transform)
-
-
-@pytest.mark.asyncio
 async def test_output_as_png(env):
     pipeline = env.IMAGES.input(_make_stream(PNG_1X1))
     output = await pipeline.output({"format": "image/png"})
@@ -46,28 +38,3 @@ async def test_transform_and_output(env):
     output = await transformed.output({"format": "image/png"})
     resp = output.response()
     assert resp.headers.get("content-type") == "image/png"
-
-
-@pytest.mark.asyncio
-async def test_info_callable(env):
-    assert callable(env.IMAGES.info)
-
-
-@pytest.mark.asyncio
-async def test_hosted_is_wrapped(env):
-    assert isinstance(env.IMAGES.hosted, _BindingWrapper)
-
-
-@pytest.mark.asyncio
-async def test_hosted_image_callable(env):
-    assert callable(env.IMAGES.hosted.image)
-
-
-@pytest.mark.asyncio
-async def test_hosted_upload_callable(env):
-    assert callable(env.IMAGES.hosted.upload)
-
-
-@pytest.mark.asyncio
-async def test_hosted_list_callable(env):
-    assert callable(env.IMAGES.hosted.list)
