@@ -1122,6 +1122,14 @@ class _BindingWrapper:
     def __init__(self, binding):
         self._binding = binding
 
+    @property
+    def _real_name(self):
+        js_name = _get_js_constructor_name(self._binding)
+        if not js_name:
+            # Should not happen, but just in case
+            return type(self).__name__
+        return js_name
+
     def _should_wrap_nested_attribute(self, jsobj) -> bool:
         if not isinstance(jsobj, JsProxy):
             return False
@@ -1175,7 +1183,22 @@ class _BindingWrapper:
         return result
 
     def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._convert_result(self._binding[key])
         return self._convert_result(getattr(self._binding, key))
+
+    def __iter__(self):
+        binding = self._binding
+        if not hasattr(binding, "__iter__"):
+            raise TypeError(f"'{self._real_name}' object is not iterable")
+        for item in binding:
+            yield self._convert_result(item)
+
+    def __len__(self):
+        binding = self._binding
+        if not hasattr(binding, "length"):
+            raise TypeError(f"'{self._real_name}' object has no len()")
+        return binding.length
 
 
 class _FetcherWrapper(_BindingWrapper):

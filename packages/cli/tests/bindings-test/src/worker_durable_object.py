@@ -1,3 +1,5 @@
+from contextlib import contextmanager
+
 from workers import DurableObject
 
 
@@ -200,6 +202,51 @@ class TestDurableObject(DurableObject):
 
     async def test_rpc_dict(self, data):
         return {"received": data, "added": True}
+
+    @contextmanager
+    def _create_iter_table(self):
+        self.ctx.storage.sql.exec("DROP TABLE IF EXISTS test_iter")
+        self.ctx.storage.sql.exec(
+            "CREATE TABLE test_iter (id INTEGER PRIMARY KEY, val TEXT)"
+        )
+        self.ctx.storage.sql.exec(
+            "INSERT INTO test_iter (id, val) VALUES (?, ?)", 1, "alpha"
+        )
+        self.ctx.storage.sql.exec(
+            "INSERT INTO test_iter (id, val) VALUES (?, ?)", 2, "beta"
+        )
+        self.ctx.storage.sql.exec(
+            "INSERT INTO test_iter (id, val) VALUES (?, ?)", 3, "gamma"
+        )
+        try:
+            yield
+        finally:
+            self.ctx.storage.sql.exec("DROP TABLE IF EXISTS test_iter")
+
+    async def test_sql_cursor_iter(self):
+        with self._create_iter_table():
+            cursor = self.ctx.storage.sql.exec(
+                "SELECT id, val FROM test_iter ORDER BY id"
+            )
+            rows = [{"id": row["id"], "val": row["val"]} for row in cursor]
+            del cursor
+            assert len(rows) == 3, f"expected 3 rows, got {len(rows)}"
+            assert rows[0]["id"] == 1 and rows[0]["val"] == "alpha"
+            assert rows[1]["id"] == 2 and rows[1]["val"] == "beta"
+            assert rows[2]["id"] == 3 and rows[2]["val"] == "gamma"
+
+    async def test_sql_cursor_toarray_getitem_int(self):
+        with self._create_iter_table():
+            cursor = self.ctx.storage.sql.exec(
+                "SELECT id, val FROM test_iter ORDER BY id"
+            )
+            arr = cursor.toArray()
+            del cursor
+            first_row = arr[0]
+            assert first_row["id"] == 1 and first_row["val"] == "alpha", (
+                f"expected row with id=1, got {first_row!r}"
+            )
+            assert len(arr) == 3, f"expected len 3, got {len(arr)}"
 
     async def test_storage_value_types(self):
         await self.ctx.storage.deleteAll()

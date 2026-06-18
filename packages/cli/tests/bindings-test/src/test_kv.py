@@ -298,3 +298,18 @@ async def test_none_options_list(env):
     await kv.put("_test:none_list", "val")
     result = await kv.list(None)
     assert result["list_complete"] is True
+
+
+@pytest.mark.asyncio
+async def test_binding_not_iterable(env):
+    kv = env.KV
+    with pytest.raises(TypeError, match="KvNamespace.*is not iterable"):
+        for _ in kv:
+            pass
+
+
+@pytest.mark.asyncio
+async def test_binding_no_len(env):
+    kv = env.KV
+    with pytest.raises(TypeError, match="KvNamespace.*has no len"):
+        len(kv)
