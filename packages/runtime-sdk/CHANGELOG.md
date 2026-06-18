@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.4.0 (2026-06-17)
+
+### Features
+
+- Auto-convert Python objects that are passed to/from Queue
+  ([#123](https://github.com/cloudflare/workers-py/pull/123),
+  [`906a10a`](https://github.com/cloudflare/workers-py/commit/906a10a7392f9d823a1b6bba044300ece8763401))
+
+- Auto-convert Python objects that are passed to/from Queue Binding
+  ([#123](https://github.com/cloudflare/workers-py/pull/123),
+  [`906a10a`](https://github.com/cloudflare/workers-py/commit/906a10a7392f9d823a1b6bba044300ece8763401))
+
+
 ## v1.3.0 (2026-06-15)
 
 ### Features

@@ -16,6 +16,14 @@
             "database_name": "test-db"
         }
     ],
+    "queues": {
+        "producers": [
+            { "binding": "TEST_QUEUE", "queue": "test-queue" }
+        ],
+        "consumers": [
+            { "queue": "test-queue", "max_batch_size": 10, "max_batch_timeout": 1 }
+        ]
+    },
     "durable_objects": {
         "bindings": [
             { "name": "TEST_DO", "class_name": "TestDurableObject" }

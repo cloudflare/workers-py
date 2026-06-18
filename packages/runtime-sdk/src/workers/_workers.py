@@ -319,8 +319,13 @@ def _manage_pyproxies():
         destroy_proxies(proxies)
 
 
-def _is_js_instance(val, js_cls_name):
-    return hasattr(val, "constructor") and val.constructor.name == js_cls_name
+def _is_js_instance(val, js_cls_names: str | set[str]):
+    if not hasattr(val, "constructor"):
+        return False
+    name = val.constructor.name
+    if isinstance(js_cls_names, set):
+        return name in js_cls_names
+    return name == js_cls_names
 
 
 try:
@@ -387,6 +392,19 @@ RESPONSE_ACCEPTED_TYPES = {
     "Response",
 }
 
+# JS built-in types that should NOT be wrapped in _BindingWrapper.
+# These have their own Python-side semantics (e.g. passed directly to Response())
+# and wrapping them breaks property access like `.constructor.name`.
+_JS_PASSTHROUGH_TYPES = RESPONSE_ACCEPTED_TYPES | {
+    "Headers",
+}
+
+
+def _get_js_constructor_name(obj) -> str | None:
+    if hasattr(obj, "constructor"):
+        return obj.constructor.name
+    return None
+
 
 class Response(FetchResponse):
     """
@@ -409,11 +427,10 @@ class Response(FetchResponse):
         https://developer.mozilla.org/en-US/docs/Web/API/Response/Response.
         """
         # Verify passed in types.
-        if hasattr(body, "constructor"):
-            if body.constructor.name not in RESPONSE_ACCEPTED_TYPES:
-                raise TypeError(
-                    f"Unsupported type in Response: {body.constructor.name}"
-                )
+        js_type = _get_js_constructor_name(body)
+        if js_type:
+            if js_type not in RESPONSE_ACCEPTED_TYPES:
+                raise TypeError(f"Unsupported type in Response: {js_type}")
         elif not isinstance(body, str | FormData | bytes) and body is not None:
             raise TypeError(f"Unsupported type in Response: {type(body).__name__}")
 
@@ -1107,20 +1124,37 @@ class _BindingWrapper:
 
     @property
     def _real_name(self):
-        try:
-            return self._binding.constructor.name
-        except Exception:
+        js_name = _get_js_constructor_name(self._binding)
+        if not js_name:
+            # Should not happen, but just in case
             return type(self).__name__
+        return js_name
+
+    def _should_wrap_nested_attribute(self, jsobj) -> bool:
+        if not isinstance(jsobj, JsProxy):
+            return False
+
+        # TODO: This allowlist approach is a workaround. The long-term fix is to
+        # add dedicated Python wrappers for these types in python_from_rpc so they
+        # never reach _BindingWrapper in the first place.
+        js_type = _get_js_constructor_name(jsobj)
+        return js_type and js_type not in _JS_PASSTHROUGH_TYPES
 
     def _convert_result(self, result):
         converted = python_from_rpc(result)
-        if isinstance(converted, JsProxy):
-            # If the RPC result is another JsProxy, we assume that
-            # it is another RPC-wrapped object and wrap it as well.
-            # for example, d1.bind() returns the same object as a result.
-            # TODO: This is a bit of a hack. We should revisit when there are more
-            # bindings to support with different patterns.
+
+        # After python_from_rpc, some objects may still be JsProxy objects.
+        # We need to wrap them with _BindingWrapper (or a subclass of it) again
+        # to ensure that accessing attributes on them will be properly converted.
+        if self._should_wrap_nested_attribute(converted):
             return self.__class__(converted)
+        if isinstance(converted, list):
+            return [
+                self.__class__(item)
+                if self._should_wrap_nested_attribute(item)
+                else item
+                for item in converted
+            ]
         return converted
 
     def _getattr_helper(self, name):
@@ -1274,6 +1308,13 @@ class _WorkflowBindingWrapper:
 
 
 class _EnvWrapper:
+    _BINDING_TYPES = {
+        "KvNamespace",
+        "R2Bucket",
+        "D1Database",
+        "WorkerQueue",
+    }
+
     def __init__(self, env: Any):
         self._env = env
 
@@ -1288,13 +1329,7 @@ class _EnvWrapper:
         if _is_js_instance(binding, "WorkflowImpl"):
             return _WorkflowBindingWrapper(binding)
 
-        if _is_js_instance(binding, "KvNamespace"):
-            return _BindingWrapper(binding)
-
-        if _is_js_instance(binding, "R2Bucket"):
-            return _BindingWrapper(binding)
-
-        if _is_js_instance(binding, "D1Database"):
+        if _is_js_instance(binding, self._BINDING_TYPES):
             return _BindingWrapper(binding)
 
         return binding
@@ -1572,6 +1607,7 @@ class WorkerEntrypoint:
 
     def __init_subclass__(cls, **_kwargs: Any):
         _wrap_subclass(cls)
+        _wrap_queue_handler(cls)
 
 
 class WorkflowEntrypoint:
@@ -1589,3 +1625,19 @@ class WorkflowEntrypoint:
     def __init_subclass__(cls, **_kwargs: Any):
         _wrap_subclass(cls)
         _wrap_workflow_step(cls)
+
+
+def _wrap_queue_handler(cls):
+    queue_fn = getattr(cls, "queue", None)
+    if queue_fn is None:
+        return
+
+    @functools.wraps(queue_fn)
+    async def wrapped_queue(self, batch, *args, **kwargs):
+        wrapped_batch = _BindingWrapper(batch)
+        result = queue_fn(self, wrapped_batch, *args, **kwargs)
+        if inspect.iscoroutine(result):
+            result = await result
+        return result
+
+    cls.queue = wrapped_queue
