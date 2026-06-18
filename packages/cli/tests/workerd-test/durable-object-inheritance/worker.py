@@ -23,6 +23,8 @@ def assert_do_wrapped_once(obj):
 
 class BaseDurableObject(DurableObject):
     def __init__(self, ctx, env):
+        assert isinstance(env, _EnvWrapper)
+        assert isinstance(ctx, DurableObjectContext)
         super().__init__(ctx, env)
         assert_do_wrapped_once(self)
         self.ctx.storage.sql.exec("SELECT NULL")
@@ -43,6 +45,8 @@ class LeafDurableObject(BaseDurableObject):
 
 class LeafDurableObjectWithInit(BaseDurableObject):
     def __init__(self, ctx, env):
+        assert isinstance(env, _EnvWrapper)
+        assert isinstance(ctx, DurableObjectContext)
         super().__init__(ctx, env)
         assert_do_wrapped_once(self)
         self.custom_attr = "custom"
@@ -79,6 +83,17 @@ class RedundantBaseEntrypoint(BaseEntrypoint, WorkerEntrypoint):
 
 class Default(RedundantBaseEntrypoint):
     async def test(self, ctrl):
+        class Env:
+            pass
+
+        x = _EnvWrapper(Env)
+        assert _EnvWrapper(x) is x
+        assert x._env is Env
+
+        y = DurableObjectContext(Env)
+        assert DurableObjectContext(y) is y
+        assert y._ctx is Env
+
         assert_wrapped_once(self)
         assert self.get_name() == "redundant"
 
