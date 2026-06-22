@@ -6,7 +6,7 @@ const python :Workerd.Worker = (
     %PYTHON_MODULES
   ],
   compatibilityDate = "%COMPAT_DATE",
-  compatibilityFlags = ["python_workers", "service_binding_extra_handlers", "enable_python_external_sdk"],
+  compatibilityFlags = ["python_workers", "service_binding_extra_handlers", "enable_python_external_sdk", "python_process_pth_files"],
 );
 
 const unitTests :Workerd.Config = (
