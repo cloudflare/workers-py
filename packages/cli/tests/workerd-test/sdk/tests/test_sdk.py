@@ -13,6 +13,7 @@ from workers import (
     env,
     fetch,
 )
+from workers._workers import _EnvWrapper
 
 # TODO: Right now the `fetch` that's available on a binding is the JS fetch.
 # We may wish to rewrite it to be the same as the `fetch` defined in
@@ -24,8 +25,8 @@ from workers import (
 
 @pytest.mark.asyncio
 async def test_can_return_custom_fetch_response():
-    assert isinstance(env, JsProxy), (
-        "Expecting the env for these tests not to be wrapped"
+    assert isinstance(env, _EnvWrapper), (
+        "Expecting the top-level env to be wrapped by the SDK"
     )
 
     @response_handler
@@ -56,7 +57,7 @@ async def test_can_modify_response():
     text = await response.text()
     assert text == "Hi there!"
     assert response.status == 201
-    assert response.headers.get("Custom-Header-That-Should-Passthrough") == "modified"
+    assert response.headers.get("custom-header-that-should-passthrough") == "modified"
 
 
 @pytest.mark.asyncio
@@ -78,7 +79,7 @@ async def test_can_use_duplicate_headers():
     text = await response.text()
     assert text == "Hi there!"
     assert (
-        response.headers.get("Custom-Header-That-Should-Passthrough")
+        response.headers.get("custom-header-that-should-passthrough")
         == "modified, another"
     )
 
@@ -100,7 +101,7 @@ async def test_can_use_fetch_opts():
     )
     text = await response.text()
     assert text == "Hi there!"
-    assert response.headers.get("Custom-Header-That-Should-Passthrough") == "true"
+    assert response.headers.get("custom-header-that-should-passthrough") == "true"
 
 
 @pytest.mark.asyncio

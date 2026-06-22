@@ -17,6 +17,7 @@ from ._workers import (
     Response,
     WorkerEntrypoint,
     WorkflowEntrypoint,
+    _EnvWrapper,
     fetch,
     handler,
     import_from_javascript,
@@ -59,7 +60,7 @@ __all__ = [
 def __getattr__(key):
     if key == "env":
         cloudflare_workers = import_from_javascript("cloudflare:workers")
-        return cloudflare_workers.env
+        return _EnvWrapper(cloudflare_workers.env)
     if key in ("wait_until", "waitUntil"):
         cloudflare_workers = import_from_javascript("cloudflare:workers")
         return cloudflare_workers.waitUntil
