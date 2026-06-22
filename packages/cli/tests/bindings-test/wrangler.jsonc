@@ -2,7 +2,11 @@
     "name": "bindings-test",
     "main": "src/worker.py",
     "compatibility_date": "%COMPAT_DATE",
-    "compatibility_flags": ["python_workers"],
+    "compatibility_flags": [
+        "python_workers",
+        "python_workflows",
+        "python_workflows_implicit_dependencies"
+    ],
     "kv_namespaces": [
         { "binding": "KV", "id": "test-kv" }
     ],
@@ -31,5 +35,12 @@
     },
     "migrations": [
         { "tag": "v1", "new_sqlite_classes": ["TestDurableObject"] }
+    ],
+    "workflows": [
+        {
+            "name": "test-workflow",
+            "binding": "MY_WORKFLOW",
+            "class_name": "TestWorkflow"
+        }
     ]
 }
