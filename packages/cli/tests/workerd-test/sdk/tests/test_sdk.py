@@ -57,7 +57,7 @@ async def test_can_modify_response():
     text = await response.text()
     assert text == "Hi there!"
     assert response.status == 201
-    assert response.headers.get("custom-header-that-should-passthrough") == "modified"
+    assert response.headers.get("Custom-Header-That-Should-Passthrough") == "modified"
 
 
 @pytest.mark.asyncio
@@ -79,7 +79,7 @@ async def test_can_use_duplicate_headers():
     text = await response.text()
     assert text == "Hi there!"
     assert (
-        response.headers.get("custom-header-that-should-passthrough")
+        response.headers.get("Custom-Header-That-Should-Passthrough")
         == "modified, another"
     )
 
@@ -101,7 +101,7 @@ async def test_can_use_fetch_opts():
     )
     text = await response.text()
     assert text == "Hi there!"
-    assert response.headers.get("custom-header-that-should-passthrough") == "true"
+    assert response.headers.get("Custom-Header-That-Should-Passthrough") == "true"
 
 
 @pytest.mark.asyncio
