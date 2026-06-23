@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.5.0 (2026-06-23)
+
+### Features
+
+- Apply bindings wrapper to AI bindings ([#130](https://github.com/cloudflare/workers-py/pull/130),
+  [`79eeaf9`](https://github.com/cloudflare/workers-py/commit/79eeaf94ab02e4208372a7d3f57ba34248421c93))
+
+- Apply bindings wrapper to Images, RateLimit, and Analytics Engine
+  ([#130](https://github.com/cloudflare/workers-py/pull/130),
+  [`79eeaf9`](https://github.com/cloudflare/workers-py/commit/79eeaf94ab02e4208372a7d3f57ba34248421c93))
+
+- Wrap AI, Images, Analytics Engine, Vectorize and RateLimit Bindings to accept native Python
+  objects ([#130](https://github.com/cloudflare/workers-py/pull/130),
+  [`79eeaf9`](https://github.com/cloudflare/workers-py/commit/79eeaf94ab02e4208372a7d3f57ba34248421c93))
+
+
 ## v1.4.3 (2026-06-18)
 
 ### Bug Fixes
