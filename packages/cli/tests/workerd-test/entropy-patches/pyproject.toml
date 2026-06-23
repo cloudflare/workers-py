@@ -12,6 +12,7 @@ dependencies = [
     "tiktoken",
     "cryptography",
     "jiter",
+    "aiohttp",
     "langsmith",
     "langchain-openai",
 ]

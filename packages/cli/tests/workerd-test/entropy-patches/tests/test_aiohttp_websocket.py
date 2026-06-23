@@ -1,7 +1,5 @@
 # ruff: noqa: F401
-import aiohttp.connector
-import requests.adapters
-import urllib3.util.ssl_
+import aiohttp.http_websocket
 
 
 def test_import():
