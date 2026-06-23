@@ -196,9 +196,6 @@ def _install_requirements_to_vendor(plan: InstallPlan) -> str | None:
     )
 
     if result.returncode != 0:
-        logger.warning("debug")
-        logger.warning(f"Failed to install packages from {plan.lockfile}")
-        logger.warning(plan.lockfile.read_text())
         return result.stdout.strip()
 
     shutil.rmtree(vendor_path)
