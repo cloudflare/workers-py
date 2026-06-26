@@ -58,6 +58,9 @@ class PythonRpcTester(WorkerEntrypoint):
         assert isinstance(req, Request)
         return req
 
+    async def caller(self, func):
+        return await func()
+
     async def check_env(self):
         # Verify that the `env` supplied to the entrypoint class is wrapped.
         curr_date = datetime.now()
@@ -269,6 +272,26 @@ class Default(WorkerEntrypoint):
             js.Response.new("a JS response")
         )
         assert await py_response2.text() == "a JS response"
+
+        # - Callable
+        def test_func():
+            return "test"
+
+        counter = 0
+
+        def inc_func():
+            nonlocal counter
+            counter += 1
+            return counter
+
+        py_result = await env.PythonRpc.caller(test_func)
+        assert py_result == "test"
+
+        py_result = await env.PythonRpc.caller(inc_func)
+        assert py_result == 1
+
+        py_result = await env.PythonRpc.caller(inc_func)
+        assert py_result == 2
 
         # Verify that sending unsupported types fails.
         data_clone_regex = "^DataCloneError"
