@@ -37,8 +37,6 @@ jobs:
 
     - name: Run tests
       working-directory: packages/cli
-      env:
-        FORCE_COLOR: "1"
       run: |
         pytest -v --color=yes tests
 
