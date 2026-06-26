@@ -37,8 +37,10 @@ jobs:
 
     - name: Run tests
       working-directory: packages/cli
+      env:
+        FORCE_COLOR: "1"
       run: |
-        pytest -v tests
+        pytest -v --color=yes tests
 
     - name: Verify that pywrangler can be run globally
       run: |
