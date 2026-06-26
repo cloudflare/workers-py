@@ -42,5 +42,24 @@
             "binding": "MY_WORKFLOW",
             "class_name": "TestWorkflow"
         }
-    ]
+    ],
+    "vectorize": [
+        { "binding": "VECTORIZE", "index_name": "test-index" }
+    ],
+    "analytics_engine_datasets": [
+        { "binding": "ANALYTICS", "dataset": "test-dataset" }
+    ],
+    "images": { "binding": "IMAGES" },
+    "ratelimits": [
+        { "name": "RATE_LIMITER", "namespace_id": "1001", "simple": { "period": 60, "limit": 100 } }
+    ],
+    "version_metadata": { "binding": "VERSION" },
+    "mtls_certificates": [
+        { "binding": "MY_CERT", "certificate_id": "00000000-0000-0000-0000-000000000000" }
+    ],
+    "assets": {
+        "directory": "./public/",
+        "binding": "ASSETS",
+        "run_worker_first": true
+    }
 }
