@@ -20,11 +20,9 @@ from ._workers import (
     _EnvWrapper,
     fetch,
     handler,
-    import_from_javascript,
-    patch_env,
-    python_from_rpc,
-    python_to_rpc,
 )
+from .rpc import python_from_rpc, python_to_rpc
+from .utils import import_from_javascript, patch_env
 
 __all__ = [
     "Blob",

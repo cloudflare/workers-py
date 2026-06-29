@@ -1,7 +1,6 @@
 # This module defines a Workers API for Python. It is similar to the API provided by
 # JS Workers, but with changes and additions to be more idiomatic to the Python
 # programming language.
-import datetime
 import functools
 import inspect
 import json
@@ -10,9 +9,7 @@ from collections.abc import (
     Awaitable,
     Generator,
     Iterable,
-    Iterator,
     MutableMapping,
-    Sequence,
 )
 from contextlib import ExitStack, contextmanager
 from enum import StrEnum
@@ -33,12 +30,28 @@ from pyodide.ffi import (
     JsProxy,
     create_once_callable,
     create_proxy,
-    destroy_proxies,
     to_js,
 )
 from pyodide.http import pyfetch
 
-from workers.workflows import NonRetryableError
+from .rpc import (
+    python_from_rpc,
+    python_to_rpc,
+)
+from .utils import (
+    _JS_PASSTHROUGH_TYPES,
+    RESPONSE_ACCEPTED_TYPES,
+    _from_js_error,
+    _get_js_constructor_name,
+    _is_iterable,
+    _is_js_instance,
+    _js_headers_to_http_message,
+    _jsnull_to_none,
+    _manage_pyproxies,
+    _supports_buffer_protocol,
+    _to_js_headers,
+    _to_python_exception,
+)
 
 if TYPE_CHECKING:
     from js import DurableObjectState, Env, ExecutionContext
@@ -46,75 +59,6 @@ if TYPE_CHECKING:
 
 class Context(Protocol):
     def waitUntil(self, other: Awaitable[Any]) -> None: ...
-
-
-try:
-    from pyodide.ffi import jsnull
-except ImportError:
-    jsnull = None
-
-
-def _jsnull_to_none(x):
-    if x is jsnull:
-        return None
-    return x
-
-
-def import_from_javascript(module_name: str) -> Any:
-    """
-    Import a JavaScript ES module from Python.
-
-    Args:
-        module_name: The name of the module to import. This can be a module name or a path.
-
-    Returns:
-        The imported module object.
-
-    Example:
-        cloudflare_workers = import_from_javascript("cloudflare:workers")
-        env = cloudflare_workers.env
-
-    Note:
-        Behind the scenes import_from_javascript uses JSPI to do imports but that means we need an
-        async context. To enable importing cloudflare:workers and cloudflare:sockets in the global
-        scope we specifically imported them in the global scope and exposed them here.
-    """
-    # Special case for global scope available modules
-    # JSPI won't work in the global scope in 0.26.0a2 so we need modules importable in the global
-    # scope to be imported beforehand.
-    if module_name == "cloudflare:workers":
-        return _pyodide_entrypoint_helper.cloudflareWorkersModule
-    elif module_name == "cloudflare:sockets":
-        return _pyodide_entrypoint_helper.cloudflareSocketsModule
-
-    try:
-        from pyodide.ffi import run_sync
-
-        # Call the JavaScript import function
-        return run_sync(_pyodide_entrypoint_helper.doAnImport(module_name))
-    except JsException as e:
-        raise ImportError(f"Failed to import '{module_name}': {e}") from e
-    except RuntimeError as e:
-        if e.args[0] == "No suspender":
-            raise ImportError(
-                f"Failed to import '{module_name}': Only 'cloudflare:workers' and 'cloudflare:sockets' are available in the global scope."
-            ) from e
-        raise
-    except ImportError as e:
-        if e.args[0].startswith("cannot import name 'run_sync' from 'pyodide.ffi'"):
-            raise ImportError(
-                f"Failed to import '{module_name}': Only 'cloudflare:workers' and 'cloudflare:sockets' are available until the next python runtime version."
-            ) from e
-        raise
-
-
-@contextmanager
-def patch_env(
-    d: dict[str, Any] | Sequence[tuple[str, Any]] | None = None, **kwds: dict[str, Any]
-) -> Iterator[None]:
-    if d:
-        kwds = dict(d) | kwds
-    yield from _pyodide_entrypoint_helper.patch_env_helper(to_js(kwds))
 
 
 type JSBody = (
@@ -151,45 +95,6 @@ class FetchKwargs(TypedDict, total=False):
     redirect: str | None
     cf: RequestInitCfProperties | None
     fetcher: type[pyfetch] | None
-
-
-def _js_headers_to_http_message(
-    js_headers: dict[str, str],
-):
-    # `http.client` is imported here because it costs a lot of CPU time when imported at the
-    # top-level. At least it does when we do so in our validator tests, doesn't seem to cause
-    # trouble in production. So as a workaround we do the import here.
-    #
-    # TODO(later): when dedicated snapshots are default we can move this import to the top-level.
-    import http.client
-
-    # Newer Pyodide versions already expose headers as an http.client.HTTPMessage,
-    # in which case there is nothing to convert.
-    if isinstance(js_headers, http.client.HTTPMessage):
-        return js_headers
-
-    result = http.client.HTTPMessage()
-    if not get_compat_flag("python_request_headers_preserve_commas"):
-        for key, val in js_headers:
-            result[key] = val.strip()
-
-        return result
-
-    # With the exception of Set-Cookie, duplicate headers can and are combined with a comma
-    # in the JS Headers API. We do the same when returning the headers to Python.
-    #
-    # See https://httpwg.org/specs/rfc9110.html#rfc.section.5.3.
-    set_cookie_headers = js_headers.getSetCookie()
-    if set_cookie_headers:
-        for value in set_cookie_headers:
-            result.add_header("Set-Cookie", value.strip())
-
-    for key, val in js_headers:
-        if key.lower() == "set-cookie":
-            continue
-        result.add_header(key, val.strip())
-
-    return result
 
 
 class FetchResponse(pyodide.http.FetchResponse):
@@ -322,129 +227,6 @@ async def fetch(
 
     resp = await _pyfetch_patched(resource, **other_options)
     return Response(resp.js_response)
-
-
-def _to_python_exception(exc: JsException) -> Exception:
-    if exc.name == "RangeError":
-        return ValueError(exc.message)
-    elif exc.name == "TypeError":
-        return TypeError(exc.message)
-    else:
-        return exc
-
-
-def _from_js_error(exc: JsException) -> Exception:
-    # convert into Python exception after a full round trip
-    # Python - JS - Python
-    if not exc.message or not exc.message.startswith("PythonError"):
-        return _to_python_exception(exc)
-
-    # extract the Python exception type from the traceback
-    error_message_last_line = exc.message.split("\n")[-2]
-    if error_message_last_line.startswith("TypeError"):
-        return TypeError(error_message_last_line)
-    elif error_message_last_line.startswith("ValueError"):
-        return ValueError(error_message_last_line)
-    elif error_message_last_line.startswith("workers.workflows.NonRetryableError"):
-        return NonRetryableError(error_message_last_line)
-    else:
-        return _to_python_exception(exc)
-
-
-@contextmanager
-def _manage_pyproxies():
-    proxies = js.Array.new()
-    try:
-        yield proxies
-    finally:
-        destroy_proxies(proxies)
-
-
-def _is_js_instance(val, js_cls_names: str | set[str]):
-    if not hasattr(val, "constructor"):
-        return False
-    name = val.constructor.name
-    if isinstance(js_cls_names, set):
-        return name in js_cls_names
-    return name == js_cls_names
-
-
-try:
-    import _cloudflare_compat_flags
-except ImportError:
-    _cloudflare_compat_flags = object()
-
-
-def get_compat_flag(flag: str) -> bool:
-    return getattr(_cloudflare_compat_flags, flag, False)
-
-
-def _to_js_headers(headers: Headers):
-    if isinstance(headers, list):
-        # We should have a list[tuple[str, str]]
-        return js.Headers.new(headers)
-    elif isinstance(headers, dict):
-        return js.Headers.new(headers.items())
-    elif _is_js_instance(headers, "Headers"):
-        return headers
-    else:
-        raise TypeError("Received unexpected type for headers argument")
-
-
-@contextmanager
-def _get_js_body(body):
-    if isinstance(body, bytes):
-        proxy_bytes = create_proxy(body)
-        proxy_buffer = proxy_bytes.getBuffer()
-        try:
-            yield proxy_buffer.data
-            return
-        finally:
-            proxy_buffer.release()
-            proxy_bytes.destroy()
-    if isinstance(body, FormData):
-        yield body.js_object
-        return
-    yield body
-
-
-RESPONSE_ACCEPTED_TYPES = {
-    # BufferSource types
-    "Blob",
-    "ArrayBuffer",
-    "TypedArray",
-    "DataView",
-    "Uint8Array",
-    "Uint8ClampedArray",
-    "Int8Array",
-    "Uint16Array",
-    "Int16Array",
-    "Uint32Array",
-    "Int32Array",
-    "Float16Array",
-    "Float32Array",
-    "Float64Array",
-    "BigInt64Array",
-    "BigUint64Array",
-    # Other types
-    "FormData",
-    "ReadableStream",
-    "URLSearchParams",
-    "Response",
-}
-
-# JS built-in types that should NOT be wrapped in _BindingWrapper.
-# These have their own Python-side semantics (e.g. passed directly to Response())
-# and wrapping them breaks property access like `.constructor.name`.
-_JS_PASSTHROUGH_TYPES = RESPONSE_ACCEPTED_TYPES | {
-    "Headers",
-}
-
-
-def _get_js_constructor_name(obj) -> str | None:
-    if hasattr(obj, "constructor"):
-        return obj.constructor.name
-    return None
 
 
 class Response(FetchResponse):
@@ -618,13 +400,21 @@ class FormData(MutableMapping[str, FormDataValue]):
         return self._js_form_data
 
 
-def _supports_buffer_protocol(o):
-    try:
-        # memoryview used only for testing type; 'with' releases the view instantly
-        with memoryview(o):
-            return True
-    except TypeError:
-        return False
+@contextmanager
+def _get_js_body(body):
+    if isinstance(body, bytes):
+        proxy_bytes = create_proxy(body)
+        proxy_buffer = proxy_bytes.getBuffer()
+        try:
+            yield proxy_buffer.data
+            return
+        finally:
+            proxy_buffer.release()
+            proxy_bytes.destroy()
+    if isinstance(body, FormData):
+        yield body.js_object
+        return
+    yield body
 
 
 @contextmanager
@@ -648,17 +438,6 @@ def _make_blob_entry(e):
             buf.release()
             px.destroy()
     raise TypeError(f"Don't know how to handle {type(e)} for Blob()")
-
-
-def _is_iterable(obj):
-    if isinstance(obj, (str, bytes)):
-        return False
-    try:
-        iter(obj)
-    except TypeError:
-        return False
-    else:
-        return True
 
 
 BlobValue = (
@@ -941,193 +720,6 @@ class Request:
     async def text(self) -> str:
         self._raise_if_failed()
         return await self.js_object.text()
-
-
-def _python_from_rpc_default_converter(value, convert, cache):
-    if value is jsnull:
-        return None
-
-    if not hasattr(value, "constructor"):
-        # Assume that the object doesn't need conversion as it's not a JS object.
-        return value
-
-    if value.constructor.name == "Response":
-        return Response(value)
-    elif value.constructor.name == "FormData":
-        return FormData(value)
-    elif value.constructor.name == "Blob":
-        return Blob(value)
-    elif value.constructor.name == "File":
-        return File(value)
-    elif value.constructor.name == "Request":
-        return Request(value)
-    elif value.constructor.name == "Date":
-        # TODO: Pyodide should gain support for this, we should upstream this.
-        return datetime.datetime.fromtimestamp(value.getTime() / 1000)
-    elif value.constructor.name == "Error":
-        return Exception(value.toString())
-    elif value.constructor.name == "Number":
-        return value.valueOf()
-
-    # We used to throw an error here, but since these conversions are now automatic when the default
-    # entrypoint is being used, it makes sense to be less loud about it and just pass through the
-    # JS value un-modified.
-    #
-    # This does mean that in the future we need to be careful when adding type wrappers for new
-    # types here, so if you're doing this make sure to do so behind a compat flag.
-    return value
-
-
-class JsDict(dict):
-    """
-    Python dictionary that allows attribute access to keys.
-
-    This is used to convert JS objects to Python dictionaries while maintaining
-    the ability to access keys as attributes.
-    """
-
-    def __getattr__(self, name):
-        # The limitation of this approach is that if there is a key that conflicts with a built-in
-        # method or attribute of the dict class, it will not be accessible through attribute access.
-        # But that is a reasonable trade-off for the convenience of being able to access keys as
-        # attributes.
-        try:
-            return self[name]
-        except KeyError:
-            raise AttributeError(name) from None
-
-    def __setattr__(self, name, value):
-        self[name] = value
-
-
-def _replace_jsnull_with_none(obj):
-    """
-    Recursively converts JS objects to Python objects.
-    """
-    if obj is jsnull:
-        return None
-    if isinstance(obj, dict):
-        return JsDict({k: _replace_jsnull_with_none(v) for k, v in obj.items()})
-    if isinstance(obj, list):
-        return [_replace_jsnull_with_none(v) for v in obj]
-    return obj
-
-
-def python_from_rpc(obj: "JsProxy"):
-    """
-    Converts JS objects like Response, Request, Blob, etc. to equivalent Python objects defined in
-    this module and also other JS objects like Map, Set, etc. to equivalent Python stdlib objects.
-
-    This method is used for Workers RPC in Python to convert JavaScript objects to Python. As such
-    it does not support serializing all JS object types.
-    """
-
-    if obj is jsnull:
-        return None
-
-    if not hasattr(obj, "constructor"):
-        return obj
-
-    if obj.constructor.name == "TestController":
-        # This object currently has no methods defined on it. If this changes we should
-        # implement a Python wrapper for it, but for now we'll just pass in None.
-        return None
-
-    result = obj.to_py(default_converter=_python_from_rpc_default_converter)
-
-    return _replace_jsnull_with_none(result)
-
-
-def _raise_on_disabled_type(value):
-    if isinstance(value, _BindingWrapper):
-        return
-
-    if callable(value) and not isinstance(value, type):
-        return
-
-    if _is_js_instance(value, "RegExp"):
-        raise TypeError(f"{value.constructor.name} cannot be sent over RPC.")
-
-    if isinstance(value, (tuple, bytearray)):
-        raise TypeError(f"{type(value)} cannot be sent over RPC.")
-
-    if inspect.isawaitable(value):
-        # The caller is expected to await the value prior to conversion.
-        raise TypeError(f"Awaitable {type(value)} cannot be sent over RPC.")
-
-    if _is_iterable(value):
-        if isinstance(value, dict):
-            for v in value.values():
-                _raise_on_disabled_type(v)
-        else:
-            for v in value:
-                _raise_on_disabled_type(v)
-
-
-def _python_to_rpc_default_converter(obj, convert, cache):
-    if obj is None:
-        return jsnull
-
-    if isinstance(obj, _BindingWrapper):
-        return obj._binding
-
-    if hasattr(obj, "js_object"):
-        return obj.js_object
-
-    if isinstance(obj, datetime.datetime):
-        # TODO: Pyodide should gain support for this, we should upstream this.
-        return js.Date.new(obj.timestamp() * 1000)
-
-    if isinstance(obj, Exception):
-        return js.Error.new(str(obj))
-
-    if callable(obj) and not isinstance(obj, type):
-        # Wrap function with create_proxy so that
-        # it doesn't get garbage collected
-        return create_proxy(obj)
-
-    _raise_on_disabled_type(obj)
-
-    return obj
-
-
-def _replace_none_with_jsnull(value):
-    if value is None:
-        return jsnull
-    if isinstance(value, dict):
-        return {k: _replace_none_with_jsnull(v) for k, v in value.items()}
-    if isinstance(value, list):
-        return [_replace_none_with_jsnull(v) for v in value]
-    return value
-
-
-def python_to_rpc(value) -> JsProxy:
-    """
-    Converts Python objects defined in this module (Response, Request, etc) and native Python types
-    like Map, Set, datetime to equivalent JavaScript types.
-
-    This method is used for Workers RPC in Python to convert Python objects to JavaScript. As such
-    it does not support serializing all Python object types.
-    """
-
-    if value is None:
-        return jsnull
-
-    if isinstance(value, _BindingWrapper):
-        return value._binding
-
-    value = _replace_none_with_jsnull(value)
-
-    # `to_js` won't always call the default_converter, for example when a list of tuples is passed
-    _raise_on_disabled_type(value)
-
-    result = to_js(
-        value,
-        default_converter=_python_to_rpc_default_converter,
-        dict_converter=Object.fromEntries,
-    )
-
-    return result
 
 
 class _BindingWrapper:
