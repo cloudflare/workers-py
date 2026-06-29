@@ -153,8 +153,45 @@ class FetchKwargs(TypedDict, total=False):
     fetcher: type[pyfetch] | None
 
 
-# TODO: Pyodide's FetchResponse.headers returns a dict[str, str] which means
-#       duplicates are lost, we should fix that so it returns a http.client.HTTPMessage
+def _js_headers_to_http_message(
+    js_headers: dict[str, str],
+):
+    # `http.client` is imported here because it costs a lot of CPU time when imported at the
+    # top-level. At least it does when we do so in our validator tests, doesn't seem to cause
+    # trouble in production. So as a workaround we do the import here.
+    #
+    # TODO(later): when dedicated snapshots are default we can move this import to the top-level.
+    import http.client
+
+    # Newer Pyodide versions already expose headers as an http.client.HTTPMessage,
+    # in which case there is nothing to convert.
+    if isinstance(js_headers, http.client.HTTPMessage):
+        return js_headers
+
+    result = http.client.HTTPMessage()
+    if not get_compat_flag("python_request_headers_preserve_commas"):
+        for key, val in js_headers:
+            result[key] = val.strip()
+
+        return result
+
+    # With the exception of Set-Cookie, duplicate headers can and are combined with a comma
+    # in the JS Headers API. We do the same when returning the headers to Python.
+    #
+    # See https://httpwg.org/specs/rfc9110.html#rfc.section.5.3.
+    set_cookie_headers = js_headers.getSetCookie()
+    if set_cookie_headers:
+        for value in set_cookie_headers:
+            result.add_header("Set-Cookie", value.strip())
+
+    for key, val in js_headers:
+        if key.lower() == "set-cookie":
+            continue
+        result.add_header(key, val.strip())
+
+    return result
+
+
 class FetchResponse(pyodide.http.FetchResponse):
     # TODO: Consider upstreaming the `body` attribute
     # TODO: Behind a compat flag make this return a native stream (StreamReader?), or perhaps
@@ -169,6 +206,10 @@ class FetchResponse(pyodide.http.FetchResponse):
     @property
     def js_object(self) -> "js.Response":
         return self.js_response
+
+    @property
+    def headers(self):
+        return _js_headers_to_http_message(self.js_object.headers)
 
     """
     Instance methods defined below.
@@ -813,36 +854,7 @@ class Request:
 
     @property
     def headers(self):
-        # This is imported here because it costs a lot of CPU time when imported at the top-level.
-        # At least it does when we do so in our validator tests, doesn't seem to cause trouble in
-        # production. So as a workaround we do the import here.
-        #
-        # TODO(later): when dedicated snapshots are default we can move this import to the top-level.
-        import http.client
-
-        result = http.client.HTTPMessage()
-        if not get_compat_flag("python_request_headers_preserve_commas"):
-            for key, val in self.js_object.headers:
-                result[key] = val.strip()
-
-            return result
-
-        # With the exception of Set-Cookie, duplicate headers can and are combined with a comma
-        # in the JS Headers API. We do the same when returning the headers to Python.
-        #
-        # See https://httpwg.org/specs/rfc9110.html#rfc.section.5.3.
-        js_headers = self.js_object.headers
-        set_cookie_headers = js_headers.getSetCookie()
-        if set_cookie_headers:
-            for value in set_cookie_headers:
-                result.add_header("Set-Cookie", value.strip())
-
-        for key, val in js_headers:
-            if key.lower() == "set-cookie":
-                continue
-            result.add_header(key, val.strip())
-
-        return result
+        return _js_headers_to_http_message(self.js_object.headers)
 
     @property
     def integrity(self) -> str:
