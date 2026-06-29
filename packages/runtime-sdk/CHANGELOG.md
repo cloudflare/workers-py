@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.5.1 (2026-06-29)
+
+### Bug Fixes
+
+- Ensure self.env and top-level env uses a same class
+  ([#136](https://github.com/cloudflare/workers-py/pull/136),
+  [`e627c11`](https://github.com/cloudflare/workers-py/commit/e627c11f58c572f6ee5df97e423928ee4423d2e9))
+
+- Update FetchResponse.headers to return HTTPMessage
+  ([#136](https://github.com/cloudflare/workers-py/pull/136),
+  [`e627c11`](https://github.com/cloudflare/workers-py/commit/e627c11f58c572f6ee5df97e423928ee4423d2e9))
+
+
 ## v1.5.0 (2026-06-23)
 
 ### Features
