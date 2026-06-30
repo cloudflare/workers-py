@@ -25,6 +25,7 @@ from ._workers import (
     python_from_rpc,
     python_to_rpc,
 )
+from .htmlrewriter import HTMLRewriter
 
 __all__ = [
     "Blob",
@@ -45,6 +46,7 @@ __all__ = [
     "Response",
     "WorkerEntrypoint",
     "WorkflowEntrypoint",
+    "HTMLRewriter",
     "env",
     "fetch",
     "handler",
