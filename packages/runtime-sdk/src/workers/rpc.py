@@ -5,14 +5,14 @@ import js
 from js import Object
 from pyodide.ffi import JsProxy, create_proxy, to_js
 
+from .blob import Blob, File
+from .formdata import FormData
+from .request import Request
+from .response import Response
 from .utils import _is_iterable, _is_js_instance, jsnull
 
 
 def _python_from_rpc_default_converter(value, convert, cache):
-    # Lazy imports: these classes are defined in _workers.py
-    # TODO: refactor more to avoid circular imports
-    from ._workers import Blob, File, FormData, Request, Response
-
     if value is jsnull:
         return None
 
