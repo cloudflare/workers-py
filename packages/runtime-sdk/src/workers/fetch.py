@@ -32,7 +32,7 @@ else:
 
 
 async def fetch(
-    resource: "str | Request",
+    resource: "str | Request | js.Request",
     **other_options: Unpack[FetchKwargs],
 ) -> Response:
     if isinstance(resource, Request):

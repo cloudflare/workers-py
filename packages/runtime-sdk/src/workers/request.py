@@ -150,7 +150,7 @@ class Request:
         except JsException as exc:
             raise _to_python_exception(exc) from exc
 
-    async def blob(self):
+    async def blob(self) -> Blob:
         self._raise_if_failed()
         return Blob(await self.js_object.blob())
 

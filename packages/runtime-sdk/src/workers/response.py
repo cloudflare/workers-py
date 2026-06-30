@@ -9,6 +9,7 @@ from pyodide.ffi import JsException, JsProxy, create_proxy
 
 from .blob import Blob
 from .formdata import FormData
+from .types import Body, Headers
 from .utils import (
     RESPONSE_ACCEPTED_TYPES,
     _get_js_constructor_name,
@@ -77,7 +78,7 @@ class FetchResponse(pyodide.http.FetchResponse):
         except JsException as exc:
             raise _to_python_exception(exc) from exc
 
-    def replace_body(self, body) -> "Response":
+    def replace_body(self, body: Body) -> "Response":
         """
         Returns a new Response object with the same options (status, headers, etc) as
         the original but with an updated body.
@@ -108,7 +109,7 @@ class FetchResponse(pyodide.http.FetchResponse):
         data: str | dict[str, Any] | list[Any] | JsProxy,
         status: HTTPStatus | int = HTTPStatus.OK,
         status_text="",
-        headers=None,
+        headers: Headers = None,
     ) -> "Response":
         options = Response._create_options(status, status_text, headers)
         js_resp = None
@@ -144,10 +145,10 @@ class Response(FetchResponse):
 
     def __init__(
         self,
-        body=None,
+        body: Body = None,
         status: HTTPStatus | int | None = None,
         status_text="",
-        headers=None,
+        headers: Headers = None,
         web_socket: "js.WebSocket | None" = None,
     ):
         """
@@ -198,7 +199,7 @@ class Response(FetchResponse):
     def _create_options(
         status: HTTPStatus | int | None = HTTPStatus.OK,
         status_text="",
-        headers=None,
+        headers: Headers = None,
         web_socket: "js.WebSocket | None" = None,
     ):
         options = {}
