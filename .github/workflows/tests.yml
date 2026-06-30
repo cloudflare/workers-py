@@ -35,10 +35,15 @@ jobs:
         uv pip install --system -e packages/runtime-sdk -e packages/cli
         uv pip install --system --group dev --project packages/cli
 
-    - name: Run tests
+    - name: Run cli tests
       working-directory: packages/cli
       run: |
         pytest -v --color=yes tests
+
+    - name: Run runtime-sdk tests
+      working-directory: packages/runtime-sdk
+      run: |
+        pytest tests
 
     - name: Verify that pywrangler can be run globally
       run: |
