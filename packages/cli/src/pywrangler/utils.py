@@ -334,7 +334,7 @@ def _parse_wrangler_config() -> WranglerConfig:
 
 
 @cache
-def get_python_version() -> Literal["3.12", "3.13"]:
+def get_python_version() -> Literal["3.12", "3.13", "3.14"]:
     """
     Determine Python version from wrangler configuration.
 
@@ -372,6 +372,10 @@ def get_python_version() -> Literal["3.12", "3.13"]:
     )
 
     for py_version in sorted_versions:
+        # Skip experimental versions unless the experimental compat flag is enabled
+        if "experimental" not in compat_flags and py_version.experimental:
+            continue
+
         # Check if the specific compat flag is present
         if py_version.compat_flag in compat_flags:
             return py_version.version
@@ -390,6 +394,8 @@ def get_uv_pyodide_interp_name() -> str:
             v = "3.12.7"
         case "3.13":
             v = "3.13.2"
+        case "3.14":
+            v = "3.14.2"
     return f"cpython-{v}-emscripten-wasm32-musl"
 
 
@@ -407,6 +413,8 @@ def get_pyodide_index() -> str:
             v = "0.27.7"
         case "3.13":
             v = "0.28.3"
+        case "3.14":
+            v = "314.0.0"
     return "https://index.pyodide.org/" + v
 
 
