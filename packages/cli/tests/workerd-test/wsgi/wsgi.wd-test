@@ -1,0 +1,19 @@
+using Workerd = import "/workerd/workerd.capnp";
+
+const unitTests :Workerd.Config = (
+  services = [
+    ( name = "python-wsgi",
+      worker = (
+        modules = [
+          (name = "worker.py", pythonModule = embed "worker.py"),
+          %PYTHON_MODULES
+        ],
+        bindings = [
+          ( name = "SELF", service = "python-wsgi" ),
+        ],
+        compatibilityDate = "%COMPAT_DATE",
+        compatibilityFlags = ["python_workers", "enable_python_external_sdk"],
+      )
+    )
+  ],
+);
