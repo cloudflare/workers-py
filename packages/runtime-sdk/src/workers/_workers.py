@@ -71,6 +71,12 @@ class _BindingWrapper:
             ]
         return converted
 
+    @staticmethod
+    def _convert_args(args, kwargs):
+        js_args = [python_to_rpc(arg) for arg in args]
+        js_kwargs = {k: python_to_rpc(v) for k, v in kwargs.items()}
+        return js_args, js_kwargs
+
     def _getattr_helper(self, name):
         attr = getattr(self._binding, name)
 
@@ -78,8 +84,7 @@ class _BindingWrapper:
             return self._convert_result(attr)
 
         def wrapper(*args, **kwargs):
-            js_args = [python_to_rpc(arg) for arg in args]
-            js_kwargs = {k: python_to_rpc(v) for k, v in kwargs.items()}
+            js_args, js_kwargs = self._convert_args(args, kwargs)
             result = attr(*js_args, **js_kwargs)
             if hasattr(result, "then") and callable(result.then):
 
@@ -175,49 +180,34 @@ class DurableObjectContext:
         raise DurableObjectAbort(reason or "Durable Object abort requested")
 
 
-class _WorkflowInstanceWrapper:
-    def __init__(self, binding):
-        self._binding = binding
-
-    def __getattr__(self, name):
-        return getattr(self._binding, name)
+class _WorkflowInstanceWrapper(_BindingWrapper):
+    # status/pause/resume/restart/terminate share their JS names and are handled by
+    # the _BindingWrapper, which already converts arguments and results.
+    # Only send_event needs the snake_case -> camelCase mapping for backward compatibility
 
     async def send_event(self, *args, **kwargs):
-        return self._binding.sendEvent(*args, **kwargs)
-
-    async def pause(self, *args, **kwargs):
-        return self._binding.pause(*args, **kwargs)
-
-    async def resume(self, *args, **kwargs):
-        return self._binding.resume(*args, **kwargs)
-
-    async def terminate(self, *args, **kwargs):
-        return self._binding.terminate(*args, **kwargs)
-
-    async def restart(self, *args, **kwargs):
-        return self._binding.restart(*args, **kwargs)
-
-    async def status(self, *args, **kwargs):
-        return self._binding.status(*args, **kwargs)
+        js_args, js_kwargs = self._convert_args(args, kwargs)
+        return self._convert_result(
+            await self._binding.sendEvent(*js_args, **js_kwargs)
+        )
 
 
-class _WorkflowBindingWrapper:
-    def __init__(self, binding):
-        self._binding = binding
-
-    def __getattr__(self, name):
-        return getattr(self._binding, name)
-
+class _WorkflowBindingWrapper(_BindingWrapper):
     async def get(self, *args, **kwargs):
-        return _WorkflowInstanceWrapper(await self._binding.get(*args, **kwargs))
+        js_args, js_kwargs = self._convert_args(args, kwargs)
+        return _WorkflowInstanceWrapper(await self._binding.get(*js_args, **js_kwargs))
 
     async def create(self, *args, **kwargs):
-        return _WorkflowInstanceWrapper(await self._binding.create(*args, **kwargs))
+        js_args, js_kwargs = self._convert_args(args, kwargs)
+        return _WorkflowInstanceWrapper(
+            await self._binding.create(*js_args, **js_kwargs)
+        )
 
     async def create_batch(self, *args, **kwargs):
+        js_args, js_kwargs = self._convert_args(args, kwargs)
         return [
             _WorkflowInstanceWrapper(w)
-            for w in await self._binding.createBatch(*args, **kwargs)
+            for w in await self._binding.createBatch(*js_args, **js_kwargs)
         ]
 
 
@@ -393,13 +383,15 @@ class _WorkflowStepWrapper:
 
         return self._js_step.sleepUntil(name, timestamp)
 
-    def wait_for_event(self, name, event_type, /, timeout="24 hours"):
-        return self._js_step.waitForEvent(
-            name,
-            to_js(
-                {"type": event_type, "timeout": timeout},
-                dict_converter=Object.fromEntries,
-            ),
+    async def wait_for_event(self, name, event_type, /, timeout="24 hours"):
+        return python_from_rpc(
+            await self._js_step.waitForEvent(
+                name,
+                to_js(
+                    {"type": event_type, "timeout": timeout},
+                    dict_converter=Object.fromEntries,
+                ),
+            )
         )
 
     async def _resolve_dependency(self, dep):
@@ -513,7 +505,12 @@ def _wrap_workflow_step(cls):
         if inspect.iscoroutine(result):
             result = await result
 
-        return result
+        if result is None:
+            return result
+
+        # This should be wrapped again to js object
+        # as the value will go through the RPC boundary
+        return python_to_rpc(result)
 
     cls.run = wrapped_run
 
