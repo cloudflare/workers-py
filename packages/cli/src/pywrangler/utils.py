@@ -228,6 +228,16 @@ def get_project_root() -> Path:
     return find_pyproject_toml().parent
 
 
+def get_pywrangler_config() -> dict:
+    """Return the ``[tool.pywrangler]`` table from pyproject.toml (or ``{}``)."""
+    data = read_pyproject_toml()
+    tool = data.get("tool", {})
+    if not isinstance(tool, dict):
+        return {}
+    config = tool.get("pywrangler", {})
+    return config if isinstance(config, dict) else {}
+
+
 MIN_UV_VERSION = (0, 8, 10)
 MIN_WRANGLER_VERSION = (4, 42, 1)
 
