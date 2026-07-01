@@ -32,8 +32,31 @@ if TYPE_CHECKING:
     from js import DurableObjectState, Env, ExecutionContext
 
 
+def _idempotent_new(cls, obj):
+    """Set __new__ on a class to this so cls is idempotent:
+
+    >>> a = A(x)
+    >>> b = A(a)
+    >>> assert a is b
+
+    For this to work, start the __init__ function with:
+
+    if obj is self:
+        return
+
+    to prevent double-init.
+    """
+    if isinstance(obj, cls):
+        return obj
+    return object.__new__(cls)
+
+
 class _BindingWrapper:
+    __new__ = _idempotent_new
+
     def __init__(self, binding):
+        if binding is self:
+            return
         self._binding = binding
 
     @property
@@ -144,7 +167,16 @@ class DurableObjectAbort(BaseException):
 
 
 class DurableObjectContext:
+    # __new__ and __init__ set up to make sure that the following passes:
+    #
+    # a = DurableObjectContext(x)
+    # assert DurableObjectContext(a) is a
+    # assert a._ctx is x
+    __new__ = _idempotent_new
+
     def __init__(self, ctx: "DurableObjectState"):
+        if ctx is self:
+            return
         self._ctx = ctx
 
     def __getattr__(self, name: str):
@@ -236,7 +268,11 @@ class _EnvWrapper:
         "Ratelimit",
     }
 
+    __new__ = _idempotent_new
+
     def __init__(self, env: Any):
+        if env is self:
+            return
         self._env = env
 
     def _getattr_helper(self, name):
@@ -284,7 +320,11 @@ def handler(func):
 
 
 class _WorkflowStepWrapper:
+    __new__ = _idempotent_new
+
     def __init__(self, js_step):
+        if js_step is self:
+            return
         self._js_step = js_step
         self._memoized_dependencies = {}
         self._in_flight = {}
@@ -453,29 +493,11 @@ async def _do_call(entrypoint, name, config, callback, *results):
     return result
 
 
-def _is_direct_binding_subclass(cls: type, binding_cls: type) -> bool:
-    """
-    Checks if the class is a direct subclass of the binding class.
-
-    In order to prevent applying the wrapper multiple times,
-    we only want to apply the wrapper if the class is directly inheriting
-    from the binding class, not if it's inheriting from another class that
-    inherits from the binding class.
-
-    Examples:
-    - `class A(DurableObject)` -> True
-    - `class B(A)` -> False
-    - `class C(B)` -> False
-    - `class D(C, DurableObject)` -> False
-    """
-    return not any(
-        issubclass(b, binding_cls) for b in cls.__bases__ if b is not binding_cls
-    )
-
-
-def _wrap_subclass(cls):
+def _wrap_class(cls):
     # Override the class __init__ so that we can wrap the `env` in the constructor.
-    original_init = cls.__init__
+    original_init = cls.__dict__.get("__init__")
+    if original_init is None:
+        return cls
 
     def wrapped_init(self, *args, **kwargs):
         args = list(args)
@@ -489,16 +511,12 @@ def _wrap_subclass(cls):
         original_init(self, *args, **kwargs)
 
     cls.__init__ = wrapped_init
+    return cls
 
 
 def _wrap_workflow_step(cls):
-    run_fn = getattr(cls, "run", None)
+    run_fn = cls.__dict__.get("run")
     if run_fn is None:
-        return
-
-    # Only patch `on_run` for subclasses of WorkflowEntrypoint.
-    if not issubclass(cls, WorkflowEntrypoint):
-        # Not a workflow subclass, so don't wrap `on_run`.
         return
 
     @functools.wraps(run_fn)
@@ -518,6 +536,7 @@ def _wrap_workflow_step(cls):
     cls.run = wrapped_run
 
 
+@_wrap_class
 class DurableObject:
     """
     Base class used to define a Durable Object.
@@ -531,10 +550,10 @@ class DurableObject:
         self.env = env
 
     def __init_subclass__(cls, **_kwargs):
-        if _is_direct_binding_subclass(cls, DurableObject):
-            _wrap_subclass(cls)
+        _wrap_class(cls)
 
 
+@_wrap_class
 class WorkerEntrypoint:
     """
     Base class used to define a Worker Entrypoint.
@@ -548,11 +567,11 @@ class WorkerEntrypoint:
         self.env = env
 
     def __init_subclass__(cls, **_kwargs: Any):
-        if _is_direct_binding_subclass(cls, WorkerEntrypoint):
-            _wrap_subclass(cls)
-            _wrap_queue_handler(cls)
+        _wrap_class(cls)
+        _wrap_queue_handler(cls)
 
 
+@_wrap_class
 class WorkflowEntrypoint:
     """
     Base class used to define a Workflow Entrypoint.
@@ -566,9 +585,8 @@ class WorkflowEntrypoint:
         self.env = env
 
     def __init_subclass__(cls, **_kwargs: Any):
-        if _is_direct_binding_subclass(cls, WorkflowEntrypoint):
-            _wrap_subclass(cls)
-            _wrap_workflow_step(cls)
+        _wrap_class(cls)
+        _wrap_workflow_step(cls)
 
 
 def _wrap_queue_handler(cls):
