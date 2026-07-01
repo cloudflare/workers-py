@@ -61,7 +61,7 @@ def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
     # This is reproducible only in the unittest environment, and doesn't happen
     # when running the same worker manually.
     if (
-        test_dir.name == "sdk"
+        test_dir.name in ("sdk", "entropy-patches")
         and compat_date < "2025-09-29"
         and sys.platform == "linux"
     ):
