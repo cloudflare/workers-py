@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.5.2 (2026-07-01)
+
+### Bug Fixes
+
+- Ensure that ctx and env __init__ arguments are always wrapped
+  ([#131](https://github.com/cloudflare/workers-py/pull/131),
+  [`465c702`](https://github.com/cloudflare/workers-py/commit/465c7029d7b7d5ca75afb1648d9a96433a8a9a13))
+
+
 ## v1.5.1 (2026-06-29)
 
 ### Bug Fixes
