@@ -88,7 +88,12 @@ allow_zero_version = false
 no_git_verify = false
 tag_format = "workers-runtime-sdk-v{version}"
 version_toml = ["pyproject.toml:project.version"]
-build_command = "pip install uv && uv build"
+build_command = """
+  pip install uv
+  uv lock --upgrade-package "$PACKAGE_NAME"
+  git add uv.lock
+  uv build
+"""
 
 [tool.semantic_release.branches.main]
 match = "(main|master)"
