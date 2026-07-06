@@ -34,7 +34,7 @@ repos:
         args:
           [
             "--ignore-words-list",
-            "ommit",
+            "ommit,asend",
           ]
   - repo: https://github.com/pre-commit/mirrors-mypy
     rev: "v1.14.1"
