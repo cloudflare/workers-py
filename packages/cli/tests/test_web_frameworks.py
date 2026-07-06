@@ -6,9 +6,7 @@ worker.py, wrangler.jsonc, pyproject.toml, and test_*.py files.
 Python 3.12 (Pyodide 0.26.0a2) is excluded. The in-worker pytest suite drives
 async tests via ``loop.run_until_complete``, which is a no-op on Pyodide 0.26.0a2
 (no ``run_sync``/JSPI): async tests return unawaited futures and report false
-passes. Pyodide 0.28.2+ (Python 3.13 and later) implement ``run_until_complete``
-via ``run_sync``, so the tests genuinely run. Any current or future non-3.12
-compat date in ``COMPAT_DATES`` is exercised automatically.
+passes.
 """
 
 from collections.abc import Generator
@@ -27,9 +25,7 @@ WEB_FRAMEWORKS_DIR: Path = TEST_DIR / "web-frameworks-test"
 DJANGO_ASYNC_DIR: Path = WEB_FRAMEWORKS_DIR / "django-async"
 DJANGO_ASYNC_SRC_DIR: Path = DJANGO_ASYNC_DIR / "src"
 
-# Django Async handler heavily uses `run_until_complete`,
-# which is not supported in Pyodide 0.26.0a2 (no run_sync).
-# So we only test Python 3.13 and upper here.
+
 ASYNC_COMPAT_DATES = [d for d in COMPAT_DATES if d != "2025-09-01"]
 
 
