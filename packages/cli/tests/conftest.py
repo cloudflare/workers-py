@@ -1,12 +1,34 @@
-# Compat dates used to parametrize workerd and bindings integration tests.
-# Each date exercises a different Python version inside the worker runtime:
-#   - "2025-09-01" -> Python 3.12 (before the 2025-09-29 cutover)
-#   - "2026-01-01" -> Python 3.13 (after the 2025-09-29 cutover)
-# TODO: use compat flag instead of compat date
+from dataclasses import dataclass, field
 from pathlib import Path
 
-COMPAT_DATES: list[str] = ["2025-09-01", "2026-01-01"]
+
+@dataclass(frozen=True)
+class CompatConfig:
+    compat_date: str
+    python_version: str
+    extra_compat_flags: list[str] = field(default_factory=list)
+
+
+COMPAT_CONFIGS: list[CompatConfig] = [
+    CompatConfig(compat_date="2025-09-01", python_version="3.12"),
+    CompatConfig(compat_date="2026-01-01", python_version="3.13"),
+    CompatConfig(
+        compat_date="2026-07-01",
+        # TODO: remove these when 3.14 is stable, and enabled by date
+        python_version="3.14",
+        extra_compat_flags=["pythonWorkers20260610", "experimental"],
+    ),
+]
 
 
 def replace_compat_date(file: Path, compat_date: str) -> None:
     file.write_text(file.read_text().replace("%COMPAT_DATE", compat_date))
+
+
+def inject_compat_flags(file: Path, extra_flags: list[str]) -> None:
+    if not extra_flags:
+        return
+    content = file.read_text()
+    for flag in extra_flags:
+        content = content.replace('"python_workers"', f'"python_workers", "{flag}"')
+    file.write_text(content)

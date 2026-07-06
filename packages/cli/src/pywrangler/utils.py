@@ -414,7 +414,7 @@ def get_pyodide_index() -> str:
         case "3.13":
             v = "0.28.3"
         case "3.14":
-            v = "314.0.0"
+            v = "314.0.2"
     return "https://index.pyodide.org/" + v
 
 
