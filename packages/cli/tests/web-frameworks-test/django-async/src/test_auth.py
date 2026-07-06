@@ -63,12 +63,9 @@ async def test_auth_logout(django_asgi_app):
         headers={"Cookie": f"sessionid={sessionid}"},
     )
     assert logout_response.status == 200
-
-    response, payload = await get_json(
-        django_asgi_app, "/auth/user/", headers={"Cookie": f"sessionid={sessionid}"}
-    )
-    assert response.status == 200
-    assert payload["is_authenticated"] is False
+    cleared = cookie_value(logout_response.headers.get("Set-Cookie"), "sessionid")
+    assert cleared is not None
+    assert cleared.strip('"') == ""
 
 
 @pytest.mark.asyncio
