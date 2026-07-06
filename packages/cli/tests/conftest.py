@@ -133,7 +133,7 @@ def get_test_results(dev_server: str, suite: str) -> SuiteResults:
     key = (dev_server, suite)
     if key not in _suite_cache:
         try:
-            resp = requests.get(f"{dev_server}/run-tests/{suite}", timeout=30)
+            resp = requests.get(f"{dev_server}/run-tests/{suite}", timeout=60)
             _suite_cache[key] = (
                 resp.json()
                 if resp.ok
