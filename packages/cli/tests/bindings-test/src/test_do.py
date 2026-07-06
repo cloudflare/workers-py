@@ -1,4 +1,6 @@
 import pytest
+from pyodide.ffi import JsProxy
+from workers import env as top_level_env
 
 
 async def _get_stub(env, name="test"):
@@ -166,6 +168,18 @@ async def test_rpc_echo(env):
 async def test_rpc_dict(env):
     stub = await _get_stub(env)
     result = await stub.test_rpc_dict({"key": "value"})
+    assert result["received"]["key"] == "value"
+    assert result["added"] is True
+
+
+@pytest.mark.asyncio
+async def test_rpc_dict_via_top_level_env():
+    stub = await _get_stub(top_level_env)
+    result = await stub.test_rpc_dict({"key": "value"})
+    assert not isinstance(result, JsProxy), (
+        f"top-level workers.env RPC result should be deserialized, got {type(result)}"
+    )
+    assert isinstance(result, dict)
     assert result["received"]["key"] == "value"
     assert result["added"] is True
 

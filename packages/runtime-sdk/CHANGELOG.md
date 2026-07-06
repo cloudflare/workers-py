@@ -2,6 +2,53 @@
 
 <!-- version list -->
 
+## v1.5.3 (2026-07-03)
+
+### Bug Fixes
+
+- Update Workflows wrapper to work more natively with Python objects
+  ([#138](https://github.com/cloudflare/workers-py/pull/138),
+  [`63ea6a0`](https://github.com/cloudflare/workers-py/commit/63ea6a0842875e04f3883bd050a097a3ef7152bd))
+
+
+## v1.5.2 (2026-07-01)
+
+### Bug Fixes
+
+- Ensure that ctx and env __init__ arguments are always wrapped
+  ([#131](https://github.com/cloudflare/workers-py/pull/131),
+  [`465c702`](https://github.com/cloudflare/workers-py/commit/465c7029d7b7d5ca75afb1648d9a96433a8a9a13))
+
+
+## v1.5.1 (2026-06-29)
+
+### Bug Fixes
+
+- Ensure self.env and top-level env uses a same class
+  ([#136](https://github.com/cloudflare/workers-py/pull/136),
+  [`e627c11`](https://github.com/cloudflare/workers-py/commit/e627c11f58c572f6ee5df97e423928ee4423d2e9))
+
+- Update FetchResponse.headers to return HTTPMessage
+  ([#136](https://github.com/cloudflare/workers-py/pull/136),
+  [`e627c11`](https://github.com/cloudflare/workers-py/commit/e627c11f58c572f6ee5df97e423928ee4423d2e9))
+
+
+## v1.5.0 (2026-06-23)
+
+### Features
+
+- Apply bindings wrapper to AI bindings ([#130](https://github.com/cloudflare/workers-py/pull/130),
+  [`79eeaf9`](https://github.com/cloudflare/workers-py/commit/79eeaf94ab02e4208372a7d3f57ba34248421c93))
+
+- Apply bindings wrapper to Images, RateLimit, and Analytics Engine
+  ([#130](https://github.com/cloudflare/workers-py/pull/130),
+  [`79eeaf9`](https://github.com/cloudflare/workers-py/commit/79eeaf94ab02e4208372a7d3f57ba34248421c93))
+
+- Wrap AI, Images, Analytics Engine, Vectorize and RateLimit Bindings to accept native Python
+  objects ([#130](https://github.com/cloudflare/workers-py/pull/130),
+  [`79eeaf9`](https://github.com/cloudflare/workers-py/commit/79eeaf94ab02e4208372a7d3f57ba34248421c93))
+
+
 ## v1.4.3 (2026-06-18)
 
 ### Bug Fixes

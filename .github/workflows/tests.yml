@@ -38,7 +38,7 @@ jobs:
     - name: Run tests
       working-directory: packages/cli
       run: |
-        pytest -v tests
+        pytest -v --color=yes tests
 
     - name: Verify that pywrangler can be run globally
       run: |
