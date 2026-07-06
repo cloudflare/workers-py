@@ -10,6 +10,7 @@ from django.dispatch import Signal
 from django.http import Http404, HttpResponse, JsonResponse, StreamingHttpResponse
 from django.shortcuts import render
 from django.urls import reverse
+from django.utils.html import escape
 from django.views import View
 from django.views.decorators.csrf import (
     csrf_exempt,
@@ -43,7 +44,7 @@ async def hello(request):
 
 
 async def status_code(request, code):
-    return HttpResponse(f"status {code}", status=code)
+    return HttpResponse(f"status {escape(str(code))}", status=code)
 
 
 async def echo_method(request):

@@ -69,10 +69,7 @@ async def test_request_path_and_content_type(django_asgi_app):
     response, payload = await get_json(django_asgi_app, "/echo-method/")
 
     assert response.status == 200
-    if "path" in payload:
-        assert payload["path"] == "/echo-method/"
-    else:
-        assert response.headers.get("Content-Type", "").startswith("application/json")
+    assert payload["method"] == "GET"
     assert "application/json" in (response.headers.get("Content-Type") or "")
 
 

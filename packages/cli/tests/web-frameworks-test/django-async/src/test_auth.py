@@ -64,7 +64,9 @@ async def test_auth_logout(django_asgi_app):
     )
     assert logout_response.status == 200
 
-    response, payload = await get_json(django_asgi_app, "/auth/user/")
+    response, payload = await get_json(
+        django_asgi_app, "/auth/user/", headers={"Cookie": f"sessionid={sessionid}"}
+    )
     assert response.status == 200
     assert payload["is_authenticated"] is False
 
