@@ -10,14 +10,12 @@ permissions:
   contents: read
 
 jobs:
-  # Combined job: installs both runtime-sdk and cli, then runs the cli test suite.
-  # runtime-sdk requires Python >=3.12, so this matrix starts at 3.12.
   test:
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ['3.12', '3.13', '3.14']
+        python-version: ['3.11', '3.12', '3.13', '3.14']
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -37,43 +35,9 @@ jobs:
         uv pip install --system -e packages/runtime-sdk -e packages/cli
         uv pip install --system --group dev --project packages/cli
 
-    - name: Run tests
-      working-directory: packages/cli
-      run: |
-        pytest -v --color=yes tests
-
-    - name: Verify that pywrangler can be run globally
-      run: |
-        pywrangler --help
-
-  # cli-only job: the pywrangler CLI supports Python >=3.11, but runtime-sdk
-  # targets the Pyodide worker runtime (>=3.12). On 3.11 the runtime-sdk
-  # dependency is skipped via its environment marker, so we install cli alone.
-  test-cli:
-    strategy:
-      fail-fast: false
-      matrix:
-        os: [ubuntu-latest, macos-latest]
-        python-version: ['3.11']
-    runs-on: ${{ matrix.os }}
-
-    steps:
-    - uses: actions/checkout@v4
-
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
-      with:
-        python-version: ${{ matrix.python-version }}
-
-    - name: Install uv
-      run: |
-        pip install uv
-
-    - name: Install project
-      run: |
-        uv pip install --system -e packages/cli
-        uv pip install --system --group dev --project packages/cli
-
+    # TODO: cli tests include running sdks in workerd.
+    # Since running workerd tests has mostly nothing to do with the host python versions,
+    # we don't need to run them for all python versions.
     - name: Run tests
       working-directory: packages/cli
       run: |
