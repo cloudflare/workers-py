@@ -204,6 +204,13 @@ class Default(WorkerEntrypoint):
         await test_error_after_response_is_logged(self.env)
         await test_background_task_error_is_logged()
         await test_app_exception_before_response_is_logged()
+        await test_lifespan_unsupported_app_does_not_hang(self.env)
+        await test_lifespan_full_cycle(self.env)
+        await test_lifespan_startup_failed_propagates(self.env)
+        await test_lifespan_shutdown_failed_propagates(self.env)
+        await test_null_body_statuses(self.env)
+        await test_response_start_without_headers(self.env)
+        await test_response_body_without_body_key(self.env)
 
 
 # ---------------------------------------------------------------------------
@@ -476,3 +483,224 @@ async def test_app_exception_before_response_is_logged():
         )
     finally:
         _remove_handler(handler)
+
+
+# ---------------------------------------------------------------------------
+# Test: lifespan protocol tolerance (app that rejects the lifespan scope)
+# ---------------------------------------------------------------------------
+
+
+class _NoLifespanApp:
+    """Mimics Django's ASGIHandler, which raises on any non-http scope."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            raise ValueError(f"can only handle http, not {scope['type']}")
+        await receive()
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [(b"content-type", b"text/plain")],
+            }
+        )
+        await send({"type": "http.response.body", "body": b"served"})
+
+
+async def test_lifespan_unsupported_app_does_not_hang(env):
+    req = js.Request.new("http://example.com/no-lifespan")
+    # The previous adaptor blocked forever waiting for a startup ack the app
+    # never sends; wait_for turns that hang into an observable test failure.
+    response = await asyncio.wait_for(asgi.fetch(_NoLifespanApp(), req, env), timeout=5)
+    assert response.status == 200
+    assert await response.text() == "served"
+
+
+# ---------------------------------------------------------------------------
+# Test: null-body statuses must not carry a response body
+# ---------------------------------------------------------------------------
+
+
+class _NullBodyApp:
+    def __init__(self, status):
+        self._status = status
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            message = await receive()
+            if message["type"] == "lifespan.startup":
+                await send({"type": "lifespan.startup.complete"})
+            return
+        if scope["type"] != "http":
+            return
+        await receive()
+        await send(
+            {
+                "type": "http.response.start",
+                "status": self._status,
+                "headers": [(b"x-null-body", b"1")],
+            }
+        )
+        await send({"type": "http.response.body", "body": b"body-should-be-dropped"})
+
+
+async def test_null_body_statuses(env):
+    for status in (204, 205, 304):
+        req = js.Request.new(f"http://example.com/null-body/{status}")
+        response = await asgi.fetch(_NullBodyApp(status), req, env)
+        assert response.status == status, f"expected {status}, got {response.status}"
+        assert response.headers["x-null-body"] == "1"
+        assert await response.text() == ""
+
+
+# ---------------------------------------------------------------------------
+# Test: defensive handling of ASGI messages missing optional keys
+# ---------------------------------------------------------------------------
+
+
+class _MissingHeadersApp:
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            message = await receive()
+            if message["type"] == "lifespan.startup":
+                await send({"type": "lifespan.startup.complete"})
+            return
+        if scope["type"] != "http":
+            return
+        await receive()
+        await send({"type": "http.response.start", "status": 200})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+
+async def test_response_start_without_headers(env):
+    req = js.Request.new("http://example.com/missing-headers")
+    response = await asgi.fetch(_MissingHeadersApp(), req, env)
+    assert response.status == 200
+    assert await response.text() == "ok"
+
+
+class _MissingBodyKeyApp:
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            message = await receive()
+            if message["type"] == "lifespan.startup":
+                await send({"type": "lifespan.startup.complete"})
+            return
+        if scope["type"] != "http":
+            return
+        await receive()
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [(b"content-type", b"text/plain")],
+            }
+        )
+        await send({"type": "http.response.body"})
+
+
+async def test_response_body_without_body_key(env):
+    req = js.Request.new("http://example.com/missing-body")
+    response = await asgi.fetch(_MissingBodyKeyApp(), req, env)
+    assert response.status == 200
+    assert await response.text() == ""
+
+
+# ---------------------------------------------------------------------------
+# Test: full lifespan cycle (startup AND shutdown are both delivered)
+# ---------------------------------------------------------------------------
+
+
+class _LifespanCycleApp:
+    def __init__(self):
+        self.events = []
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            while True:
+                message = await receive()
+                if message["type"] == "lifespan.startup":
+                    self.events.append("startup")
+                    await send({"type": "lifespan.startup.complete"})
+                elif message["type"] == "lifespan.shutdown":
+                    self.events.append("shutdown")
+                    await send({"type": "lifespan.shutdown.complete"})
+                    return
+        if scope["type"] != "http":
+            return
+        await receive()
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [(b"content-type", b"text/plain")],
+            }
+        )
+        await send({"type": "http.response.body", "body": b"ok"})
+
+
+async def test_lifespan_full_cycle(env):
+    app = _LifespanCycleApp()
+    req = js.Request.new("http://example.com/lifespan-cycle")
+    response = await asgi.fetch(app, req, env)
+    assert response.status == 200
+    assert app.events == ["startup", "shutdown"]
+
+
+# ---------------------------------------------------------------------------
+# Test: lifespan startup/shutdown failures propagate out of asgi.fetch
+# ---------------------------------------------------------------------------
+
+
+class _StartupFailApp:
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            await receive()
+            await send({"type": "lifespan.startup.failed", "message": "boom-startup"})
+            return
+        if scope["type"] != "http":
+            return
+        await receive()
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+
+async def test_lifespan_startup_failed_propagates(env):
+    req = js.Request.new("http://example.com/startup-fail")
+    raised = None
+    try:
+        await asyncio.wait_for(asgi.fetch(_StartupFailApp(), req, env), timeout=5)
+    except Exception as e:
+        raised = e
+    assert isinstance(raised, RuntimeError), f"expected RuntimeError, got {raised!r}"
+    assert "boom-startup" in str(raised)
+
+
+class _ShutdownFailApp:
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            while True:
+                message = await receive()
+                if message["type"] == "lifespan.startup":
+                    await send({"type": "lifespan.startup.complete"})
+                elif message["type"] == "lifespan.shutdown":
+                    await send(
+                        {"type": "lifespan.shutdown.failed", "message": "boom-shutdown"}
+                    )
+                    return
+        if scope["type"] != "http":
+            return
+        await receive()
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+
+async def test_lifespan_shutdown_failed_propagates(env):
+    req = js.Request.new("http://example.com/shutdown-fail")
+    raised = None
+    try:
+        await asyncio.wait_for(asgi.fetch(_ShutdownFailApp(), req, env), timeout=5)
+    except Exception as e:
+        raised = e
+    assert isinstance(raised, RuntimeError), f"expected RuntimeError, got {raised!r}"
+    assert "boom-shutdown" in str(raised)

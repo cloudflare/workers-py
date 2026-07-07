@@ -1,8 +1,7 @@
 import logging
-from asyncio import Event, Future, Queue, create_task, ensure_future, sleep
+from asyncio import Event, Future, Queue, create_task, ensure_future
 from collections.abc import Awaitable
 from contextlib import contextmanager
-from inspect import isawaitable
 from typing import Any
 
 import js
@@ -10,6 +9,7 @@ import js
 from workers import Context, Request
 
 ASGI = {"spec_version": "2.0", "version": "3.0"}
+NULL_BODY_STATUSES = frozenset({101, 103, 204, 205, 304})
 logger = logging.getLogger("asgi")
 background_tasks = set()
 
@@ -76,42 +76,86 @@ def request_to_scope(req, env, ws=False):
 
 
 async def start_application(app):
-    shutdown_future = Future()
+    # Drives one ASGI lifespan startup/shutdown cycle before/after serving the
+    # request. The lifespan protocol is optional, so we must tolerate apps that
+    # don't implement it and fall back to serving requests without lifespan.
+    # https://asgi.readthedocs.io/en/latest/specs/lifespan.html
+    receive_queue = Queue()
+    await receive_queue.put({"type": "lifespan.startup"})
+
+    # `startup` resolves True on `lifespan.startup.complete`, False when the app
+    # has no lifespan support, and raises on `lifespan.startup.failed`.
+    # `shutdown_complete` mirrors the shutdown phase.
+    startup = Future()
+    shutdown_complete = Future()
 
     async def shutdown():
-        shutdown_future.set_result(None)
-        await sleep(0)
+        # Nothing to shut down if the app never completed a lifespan startup.
+        if startup.done() and not startup.result():
+            return
+        await receive_queue.put({"type": "lifespan.shutdown"})
+        await shutdown_complete
 
-    it = iter([{"type": "lifespan.startup"}, Future()])
+    async def no_lifespan_shutdown():
+        return
 
     async def receive():
-        res = next(it)
-        if isawaitable(res):
-            await res
-        return res
-
-    ready = Future()
+        return await receive_queue.get()
 
     async def send(got):
         if got["type"] == "lifespan.startup.complete":
-            ready.set_result(None)
+            if not startup.done():
+                startup.set_result(True)
+            return
+        if got["type"] == "lifespan.startup.failed":
+            message = got.get("message", "ASGI lifespan startup failed")
+            if not startup.done():
+                startup.set_exception(RuntimeError(message))
             return
         if got["type"] == "lifespan.shutdown.complete":
+            if not shutdown_complete.done():
+                shutdown_complete.set_result(None)
+            return
+        if got["type"] == "lifespan.shutdown.failed":
+            message = got.get("message", "ASGI lifespan shutdown failed")
+            if not shutdown_complete.done():
+                shutdown_complete.set_exception(RuntimeError(message))
             return
         raise RuntimeError(f"Unexpected lifespan event {got['type']}")
 
-    run_in_background(
-        app(
-            {
-                "asgi": ASGI,
-                "state": {},
-                "type": "lifespan",
-            },
-            receive,
-            send,
-        )
-    )
-    await ready
+    async def run_lifespan():
+        try:
+            await app(
+                {
+                    "asgi": ASGI,
+                    "state": {},
+                    "type": "lifespan",
+                },
+                receive,
+                send,
+            )
+            # App returned without acking: a missing startup ack means it has no
+            # lifespan handler, so mark startup unsupported rather than hanging.
+            if not startup.done():
+                startup.set_result(False)
+            elif not shutdown_complete.done():
+                shutdown_complete.set_result(None)
+        except Exception as exc:
+            # Spec: an exception raised before startup is acked signals that the
+            # app doesn't support lifespan; swallow it and serve requests anyway.
+            if not startup.done():
+                startup.set_result(False)
+                return
+            # After a successful startup, a shutdown-phase error can't affect the
+            # already-served request, so log it and let shutdown complete.
+            logger.exception("Exception in ASGI lifespan application", exc_info=exc)
+            if not shutdown_complete.done():
+                shutdown_complete.set_result(None)
+
+    run_in_background(run_lifespan())
+    supported = await startup
+    if not supported:
+        return no_lifespan_shutdown
     return shutdown
 
 
@@ -163,10 +207,10 @@ async def process_request(
         if got["type"] == "http.response.start":
             status = got["status"]
             # Like above, we need to convert byte-pairs into string explicitly.
-            headers = [(k.decode(), v.decode()) for k, v in got["headers"]]
+            headers = [(k.decode(), v.decode()) for k, v in got.get("headers", [])]
 
         elif got["type"] == "http.response.body":
-            body = got["body"]
+            body = got.get("body", b"")
             more_body = got.get("more_body", False)
 
             if writer is not None:
@@ -189,6 +233,14 @@ async def process_request(
                 result.set_result(resp)
                 with acquire_js_buffer(body) as jsbytes:
                     await writer.write(jsbytes.slice())
+            elif status in NULL_BODY_STATUSES:
+                # 101/103/204/205/304 must not carry a body per the Fetch spec.
+                # https://fetch.spec.whatwg.org/#null-body-status
+                resp = Response.new(
+                    None, headers=Object.fromEntries(headers), status=status
+                )
+                result.set_result(resp)
+                finished_response.set()
             else:
                 # Complete body in a single chunk
                 px = create_proxy(body)
