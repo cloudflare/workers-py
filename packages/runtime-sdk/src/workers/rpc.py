@@ -6,10 +6,17 @@ from js import Object
 from pyodide.ffi import JsProxy, create_proxy, to_js
 
 from .blob import Blob, File
+from .fetch import fetch
 from .formdata import FormData
 from .request import Request
 from .response import Response
-from .utils import _is_iterable, _is_js_instance, jsnull
+from .utils import (
+    _JS_PASSTHROUGH_TYPES,
+    _get_js_constructor_name,
+    _is_iterable,
+    _is_js_instance,
+    jsnull,
+)
 
 
 def _python_from_rpc_default_converter(value, convert, cache):
@@ -108,9 +115,6 @@ def python_from_rpc(obj: "JsProxy"):
 
 
 def _raise_on_disabled_type(value):
-    # Lazy import: _BindingWrapper is defined in _workers.py
-    from ._workers import _BindingWrapper
-
     if isinstance(value, _BindingWrapper):
         return
 
@@ -137,9 +141,6 @@ def _raise_on_disabled_type(value):
 
 
 def _python_to_rpc_default_converter(obj, convert, cache):
-    # Lazy import: _BindingWrapper is defined in _workers.py
-    from ._workers import _BindingWrapper
-
     if obj is None:
         return jsnull
 
@@ -184,10 +185,6 @@ def python_to_rpc(value) -> JsProxy:
     This method is used for Workers RPC in Python to convert Python objects to JavaScript. As such
     it does not support serializing all Python object types.
     """
-    # Lazy import: _BindingWrapper is defined in _workers.py
-    # TODO: refactor more to avoid circular imports
-    from ._workers import _BindingWrapper
-
     if value is None:
         return jsnull
 
@@ -206,3 +203,218 @@ def python_to_rpc(value) -> JsProxy:
     )
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Binding wrappers
+# ---------------------------------------------------------------------------
+
+
+def _idempotent_new(cls, obj):
+    """Set __new__ on a class to this so cls is idempotent:
+
+    >>> a = A(x)
+    >>> b = A(a)
+    >>> assert a is b
+
+    For this to work, start the __init__ function with:
+
+    if obj is self:
+        return
+
+    to prevent double-init.
+    """
+    if isinstance(obj, cls):
+        return obj
+    return object.__new__(cls)
+
+
+class _BindingWrapper:
+    __new__ = _idempotent_new
+
+    def __init__(self, binding):
+        if binding is self:
+            return
+        self._binding = binding
+
+    @property
+    def _real_name(self):
+        js_name = _get_js_constructor_name(self._binding)
+        if not js_name:
+            # Should not happen, but just in case
+            return type(self).__name__
+        return js_name
+
+    def _should_wrap_nested_attribute(self, jsobj) -> bool:
+        if not isinstance(jsobj, JsProxy):
+            return False
+
+        # TODO: This allowlist approach is a workaround. The long-term fix is to
+        # add dedicated Python wrappers for these types in python_from_rpc so they
+        # never reach _BindingWrapper in the first place.
+        js_type = _get_js_constructor_name(jsobj)
+        return js_type and js_type not in _JS_PASSTHROUGH_TYPES
+
+    def _convert_result(self, result):
+        converted = python_from_rpc(result)
+
+        # After python_from_rpc, some objects may still be JsProxy objects.
+        # We need to wrap them with _BindingWrapper (or a subclass of it) again
+        # to ensure that accessing attributes on them will be properly converted.
+        if self._should_wrap_nested_attribute(converted):
+            return self.__class__(converted)
+        if isinstance(converted, list):
+            return [
+                self.__class__(item)
+                if self._should_wrap_nested_attribute(item)
+                else item
+                for item in converted
+            ]
+        return converted
+
+    @staticmethod
+    def _convert_args(args, kwargs):
+        js_args = [python_to_rpc(arg) for arg in args]
+        js_kwargs = {k: python_to_rpc(v) for k, v in kwargs.items()}
+        return js_args, js_kwargs
+
+    def _getattr_helper(self, name):
+        attr = getattr(self._binding, name)
+
+        if not callable(attr):
+            return self._convert_result(attr)
+
+        def wrapper(*args, **kwargs):
+            js_args, js_kwargs = self._convert_args(args, kwargs)
+            result = attr(*js_args, **js_kwargs)
+            if hasattr(result, "then") and callable(result.then):
+
+                async def await_and_convert():
+                    return self._convert_result(await result)
+
+                return await_and_convert()
+            return self._convert_result(result)
+
+        return wrapper
+
+    def __getattr__(self, name):
+        result = self._getattr_helper(name)
+        setattr(self, name, result)
+        return result
+
+    def __getitem__(self, key):
+        if isinstance(key, int):
+            return self._convert_result(self._binding[key])
+        return self._convert_result(getattr(self._binding, key))
+
+    def __iter__(self):
+        binding = self._binding
+        if not hasattr(binding, "__iter__"):
+            raise TypeError(f"'{self._real_name}' object is not iterable")
+        for item in binding:
+            yield self._convert_result(item)
+
+    def __len__(self):
+        binding = self._binding
+        if not hasattr(binding, "length"):
+            raise TypeError(f"'{self._real_name}' object has no len()")
+        return binding.length
+
+
+class _FetcherWrapper(_BindingWrapper):
+    def fetch(self, *args, **kwargs):
+        return fetch(*args, fetcher=self._binding.fetch, **kwargs)
+
+
+class _DurableObjectNamespaceWrapper:
+    def __init__(self, binding):
+        self._binding = binding
+
+    def __getattr__(self, name):
+        return getattr(self._binding, name)
+
+    def get(self, *args, **kwargs):
+        return _FetcherWrapper(self._binding.get(*args, **kwargs))
+
+    def getByName(self, *args, **kwargs):
+        return _FetcherWrapper(self._binding.getByName(*args, **kwargs))
+
+    def jurisdiction(self, *args, **kwargs):
+        return _DurableObjectNamespaceWrapper(
+            self._binding.jurisdiction(*args, **kwargs)
+        )
+
+
+class _WorkflowInstanceWrapper(_BindingWrapper):
+    # status/pause/resume/restart/terminate share their JS names and are handled by
+    # the _BindingWrapper, which already converts arguments and results.
+    # Only send_event needs the snake_case -> camelCase mapping for backward compatibility
+
+    async def send_event(self, *args, **kwargs):
+        js_args, js_kwargs = self._convert_args(args, kwargs)
+        return self._convert_result(
+            await self._binding.sendEvent(*js_args, **js_kwargs)
+        )
+
+
+class _WorkflowBindingWrapper(_BindingWrapper):
+    async def get(self, *args, **kwargs):
+        js_args, js_kwargs = self._convert_args(args, kwargs)
+        return _WorkflowInstanceWrapper(await self._binding.get(*js_args, **js_kwargs))
+
+    async def create(self, *args, **kwargs):
+        js_args, js_kwargs = self._convert_args(args, kwargs)
+        return _WorkflowInstanceWrapper(
+            await self._binding.create(*js_args, **js_kwargs)
+        )
+
+    async def create_batch(self, *args, **kwargs):
+        js_args, js_kwargs = self._convert_args(args, kwargs)
+        return [
+            _WorkflowInstanceWrapper(w)
+            for w in await self._binding.createBatch(*js_args, **js_kwargs)
+        ]
+
+
+class _EnvWrapper:
+    _BINDING_TYPES = {
+        "KvNamespace",
+        "R2Bucket",
+        "D1Database",
+        "WorkerQueue",
+        "Ai",
+        "VectorizeIndexImpl",
+        "AnalyticsEngineDataset",
+        "LocalAnalyticsEngineDataset",
+        "ImagesBindingImpl",
+        "HostedImagesBindingImpl",
+        "Ratelimit",
+    }
+
+    __new__ = _idempotent_new
+
+    def __init__(self, env):
+        if env is self:
+            return
+        self._env = env
+
+    def _getattr_helper(self, name):
+        binding = getattr(self._env, name)
+        if _is_js_instance(binding, "Fetcher"):
+            return _FetcherWrapper(binding)
+
+        if _is_js_instance(binding, "DurableObjectNamespace"):
+            return _DurableObjectNamespaceWrapper(binding)
+
+        if _is_js_instance(binding, "WorkflowImpl"):
+            return _WorkflowBindingWrapper(binding)
+
+        if _is_js_instance(binding, self._BINDING_TYPES):
+            return _BindingWrapper(binding)
+
+        return binding
+
+    def __getattr__(self, name):
+        result = self._getattr_helper(name)
+        setattr(self, name, result)
+        return result

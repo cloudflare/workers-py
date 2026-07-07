@@ -1,170 +1,26 @@
-# This module defines a Workers API for Python. It is similar to the API provided by
-# JS Workers, but with changes and additions to be more idiomatic to the Python
-# programming language.
 import functools
 import inspect
 from asyncio import create_task, gather
 from typing import TYPE_CHECKING, Any
 
 import _cloudflare_compat_flags
-
-# Get globals modules and import function from the entrypoint-helper
 import _pyodide_entrypoint_helper
 import js
 from js import Object
-from pyodide.ffi import (
-    JsProxy,
-    create_once_callable,
-    to_js,
-)
+from pyodide.ffi import create_once_callable, to_js
 
-from .fetch import fetch
 from .request import Request
-from .rpc import python_from_rpc, python_to_rpc
-from .utils import (
-    _JS_PASSTHROUGH_TYPES,
-    _from_js_error,
-    _get_js_constructor_name,
-    _is_js_instance,
+from .rpc import (
+    _BindingWrapper,
+    _EnvWrapper,
+    _idempotent_new,
+    python_from_rpc,
+    python_to_rpc,
 )
+from .utils import _from_js_error, _is_js_instance
 
 if TYPE_CHECKING:
     from js import DurableObjectState, Env, ExecutionContext
-
-
-def _idempotent_new(cls, obj):
-    """Set __new__ on a class to this so cls is idempotent:
-
-    >>> a = A(x)
-    >>> b = A(a)
-    >>> assert a is b
-
-    For this to work, start the __init__ function with:
-
-    if obj is self:
-        return
-
-    to prevent double-init.
-    """
-    if isinstance(obj, cls):
-        return obj
-    return object.__new__(cls)
-
-
-class _BindingWrapper:
-    __new__ = _idempotent_new
-
-    def __init__(self, binding):
-        if binding is self:
-            return
-        self._binding = binding
-
-    @property
-    def _real_name(self):
-        js_name = _get_js_constructor_name(self._binding)
-        if not js_name:
-            # Should not happen, but just in case
-            return type(self).__name__
-        return js_name
-
-    def _should_wrap_nested_attribute(self, jsobj) -> bool:
-        if not isinstance(jsobj, JsProxy):
-            return False
-
-        # TODO: This allowlist approach is a workaround. The long-term fix is to
-        # add dedicated Python wrappers for these types in python_from_rpc so they
-        # never reach _BindingWrapper in the first place.
-        js_type = _get_js_constructor_name(jsobj)
-        return js_type and js_type not in _JS_PASSTHROUGH_TYPES
-
-    def _convert_result(self, result):
-        converted = python_from_rpc(result)
-
-        # After python_from_rpc, some objects may still be JsProxy objects.
-        # We need to wrap them with _BindingWrapper (or a subclass of it) again
-        # to ensure that accessing attributes on them will be properly converted.
-        if self._should_wrap_nested_attribute(converted):
-            return self.__class__(converted)
-        if isinstance(converted, list):
-            return [
-                self.__class__(item)
-                if self._should_wrap_nested_attribute(item)
-                else item
-                for item in converted
-            ]
-        return converted
-
-    @staticmethod
-    def _convert_args(args, kwargs):
-        js_args = [python_to_rpc(arg) for arg in args]
-        js_kwargs = {k: python_to_rpc(v) for k, v in kwargs.items()}
-        return js_args, js_kwargs
-
-    def _getattr_helper(self, name):
-        attr = getattr(self._binding, name)
-
-        if not callable(attr):
-            return self._convert_result(attr)
-
-        def wrapper(*args, **kwargs):
-            js_args, js_kwargs = self._convert_args(args, kwargs)
-            result = attr(*js_args, **js_kwargs)
-            if hasattr(result, "then") and callable(result.then):
-
-                async def await_and_convert():
-                    return self._convert_result(await result)
-
-                return await_and_convert()
-            return self._convert_result(result)
-
-        return wrapper
-
-    def __getattr__(self, name):
-        result = self._getattr_helper(name)
-        setattr(self, name, result)
-        return result
-
-    def __getitem__(self, key):
-        if isinstance(key, int):
-            return self._convert_result(self._binding[key])
-        return self._convert_result(getattr(self._binding, key))
-
-    def __iter__(self):
-        binding = self._binding
-        if not hasattr(binding, "__iter__"):
-            raise TypeError(f"'{self._real_name}' object is not iterable")
-        for item in binding:
-            yield self._convert_result(item)
-
-    def __len__(self):
-        binding = self._binding
-        if not hasattr(binding, "length"):
-            raise TypeError(f"'{self._real_name}' object has no len()")
-        return binding.length
-
-
-class _FetcherWrapper(_BindingWrapper):
-    def fetch(self, *args, **kwargs):
-        return fetch(*args, fetcher=self._binding.fetch, **kwargs)
-
-
-class _DurableObjectNamespaceWrapper:
-    def __init__(self, binding):
-        self._binding = binding
-
-    def __getattr__(self, name):
-        return getattr(self._binding, name)
-
-    def get(self, *args, **kwargs):
-        return _FetcherWrapper(self._binding.get(*args, **kwargs))
-
-    def getByName(self, *args, **kwargs):
-        return _FetcherWrapper(self._binding.getByName(*args, **kwargs))
-
-    def jurisdiction(self, *args, **kwargs):
-        return _DurableObjectNamespaceWrapper(
-            self._binding.jurisdiction(*args, **kwargs)
-        )
 
 
 class DurableObjectAbort(BaseException):
@@ -210,103 +66,6 @@ class DurableObjectContext:
 
         js.queueMicrotask(callback)
         raise DurableObjectAbort(reason or "Durable Object abort requested")
-
-
-class _WorkflowInstanceWrapper(_BindingWrapper):
-    # status/pause/resume/restart/terminate share their JS names and are handled by
-    # the _BindingWrapper, which already converts arguments and results.
-    # Only send_event needs the snake_case -> camelCase mapping for backward compatibility
-
-    async def send_event(self, *args, **kwargs):
-        js_args, js_kwargs = self._convert_args(args, kwargs)
-        return self._convert_result(
-            await self._binding.sendEvent(*js_args, **js_kwargs)
-        )
-
-
-class _WorkflowBindingWrapper(_BindingWrapper):
-    async def get(self, *args, **kwargs):
-        js_args, js_kwargs = self._convert_args(args, kwargs)
-        return _WorkflowInstanceWrapper(await self._binding.get(*js_args, **js_kwargs))
-
-    async def create(self, *args, **kwargs):
-        js_args, js_kwargs = self._convert_args(args, kwargs)
-        return _WorkflowInstanceWrapper(
-            await self._binding.create(*js_args, **js_kwargs)
-        )
-
-    async def create_batch(self, *args, **kwargs):
-        js_args, js_kwargs = self._convert_args(args, kwargs)
-        return [
-            _WorkflowInstanceWrapper(w)
-            for w in await self._binding.createBatch(*js_args, **js_kwargs)
-        ]
-
-
-class _EnvWrapper:
-    _BINDING_TYPES = {
-        "KvNamespace",
-        "R2Bucket",
-        "D1Database",
-        "WorkerQueue",
-        "Ai",
-        "VectorizeIndexImpl",
-        "AnalyticsEngineDataset",
-        "LocalAnalyticsEngineDataset",
-        "ImagesBindingImpl",
-        "HostedImagesBindingImpl",
-        "Ratelimit",
-    }
-
-    __new__ = _idempotent_new
-
-    def __init__(self, env: Any):
-        if env is self:
-            return
-        self._env = env
-
-    def _getattr_helper(self, name):
-        binding = getattr(self._env, name)
-        if _is_js_instance(binding, "Fetcher"):
-            return _FetcherWrapper(binding)
-
-        if _is_js_instance(binding, "DurableObjectNamespace"):
-            return _DurableObjectNamespaceWrapper(binding)
-
-        if _is_js_instance(binding, "WorkflowImpl"):
-            return _WorkflowBindingWrapper(binding)
-
-        if _is_js_instance(binding, self._BINDING_TYPES):
-            return _BindingWrapper(binding)
-
-        return binding
-
-    def __getattr__(self, name):
-        result = self._getattr_helper(name)
-        setattr(self, name, result)
-        return result
-
-
-def handler(func):
-    """
-    When applied to handlers such as `on_fetch` it will rewrite arguments passed in to native Python
-    types defined in this module. For example, the `request` argument to `on_fetch` gets converted
-    to an instance of the Request class defined in this module.
-    """
-
-    @functools.wraps(func)
-    def wrapper(*args, **kwargs):
-        # TODO: support transforming kwargs
-        if len(args) > 0 and _is_js_instance(args[0], "Request"):
-            args = (Request(args[0]), *args[1:])
-
-        # Wrap `env` so that bindings can be used without to_js.
-        if len(args) > 1:
-            args = (args[0], _EnvWrapper(args[1]), *args[2:])
-
-        return func(*args, **kwargs)
-
-    return wrapper
 
 
 class _WorkflowStepWrapper:
@@ -485,6 +244,28 @@ async def _do_call(entrypoint, name, config, callback, *results):
     return result
 
 
+def handler(func):
+    """
+    When applied to handlers such as `on_fetch` it will rewrite arguments passed in to native Python
+    types defined in this module. For example, the `request` argument to `on_fetch` gets converted
+    to an instance of the Request class defined in this module.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        # TODO: support transforming kwargs
+        if len(args) > 0 and _is_js_instance(args[0], "Request"):
+            args = (Request(args[0]), *args[1:])
+
+        # Wrap `env` so that bindings can be used without to_js.
+        if len(args) > 1:
+            args = (args[0], _EnvWrapper(args[1]), *args[2:])
+
+        return func(*args, **kwargs)
+
+    return wrapper
+
+
 def _wrap_class(cls):
     # Override the class __init__ so that we can wrap the `env` in the constructor.
     original_init = cls.__dict__.get("__init__")
@@ -531,6 +312,22 @@ def _wrap_workflow_step(cls):
         return python_to_rpc(result)
 
     cls.run = wrapped_run
+
+
+def _wrap_queue_handler(cls):
+    queue_fn = getattr(cls, "queue", None)
+    if queue_fn is None:
+        return
+
+    @functools.wraps(queue_fn)
+    async def wrapped_queue(self, batch, *args, **kwargs):
+        wrapped_batch = _BindingWrapper(batch)
+        result = queue_fn(self, wrapped_batch, *args, **kwargs)
+        if inspect.iscoroutine(result):
+            result = await result
+        return result
+
+    cls.queue = wrapped_queue
 
 
 @_wrap_class
@@ -584,19 +381,3 @@ class WorkflowEntrypoint:
     def __init_subclass__(cls, **_kwargs: Any):
         _wrap_class(cls)
         _wrap_workflow_step(cls)
-
-
-def _wrap_queue_handler(cls):
-    queue_fn = getattr(cls, "queue", None)
-    if queue_fn is None:
-        return
-
-    @functools.wraps(queue_fn)
-    async def wrapped_queue(self, batch, *args, **kwargs):
-        wrapped_batch = _BindingWrapper(batch)
-        result = queue_fn(self, wrapped_batch, *args, **kwargs)
-        if inspect.iscoroutine(result):
-            result = await result
-        return result
-
-    cls.queue = wrapped_queue
