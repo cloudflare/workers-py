@@ -1,0 +1,23 @@
+{
+    "name": "hyperdrive-test",
+    "main": "src/worker.py",
+    "compatibility_date": "%COMPAT_DATE",
+    "compatibility_flags": [
+        "python_workers"
+    ],
+    // Hyperdrive bindings for local development.
+    // localConnectionString lets pywrangler dev connect directly to a local database.
+    // In CI, these point to Docker-hosted MySQL and PostgreSQL instances.
+    "hyperdrive": [
+        {
+            "binding": "HYPERDRIVE_PG",
+            "id": "00000000-0000-0000-0000-000000000001",
+            "localConnectionString": "postgres://testuser:testpass@127.0.0.1:5432/testdb"
+        },
+        {
+            "binding": "HYPERDRIVE_MYSQL",
+            "id": "00000000-0000-0000-0000-000000000002",
+            "localConnectionString": "mysql://testuser:testpass@127.0.0.1:3306/testdb"
+        }
+    ]
+}
