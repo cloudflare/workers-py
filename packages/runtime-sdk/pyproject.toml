@@ -7,7 +7,7 @@ name = "workers-runtime-sdk"
 version = "1.5.3"
 description = "Python SDK for Cloudflare Workers"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: MIT License",
@@ -27,7 +27,7 @@ dev = [
 "Bug Tracker" = "https://github.com/cloudflare/workers-py/issues"
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py311"
 lint.select = [
   "B0",     # bugbear (all B0* checks enabled by default)
   "B904",   # bugbear (Within an except clause, raise exceptions with raise ... from err)
@@ -59,7 +59,7 @@ lint.flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
 
 [tool.mypy]
 packages = ["workers_runtime_sdk"]
-python_version = "3.12"
+python_version = "3.11"
 
 show_error_codes = true
 

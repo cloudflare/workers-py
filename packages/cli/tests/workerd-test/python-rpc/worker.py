@@ -293,12 +293,14 @@ class Default(WorkerEntrypoint):
         py_result = await env.PythonRpc.caller(inc_func)
         assert py_result == 2
 
+        py_result = await env.PythonRpc.identity(Blob("test"))
+        assert isinstance(py_result, Blob)
+        assert await py_result.text() == "test"
+
         # Verify that sending unsupported types fails.
         data_clone_regex = "^DataCloneError"
         with assertRaisesRegex(JsException, data_clone_regex):
             await env.PythonRpc.one_arg(CustomType(42))
-        with assertRaisesRegex(JsException, data_clone_regex):
-            await env.PythonRpc.one_arg(Blob("print(42)", content_type="text/python"))
         with assertRaisesRegex(JsException, data_clone_regex):
             await env.PythonRpc.identity(complex(1.23))
         with assertRaises(TypeError):
