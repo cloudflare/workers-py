@@ -13,7 +13,7 @@ const python :Workerd.Worker = (
     ),
   ],
   compatibilityDate = "%COMPAT_DATE",
-  compatibilityFlags = ["python_workers", "service_binding_extra_handlers", "python_request_headers_preserve_commas", "enable_python_external_sdk"],
+  compatibilityFlags = ["python_workers", "service_binding_extra_handlers"],
 );
 
 const server :Workerd.Worker = (
@@ -22,7 +22,7 @@ const server :Workerd.Worker = (
     %PYTHON_MODULES
   ],
   compatibilityDate = "%COMPAT_DATE",
-  compatibilityFlags = ["python_workers", "python_request_headers_preserve_commas", "enable_python_external_sdk"],
+  compatibilityFlags = ["python_workers"],
 );
 
 const unitTests :Workerd.Config = (

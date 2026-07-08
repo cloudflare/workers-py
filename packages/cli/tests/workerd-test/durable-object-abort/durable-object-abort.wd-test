@@ -23,5 +23,5 @@ const mainWorker :Workerd.Worker = (
     (name = "ABORTER", durableObjectNamespace = "AbortingDurableObject"),
   ],
   compatibilityDate = "%COMPAT_DATE",
-  compatibilityFlags = ["python_workers", "service_binding_extra_handlers", "enable_python_external_sdk"],
+  compatibilityFlags = ["python_workers", "service_binding_extra_handlers"],
 );

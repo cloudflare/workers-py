@@ -182,7 +182,7 @@ def test_314_compat_flag_with_experimental(test_dir):
     wrangler_toml = test_dir / "wrangler.toml"
     wrangler_toml.write_text("""
 name = "test-worker"
-compatibility_flags = ["python_workers", "pythonWorkers20260610", "experimental"]
+compatibility_flags = ["python_workers", "python_workers_20260610", "experimental"]
 compatibility_date = "2026-06-10"
 """)
 

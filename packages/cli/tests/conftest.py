@@ -10,13 +10,21 @@ class CompatConfig:
 
 
 COMPAT_CONFIGS: list[CompatConfig] = [
-    CompatConfig(compat_date="2025-09-01", python_version="3.12"),
-    CompatConfig(compat_date="2026-01-01", python_version="3.13"),
+    CompatConfig(
+        compat_date="2025-09-01",
+        python_version="3.12",
+        extra_compat_flags=["enable_python_external_sdk"],
+    ),
+    CompatConfig(
+        compat_date="2026-01-01",
+        python_version="3.13",
+        extra_compat_flags=["enable_python_external_sdk"],
+    ),
     CompatConfig(
         compat_date="2026-07-01",
-        # TODO: remove these when 3.14 is stable, and enabled by date
         python_version="3.14",
-        extra_compat_flags=["pythonWorkers20260610", "experimental"],
+        # TODO: remove these when 3.14 is stable, and enabled by date
+        extra_compat_flags=["python_workers_20260610", "experimental"],
     ),
 ]
 
