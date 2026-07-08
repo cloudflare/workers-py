@@ -137,10 +137,7 @@ async def test_can_use_undefined_options_and_redirect():
         # This tests two things:
         #   * `Response.redirect` static method
 
-        resp = await fetch(
-            "https://example.com/redirect",
-            redirect="manual"
-        )
+        resp = await fetch("https://example.com/redirect", redirect="manual")
 
         return resp
 

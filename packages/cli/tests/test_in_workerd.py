@@ -91,7 +91,7 @@ def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
     replace_compat_date(target / "wrangler.jsonc", compat_date)
     inject_compat_flags(target / "wrangler.jsonc", compat_config.extra_compat_flags)
 
-    pywrangler_cmd = ["uv", "run", "--with", WORKERS_PY, "pywrangler"]
+    pywrangler_cmd = ["uv", "run", "--no-project", "--with", WORKERS_PY, "pywrangler"]
 
     subprocess.run(
         [*pywrangler_cmd, "sync"],

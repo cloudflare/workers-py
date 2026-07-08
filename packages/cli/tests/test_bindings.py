@@ -102,7 +102,7 @@ def dev_server(
     replace_compat_date(wrangler_jsonc, compat_config.compat_date)
     inject_compat_flags(wrangler_jsonc, compat_config.extra_compat_flags)
 
-    pywrangler_cmd = ["uv", "run", "--with", WORKERS_PY, "pywrangler"]
+    pywrangler_cmd = ["uv", "run", "--no-project", "--with", WORKERS_PY, "pywrangler"]
 
     subprocess.run(
         [*pywrangler_cmd, "sync"],
