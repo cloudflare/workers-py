@@ -13,12 +13,12 @@ COMPAT_CONFIGS: list[CompatConfig] = [
     CompatConfig(
         compat_date="2025-09-01",
         python_version="3.12",
-        extra_compat_flags=["enable_python_external_sdk"],
+        extra_compat_flags=["enable_python_external_sdk", "python_process_pth_files"],
     ),
     CompatConfig(
         compat_date="2026-01-01",
         python_version="3.13",
-        extra_compat_flags=["enable_python_external_sdk"],
+        extra_compat_flags=["enable_python_external_sdk", "python_process_pth_files"],
     ),
     CompatConfig(
         compat_date="2026-07-01",
