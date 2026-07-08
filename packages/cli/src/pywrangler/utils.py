@@ -229,7 +229,7 @@ def get_project_root() -> Path:
 
 
 MIN_UV_VERSION = (0, 8, 10)
-MIN_WRANGLER_VERSION = (4, 107, 0)
+MIN_WRANGLER_VERSION = (4, 108, 0)
 
 
 def check_uv_version() -> None:
