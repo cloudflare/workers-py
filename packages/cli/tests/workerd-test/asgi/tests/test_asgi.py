@@ -72,11 +72,7 @@ async def test_streaming():
         body_bytes += result.value.to_bytes()
 
     expected_size = STREAMING_CHUNK_SIZE * STREAMING_NUM_CHUNKS  # 5120 bytes
-    # This is the key assertion: with bug #10, only the first chunk (1024 bytes)
-    # is returned. The fix should deliver all 5120 bytes.
-    assert len(body_bytes) == expected_size, (
-        f"Expected {expected_size} bytes, got {len(body_bytes)}."
-    )
+    assert len(body_bytes) == expected_size
     # Verify each chunk has the correct content
     for i in range(STREAMING_NUM_CHUNKS):
         start = i * STREAMING_CHUNK_SIZE
