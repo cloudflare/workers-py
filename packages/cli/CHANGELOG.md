@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v1.15.0 (2026-07-08)
+
+### Features
+
+- Add --allow-build flag & tool.pywrangler setting
+  ([#144](https://github.com/cloudflare/workers-py/pull/144),
+  [`19fe5f1`](https://github.com/cloudflare/workers-py/commit/19fe5f171e7a7773a9e277e81c152bf9aac9cf49))
+
+
+## v1.14.1 (2026-07-08)
+
+### Bug Fixes
+
+- Relax required-python version to support Python 3.11
+  ([#149](https://github.com/cloudflare/workers-py/pull/149),
+  [`31d0f69`](https://github.com/cloudflare/workers-py/commit/31d0f696b2f64daf27ef629242957dff96bdde81))
+
+
 ## v1.14.0 (2026-06-15)
 
 ### Features

@@ -70,18 +70,26 @@ def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
     pytestconfig,
     bundle_cache_dir,
 ):
+    compat_date = compat_config.compat_date
+
     # FIXME:
     # pywrangler sync fails to install pyodide packages in unittest environment + Python 3.12 + Linux
     # This is reproducible only in the unittest environment, and doesn't happen
     # when running the same worker manually.
     if (
-        test_dir.name in ("sdk", "entropy-patches")
-        and compat_config.compat_date < "2025-09-29"
+        test_dir.name in ("sdk", "entropy-patches", "asgi")
+        and compat_date < "2025-09-29"
         and sys.platform == "linux"
     ):
         pytest.xfail("pywrangler sync + uv + pyodide 3.12 on Linux")
 
-    compat_date = compat_config.compat_date
+    # `wsgi` streams the request body via `pyodide.ffi.run_sync` (JSPI), which
+    # is only available in newer Pyodide runtimes.
+    if test_dir.name == "wsgi" and compat_date < "2026-01-01":
+        pytest.skip(
+            "wsgi requires pyodide.ffi.run_sync (JSPI), unavailable before 2026-01-01"
+        )
+
     color = pytestconfig.get_terminal_writer().hasmarkup
     target = tmp_path / test_dir.name
     disk_service_dir = target / DISK_SERVICE_NAME
