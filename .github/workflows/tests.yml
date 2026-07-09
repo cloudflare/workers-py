@@ -15,7 +15,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python-version: ['3.12', '3.13']
+        python-version: ['3.11', '3.12', '3.13', '3.14']
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -35,6 +35,9 @@ jobs:
         uv pip install --system -e packages/runtime-sdk -e packages/cli
         uv pip install --system --group dev --project packages/cli
 
+    # TODO: cli tests include running sdks in workerd.
+    # Since running workerd tests has mostly nothing to do with the host python versions,
+    # we don't need to run them for all python versions.
     - name: Run tests
       working-directory: packages/cli
       run: |
