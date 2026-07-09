@@ -127,6 +127,15 @@ class EnvPlugin:
 
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
+
+        # TODO: remove these when workerd releases a new version with this feature enabled by default
+        import pyodide_js
+        from workers import import_from_javascript
+
+        await pyodide_js._api.initializeNodeSockFS(
+            import_from_javascript("cloudflare:sockets").connect
+        )
+
         from urllib.parse import urlparse
 
         path = urlparse(request.url).path

@@ -1,8 +1,7 @@
-"""Tests for Hyperdrive database connectivity via pymysql (MySQL) and pg8000 (PostgreSQL).
+"""Tests for Hyperdrive database connectivity.
 
-These tests require running MySQL and PostgreSQL instances. They are disabled by default
-because the database setup is non-trivial. In CI, databases are provided via Docker services
-in the hyperdrive-tests.yml workflow.
+These tests require running database instances. They are disabled locally by default
+because the database setup is non-trivial. In CI, databases are provided via Docker services.
 
 To run locally:
 
@@ -30,10 +29,6 @@ To run locally:
     3. Clean up:
 
         docker rm -f test-mysql test-postgres
-
-Note: These tests will not pass yet because Python Workers do not currently
-support socket connections. This test infrastructure is being prepared for
-when socket support is added.
 """
 
 import ast
@@ -49,7 +44,7 @@ from typing import Any, Literal, TypedDict
 
 import pytest
 import requests
-from conftest import COMPAT_DATES, replace_compat_date
+from conftest import COMPAT_CONFIGS, inject_compat_flags, replace_compat_date
 
 TEST_DIR: Path = Path(__file__).parent
 HYPERDRIVE_TEST_DIR: Path = TEST_DIR / "hyperdrive-test"
@@ -59,6 +54,8 @@ WORKERS_RUNTIME_SDK: Path = WORKERS_PY.parent / "runtime-sdk" / "src"
 
 DEV_STARTUP_TIMEOUT: int = 120
 DEV_POLL_INTERVAL: float = 0.5
+
+COMPAT_CONFIGS_SOCKET_SUPPORT = [c for c in COMPAT_CONFIGS if c.compat_date not in  ("2025-09-01", "2026-01-01")]
 
 
 class HyperdriveTestResult(TypedDict):
@@ -98,21 +95,27 @@ def _wait_for_ready(process: subprocess.Popen[str], base_url: str) -> None:
     pytest.fail(f"pywrangler dev did not become ready within {DEV_STARTUP_TIMEOUT}s")
 
 
-@pytest.fixture(scope="module", params=COMPAT_DATES)
-def compat_date(request: pytest.FixtureRequest) -> str:
+@pytest.fixture(
+    scope="module",
+    params=COMPAT_CONFIGS_SOCKET_SUPPORT,
+    ids=[c.python_version for c in COMPAT_CONFIGS_SOCKET_SUPPORT],
+)
+def compat_config(request: pytest.FixtureRequest) -> CompatConfig:
     return request.param
 
 
 @pytest.fixture(scope="module")
 def dev_server(
-    tmp_path_factory: pytest.TempPathFactory, compat_date: str
+    tmp_path_factory: pytest.TempPathFactory, compat_config: CompatConfig
 ) -> Generator[str]:
     tmp_path = tmp_path_factory.mktemp("hyperdrive_test")
     target = tmp_path / "hyperdrive-test"
     shutil.copytree(HYPERDRIVE_TEST_DIR, target)
     env = os.environ | {"_PYODIDE_EXTRA_MOUNTS": str(tmp_path)}
 
-    replace_compat_date(target / "wrangler.jsonc", compat_date)
+    wrangler_jsonc = target / "wrangler.jsonc"
+    replace_compat_date(wrangler_jsonc, compat_config.compat_date)
+    inject_compat_flags(wrangler_jsonc, compat_config.extra_compat_flags)
 
     subprocess.run(
         ["uv", "run", "--with", WORKERS_PY, "pywrangler", "sync"],
