@@ -2,6 +2,31 @@
 
 <!-- version list -->
 
+## v1.6.1 (2026-07-09)
+
+### Bug Fixes
+
+- Improve lifespan handling in asgi.py ([#148](https://github.com/cloudflare/workers-py/pull/148),
+  [`7c9adfc`](https://github.com/cloudflare/workers-py/commit/7c9adfce6c3997f1547901755e97c685ef6e6be3))
+
+
+## v1.6.0 (2026-07-08)
+
+### Features
+
+- Add wsgi.py analogous to asgi.py ([#145](https://github.com/cloudflare/workers-py/pull/145),
+  [`247f9ff`](https://github.com/cloudflare/workers-py/commit/247f9ff5387eb2d286c65c1199f3ff51938578fa))
+
+
+## v1.5.4 (2026-07-08)
+
+### Bug Fixes
+
+- Relax required-python version to support Python 3.11
+  ([#149](https://github.com/cloudflare/workers-py/pull/149),
+  [`31d0f69`](https://github.com/cloudflare/workers-py/commit/31d0f696b2f64daf27ef629242957dff96bdde81))
+
+
 ## v1.5.3 (2026-07-03)
 
 ### Bug Fixes

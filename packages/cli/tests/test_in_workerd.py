@@ -61,11 +61,18 @@ def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
     # This is reproducible only in the unittest environment, and doesn't happen
     # when running the same worker manually.
     if (
-        test_dir.name in ("sdk", "entropy-patches")
+        test_dir.name in ("sdk", "entropy-patches", "asgi")
         and compat_date < "2025-09-29"
         and sys.platform == "linux"
     ):
         pytest.xfail("pywrangler sync + uv + pyodide 3.12 on Linux")
+
+    # `wsgi` streams the request body via `pyodide.ffi.run_sync` (JSPI), which
+    # is only available in newer Pyodide runtimes.
+    if test_dir.name == "wsgi" and compat_date < "2026-01-01":
+        pytest.skip(
+            "wsgi requires pyodide.ffi.run_sync (JSPI), unavailable before 2026-01-01"
+        )
 
     color = pytestconfig.get_terminal_writer().hasmarkup
     target = tmp_path / test_dir.name
