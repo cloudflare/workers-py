@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.6.2 (2026-07-09)
+
+### Bug Fixes
+
+- Uuid_utils is a Rust package needs rust package import context
+  ([#151](https://github.com/cloudflare/workers-py/pull/151),
+  [`61e91f3`](https://github.com/cloudflare/workers-py/commit/61e91f3b3cffc26fef411c67d018b7d5728df3c4))
+
+
 ## v1.6.1 (2026-07-09)
 
 ### Bug Fixes
