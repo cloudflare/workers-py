@@ -251,6 +251,7 @@ class _EnvWrapper:
         "WorkerQueue",
         "Ai",
         "VectorizeIndexImpl",
+        "AnalyticsEngine",
         "AnalyticsEngineDataset",
         "LocalAnalyticsEngineDataset",
         "ImagesBindingImpl",
