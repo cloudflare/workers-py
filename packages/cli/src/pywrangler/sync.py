@@ -287,7 +287,20 @@ def _parse_pip_freeze(result: str) -> list[str]:
 def _get_vendor_package_versions() -> list[str]:
     """Get pinned package versions from pyodide venv (e.g., ["shapely==2.0.7"])."""
     result = run_command(
-        ["uv", "pip", "freeze", "--path", str(get_vendor_modules_path())],
+        [
+            "uv",
+            "pip",
+            "freeze",
+            # This output is parsed, and FORCE_COLOR-style env vars make uv
+            # colorize even when captured. "\x1b[1mshapely\x1b[0m==2.0.7"
+            # still contains "==", so it survives _parse_pip_freeze and then
+            # trips uv's requirements parser: error: Unexpected '<ESC>',
+            # expected '-c', '-e', '-r' or the start of a requirement.
+            "--color",
+            "never",
+            "--path",
+            str(get_vendor_modules_path()),
+        ],
         env=os.environ | {"VIRTUAL_ENV": str(get_pyodide_venv_path())},
         capture_output=True,
     )
