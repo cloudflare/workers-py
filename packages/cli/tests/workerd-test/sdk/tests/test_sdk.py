@@ -13,7 +13,7 @@ from workers import (
     env,
     fetch,
 )
-from workers._workers import _EnvWrapper
+from workers.rpc import _EnvWrapper
 
 # TODO: Right now the `fetch` that's available on a binding is the JS fetch.
 # We may wish to rewrite it to be the same as the `fetch` defined in
