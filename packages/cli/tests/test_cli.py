@@ -30,6 +30,10 @@ def is_package_installed(site_packages_path, package_name):
     # Normalize package name (lowercase, remove dashes)
     package_name_normalized = package_name.lower().replace("-", "_")
 
+    if not site_packages_path.exists():
+        print(f"{site_packages_path} does not exist")
+        return False
+
     matches = list(site_packages_path.glob(f"*{package_name_normalized}*"))
     if matches:
         print(f"Found {package_name} as: {matches}")
@@ -365,6 +369,148 @@ def test_sync_lockfile_lifecycle(test_dir):
     )
     assert is_package_installed(vendor_path, "click")
     assert is_package_installed(vendor_path, "six")
+
+
+def create_dummy_build_dep(parent_dir: Path, name: str = "dummy-build-dep") -> Path:
+    """Create a tiny pure-Python dependency that must be built from source.
+
+    The package only exists as a local directory (no prebuilt wheel on any
+    index), so installing it requires ``uv`` to run its build backend. This is
+    exactly what ``--allow-build`` gates: with ``--no-build`` (the default) the
+    resolver refuses to build it, and with ``--allow-build`` it succeeds.
+
+    Returns the path to the created dependency directory.
+    """
+    module_name = name.replace("-", "_")
+    dep_dir = parent_dir / module_name
+    (dep_dir / module_name).mkdir(parents=True)
+
+    (dep_dir / "pyproject.toml").write_text(
+        dedent(f"""
+            [build-system]
+            requires = ["setuptools>=61.0"]
+            build-backend = "setuptools.build_meta"
+
+            [project]
+            name = "{name}"
+            version = "0.1.0"
+            description = "A tiny dummy dependency built from source"
+            requires-python = ">=3.8"
+        """)
+    )
+    (dep_dir / module_name / "__init__.py").write_text(
+        'MESSAGE = "hello from dummy build dep"\n'
+    )
+    return dep_dir
+
+
+def create_worker_pyproject_with_local_dep(
+    test_dir: Path, dep_dir: Path, dep_name: str, *, allow_build_config: bool = False
+) -> None:
+    """Write a worker pyproject.toml that depends on a local directory source.
+
+    The dependency is expressed as a PEP 508 direct reference to the local
+    directory (``name @ file://...``) so the resolver treats it as a
+    ``directory`` source that must be built from source. ``allow_build_config``
+    toggles the ``[tool.pywrangler] allow-build`` key.
+    """
+    pywrangler_table = (
+        "[tool.pywrangler]\nallow-build = true\n" if allow_build_config else ""
+    )
+    content = dedent(f"""
+        [build-system]
+        requires = ["setuptools>=61.0"]
+        build-backend = "setuptools.build_meta"
+
+        [project]
+        name = "test-project"
+        version = "0.1.0"
+        description = "Test Project"
+        requires-python = ">=3.8"
+        dependencies = ["{dep_name} @ {dep_dir.as_uri()}"]
+
+        {pywrangler_table}
+    """)
+    (test_dir / "pyproject.toml").write_text(content)
+
+
+def test_sync_allow_build_local_dependency(test_dir):
+    """End-to-end test for --allow-build with a local source dependency.
+
+    A tiny dummy package that only exists as a local directory (and therefore
+    must be built from source) is added to the worker's pyproject.toml. Syncing
+    without --allow-build must fail (default is --no-build), while syncing with
+    --allow-build must succeed and vendor the built package.
+    """
+    dep_name = "dummy-build-dep"
+    dep_dir = create_dummy_build_dep(test_dir, dep_name)
+    create_worker_pyproject_with_local_dep(test_dir, dep_dir, dep_name)
+    create_test_wrangler_jsonc(test_dir, "src/worker.py")
+
+    vendor_path = test_dir / "python_modules"
+    sync_cmd = ["uv", "run", "pywrangler", "sync"]
+
+    # Without --allow-build: the default --no-build rejects the local source.
+    result = subprocess.run(
+        [*sync_cmd, "--no-allow-build"],
+        capture_output=True,
+        text=True,
+        cwd=test_dir,
+        check=False,
+    )
+    assert result.returncode != 0, (
+        "sync should fail without --allow-build because the local dependency "
+        "must be built from source"
+    )
+    assert not is_package_installed(vendor_path, dep_name), (
+        "dummy build dep should not be vendored when the build was rejected"
+    )
+
+    # With --allow-build: uv is allowed to build the local source.
+    result = subprocess.run(
+        [*sync_cmd, "--force", "--allow-build"],
+        capture_output=True,
+        text=True,
+        cwd=test_dir,
+        check=False,
+    )
+    assert result.returncode == 0, (
+        f"sync --allow-build failed: {result.stdout}\n{result.stderr}"
+    )
+    assert is_package_installed(vendor_path, dep_name), (
+        f"{dep_name} should be built and vendored into python_modules "
+        "when --allow-build is passed"
+    )
+
+
+def test_sync_allow_build_via_pyproject_config(test_dir):
+    """End-to-end test for the [tool.pywrangler] allow-build config fallback.
+
+    When no CLI flag is passed, sync should honor `allow-build = true` in the
+    [tool.pywrangler] table of pyproject.toml.
+    """
+    dep_name = "dummy-build-dep"
+    dep_dir = create_dummy_build_dep(test_dir, dep_name)
+    create_worker_pyproject_with_local_dep(
+        test_dir, dep_dir, dep_name, allow_build_config=True
+    )
+    create_test_wrangler_jsonc(test_dir, "src/worker.py")
+
+    vendor_path = test_dir / "python_modules"
+    result = subprocess.run(
+        ["uv", "run", "pywrangler", "sync"],
+        capture_output=True,
+        text=True,
+        cwd=test_dir,
+        check=False,
+    )
+    assert result.returncode == 0, (
+        f"sync failed with [tool.pywrangler] allow-build = true: "
+        f"{result.stdout}\n{result.stderr}"
+    )
+    assert is_package_installed(vendor_path, dep_name), (
+        f"{dep_name} should be vendored when allow-build is enabled via config"
+    )
 
 
 def test_sync_command_handles_missing_pyproject():

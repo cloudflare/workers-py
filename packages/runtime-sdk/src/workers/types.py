@@ -1,6 +1,6 @@
 from collections.abc import Awaitable
 from http import HTTPMethod
-from typing import Any, Protocol, TypedDict
+from typing import Any, Protocol, TypeAlias, TypedDict
 
 import js
 from pyodide.ffi import JsBuffer
@@ -13,11 +13,11 @@ class Context(Protocol):
     def waitUntil(self, other: Awaitable[Any]) -> None: ...
 
 
-type JSBody = (
+JSBody: TypeAlias = (
     "js.Blob | JsBuffer | js.FormData | js.ReadableStream | js.URLSearchParams"
 )
-type Body = "str | FormData | JSBody"
-type Headers = "dict[str, str] | list[tuple[str, str]] | js.Headers"
+Body: TypeAlias = "str | FormData | JSBody"
+Headers: TypeAlias = "dict[str, str] | list[tuple[str, str]] | js.Headers"
 
 
 # https://developers.cloudflare.com/workers/runtime-apis/request/#the-cf-property-requestinitcfproperties

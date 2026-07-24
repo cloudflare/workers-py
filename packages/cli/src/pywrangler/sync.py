@@ -16,6 +16,7 @@ from .utils import (
     get_lockfile_path,
     get_project_root,
     get_python_version,
+    get_pywrangler_config,
     get_pywrangler_version,
     get_uv_pyodide_interp_name,
     run_command,
@@ -145,8 +146,14 @@ def create_pyodide_venv() -> None:
     run_command(["uv", "venv", str(pyodide_venv_path), "--python", interp_name])
 
 
-def _install_requirements_to_vendor(plan: InstallPlan) -> str | None:
+def _install_requirements_to_vendor(
+    plan: InstallPlan, allow_build: bool = False
+) -> str | None:
     """Install packages to the Pyodide vendor directory from pylock.toml.
+
+    By default ``--no-build`` is passed so only prebuilt wheels install. When
+    *allow_build* is True, source distributions / local directory sources are
+    allowed to build.
 
     Returns:
         Error message string if installation failed, None if successful.
@@ -179,17 +186,18 @@ def _install_requirements_to_vendor(plan: InstallPlan) -> str | None:
         shutil.rmtree(pyodide_site_packages)
         pyodide_site_packages.mkdir()
 
+    install_cmd = ["uv", "pip", "install"]
+    if not allow_build:
+        install_cmd.append("--no-build")
+    else:
+        # uv caches built wheels for local sources keyed on their path, so edits
+        # to local checkouts wouldn't be picked up. Refresh the build cache for
+        # those packages so `sync` always rebuilds them.
+        for name in plan.local_packages:
+            install_cmd += ["--refresh-package", name]
+    install_cmd += ["-r", str(plan.lockfile), "--preview-features", "pylock"]
     result = run_command(
-        [
-            "uv",
-            "pip",
-            "install",
-            "--no-build",
-            "-r",
-            str(plan.lockfile),
-            "--preview-features",
-            "pylock",
-        ],
+        install_cmd,
         capture_output=True,
         check=False,
         env=os.environ | {"VIRTUAL_ENV": str(get_pyodide_venv_path())},
@@ -290,10 +298,10 @@ def _get_vendor_package_versions() -> list[str]:
     return _parse_pip_freeze(result.stdout)
 
 
-def install_requirements(plan: InstallPlan) -> None:
+def install_requirements(plan: InstallPlan, allow_build: bool = False) -> None:
     # First, install to the Pyodide vendor directory. This determines the exact package
     # versions that will run in production.
-    pyodide_error = _install_requirements_to_vendor(plan)
+    pyodide_error = _install_requirements_to_vendor(plan, allow_build=allow_build)
 
     # Then install to .venv-workers using the pinned versions from vendor.
     # This ensures host packages accurately reflect what will run in production.
@@ -399,9 +407,16 @@ def sync(
     force: bool = False,
     directly_requested: bool = False,
     upgrade: bool = False,
+    allow_build: bool | None = None,
 ) -> None:
     # Check if requirements.txt does not exist.
     check_requirements_txt()
+
+    # Resolve the build override: explicit CLI flag wins, otherwise fall back to
+    # `[tool.pywrangler] allow-build` in pyproject.toml so `dev`/`deploy` (which
+    # call sync() without flags) honor it too.
+    if allow_build is None:
+        allow_build = bool(get_pywrangler_config().get("allow-build", False))
 
     # Check if sync is needed based on file timestamps
     sync_needed = force or is_sync_needed()
@@ -425,9 +440,9 @@ def sync(
     create_pyodide_venv()
 
     # Resolve dependencies via uv pip compile targeting Pyodide, then install into vendor folder.
-    plan = resolve_requirements(upgrade=upgrade)
+    plan = resolve_requirements(upgrade=upgrade, allow_build=allow_build)
     if not plan.requirements:
         logger.warning(
             "No dependencies found in [project.dependencies] section of pyproject.toml."
         )
-    install_requirements(plan)
+    install_requirements(plan, allow_build=allow_build)

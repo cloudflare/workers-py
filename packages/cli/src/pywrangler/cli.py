@@ -132,14 +132,24 @@ def types_command(outdir: str | None, config: str | None) -> Never:
     is_flag=True,
     help="Allow package upgrades, ignoring pinned versions in pylock.toml",
 )
-def sync_command(force: bool = False, upgrade: bool = False) -> None:
+@click.option(
+    "--allow-build/--no-allow-build",
+    default=None,
+    help=(
+        "Allow building source distributions and local directory sources. "
+        "Defaults to the [tool.pywrangler] allow-build setting in pyproject.toml."
+    ),
+)
+def sync_command(
+    force: bool = False, upgrade: bool = False, allow_build: bool | None = None
+) -> None:
     """
     Installs Python packages from pyproject.toml into src/vendor.
 
     Also creates a virtual env for Workers that you can use for testing.
     """
 
-    sync(force, directly_requested=True, upgrade=upgrade)
+    sync(force, directly_requested=True, upgrade=upgrade, allow_build=allow_build)
     write_success("Sync process completed successfully.")
 
 
