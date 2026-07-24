@@ -93,22 +93,10 @@ def pydantic_core_context(module):
         with allow_bad_entropy_calls(1):
             yield
     finally:
-        validate_core_schema = getattr(module, "validate_core_schema", None)
-        if validate_core_schema is None:
-            # pydantic-core >=2.41 no longer exports validate_core_schema. Build a
-            # tiny validator instead so any lazy hash-map seeds are initialized
-            # before the snapshot is captured.
-            with allow_bad_entropy_calls(1):
-                module.SchemaValidator({"type": "any"})
-        else:
-            try:
-                with allow_bad_entropy_calls(1):
-                    # validate_core_schema makes an ahash::AHashMap which makes
-                    # another entropy call for its hash seed. It will throw an error
-                    # but only after making the needed entropy call.
-                    validate_core_schema(None)
-            except module.SchemaError:
-                pass
+        # Build a tiny validator instead so any lazy hash-map seeds are initialized
+        # before the snapshot is captured.
+        with allow_bad_entropy_calls(1):
+            module.SchemaValidator({"type": "any"})
 
 
 @register_exec_patch("aiohttp.http_websocket")
