@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.6.3 (2026-07-17)
+
+### Bug Fixes
+
+- Wrap AnalyticsEngine, which is used in production
+  ([#155](https://github.com/cloudflare/workers-py/pull/155),
+  [`91e4e50`](https://github.com/cloudflare/workers-py/commit/91e4e500ddfe849cae0bd75481e0e62ff01de97d))
+
+
 ## v1.6.2 (2026-07-09)
 
 ### Bug Fixes

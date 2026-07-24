@@ -1,5 +1,5 @@
 import pytest
-from workers._workers import _BindingWrapper
+from workers.rpc import _BindingWrapper
 
 
 @pytest.mark.asyncio

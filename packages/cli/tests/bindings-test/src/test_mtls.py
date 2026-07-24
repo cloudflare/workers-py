@@ -1,5 +1,5 @@
 import pytest
-from workers._workers import _FetcherWrapper
+from workers.rpc import _FetcherWrapper
 
 # cannot test mTLS locally so we just check the binding is properly wrapped
 

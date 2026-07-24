@@ -3,7 +3,7 @@ import base64
 import js
 import pytest
 from pyodide.ffi import create_proxy, to_js
-from workers._workers import _BindingWrapper
+from workers.rpc import _BindingWrapper
 
 PNG_1X1 = base64.b64decode(
     "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8/5+hHgAHggJ/PchI7wAAAABJRU5ErkJggg=="

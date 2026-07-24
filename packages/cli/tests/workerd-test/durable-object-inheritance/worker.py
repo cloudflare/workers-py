@@ -3,7 +3,8 @@
 # _wrap_subclass must not double-wrap ctx and env when the hierarchy is >1 deep.
 
 from workers import DurableObject, WorkerEntrypoint
-from workers._workers import DurableObjectContext, _EnvWrapper
+from workers.entrypoints import DurableObjectContext
+from workers.rpc import _EnvWrapper
 
 
 def assert_wrapped_once(obj):

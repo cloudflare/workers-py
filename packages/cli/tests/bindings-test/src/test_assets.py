@@ -1,5 +1,5 @@
 import pytest
-from workers._workers import _FetcherWrapper
+from workers.rpc import _FetcherWrapper
 
 
 @pytest.mark.asyncio
