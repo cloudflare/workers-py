@@ -35,6 +35,9 @@ dev = [
 [project.optional-dependencies]
 build = ["uv ~= 0.5.23"]
 
+[tool.uv.sources]
+workers-runtime-sdk = { path = "../runtime-sdk", editable = true }
+
 [project.scripts]
 pywrangler = "pywrangler.cli:app"
 

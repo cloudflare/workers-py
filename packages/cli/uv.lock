@@ -750,8 +750,7 @@ dependencies = [
     { name = "pyodide-py", version = "0.27.7", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version == '3.12.*'" },
     { name = "pyodide-py", version = "0.29.3", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.13'" },
     { name = "rich" },
-    { name = "workers-runtime-sdk", version = "1.0.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.12'" },
-    { name = "workers-runtime-sdk", version = "1.5.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.12'" },
+    { name = "workers-runtime-sdk" },
 ]
 
 [package.optional-dependencies]
@@ -777,7 +776,7 @@ requires-dist = [
     { name = "pyodide-py" },
     { name = "rich", specifier = ">=13.0.0" },
     { name = "uv", marker = "extra == 'build'", specifier = "~=0.5.23" },
-    { name = "workers-runtime-sdk", specifier = ">=0.1.0" },
+    { name = "workers-runtime-sdk", editable = "../runtime-sdk" },
 ]
 provides-extras = ["build"]
 
@@ -793,25 +792,15 @@ dev = [
 
 [[package]]
 name = "workers-runtime-sdk"
-version = "1.0.2"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version >= '3.13'",
-    "python_full_version == '3.12.*'",
-]
-sdist = { url = "https://files.pythonhosted.org/packages/9c/a5/482c0110f6468a7df67fb88307ae7493ff6bab0d56ba948a19ff13bae2c3/workers_runtime_sdk-1.0.2.tar.gz", hash = "sha256:b15f1d33d11014f2ff43a83ea508ab4a26f63b89cf2fdbf0d5386349a127af93", size = 18564, upload-time = "2026-03-12T11:14:28.881Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/6f/55/f3f6e402abeb418676a559216e033300f996f2d6ba6d725d15f89715731e/workers_runtime_sdk-1.0.2-py3-none-any.whl", hash = "sha256:61508eb21392ee22ffe120c333532d2603d2217dfb99eed7359bb1be983bcd8a", size = 17299, upload-time = "2026-03-12T11:14:26.536Z" },
-]
+version = "1.6.3"
+source = { editable = "../runtime-sdk" }
 
-[[package]]
-name = "workers-runtime-sdk"
-version = "1.5.4"
-source = { registry = "https://pypi.org/simple" }
-resolution-markers = [
-    "python_full_version < '3.12'",
-]
-sdist = { url = "https://files.pythonhosted.org/packages/5e/16/7faec553ca9e7b3a2d8519a1897268dc0a43aecd5d3e89cc0ac06ec916c2/workers_runtime_sdk-1.5.4.tar.gz", hash = "sha256:7509f0187f00c7f66480a07ca5fd049830eb9a4146de7173ab97caff3e6da200", size = 38265, upload-time = "2026-07-08T04:44:22.513Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/b9/fc/b46062a6c06c99b71c82b1daf82433da8a4fe23945a30755adeecb1c2aab/workers_runtime_sdk-1.5.4-py3-none-any.whl", hash = "sha256:b7f741087350e9f0fd2faa014f2436e02896da8ec2e9dea7239d2826f894476c", size = 26830, upload-time = "2026-07-08T04:44:20.266Z" },
+[package.metadata]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "mypy", specifier = ">=1.0.0" },
+    { name = "pytest", specifier = ">=7.0.0" },
+    { name = "requests", specifier = ">=2.28.0" },
+    { name = "ruff", specifier = ">=0.1.0" },
 ]

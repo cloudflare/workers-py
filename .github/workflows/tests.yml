@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  cli-tests:
     strategy:
       fail-fast: false
       matrix:
@@ -21,28 +21,37 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+    - name: Install uv
+      uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       with:
         python-version: ${{ matrix.python-version }}
 
-    - name: Install uv
-      run: |
-        pip install uv
-
-    - name: Install project
-      run: |
-        uv pip install --system -e packages/runtime-sdk -e packages/cli
-        uv pip install --system --group dev --project packages/cli
-
-    # TODO: cli tests include running sdks in workerd.
-    # Since running workerd tests has mostly nothing to do with the host python versions,
-    # we don't need to run them for all python versions.
-    - name: Run tests
+    - name: Run CLI tests
       working-directory: packages/cli
       run: |
-        pytest -v --color=yes tests
+        uv run --frozen pytest -v --color=yes tests
 
-    - name: Verify that pywrangler can be run globally
+    - name: Verify the pywrangler entry point
+      working-directory: packages/cli
       run: |
-        pywrangler --help
+        uv run --frozen pywrangler --help
+
+  runtime-sdk-tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      with:
+        python-version: '3.13'
+
+    - name: Run runtime SDK tests
+      working-directory: packages/runtime-sdk
+      run: |
+        uv run --frozen pytest -v --color=yes tests
