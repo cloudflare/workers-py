@@ -1,0 +1,196 @@
+"""Tests for Cloudflare bindings (KV, R2, D1, etc.) running against a live pywrangler dev server.
+
+The worker at bindings-test/src/worker.py exposes /run-tests/{suite} endpoints that execute
+binding tests inside workerd and return JSON results. This file starts the dev server, calls
+those endpoints, and maps each in-worker test to a pytest test case.
+
+The in-worker tests are ordinary pytest modules (src/test_<binding>.py); worker.py runs
+pytest against them and returns per-test results.
+
+To add a new binding: create src/test_<binding>.py in bindings-test/ with pytest tests
+and add any required binding to wrangler.jsonc.
+"""
+
+import ast
+import functools
+import os
+import shutil
+import socket
+import subprocess
+import time
+from collections.abc import Callable, Generator
+from pathlib import Path
+from typing import Any, Literal, TypedDict
+
+import pytest
+import requests
+from conftest import COMPAT_DATES, replace_compat_date
+
+TEST_DIR: Path = Path(__file__).parent
+BINDINGS_TEST_DIR: Path = TEST_DIR / "bindings-test"
+BINDINGS_SRC_DIR: Path = BINDINGS_TEST_DIR / "src"
+WORKERS_PY: Path = TEST_DIR.parent.parent / "cli"
+WORKERS_RUNTIME_SDK: Path = TEST_DIR.parent / "src"
+
+DEV_STARTUP_TIMEOUT: int = 120
+DEV_POLL_INTERVAL: float = 0.5
+
+
+class BindingTestResult(TypedDict):
+    status: Literal["passed", "failed", "error", "skipped"]
+    error: str
+    traceback: str
+    reason: str
+
+
+SuiteResults = dict[str, BindingTestResult]
+
+
+def _get_free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("127.0.0.1", 0))
+        return s.getsockname()[1]
+
+
+def _wait_for_ready(process: subprocess.Popen[str], base_url: str) -> None:
+    """Poll the /health endpoint until the dev server is accepting requests."""
+    deadline = time.time() + DEV_STARTUP_TIMEOUT
+    while time.time() < deadline:
+        if process.poll() is not None:
+            stdout = process.stdout.read() if process.stdout else ""
+            pytest.fail(
+                f"pywrangler dev exited early with code {process.returncode}\n"
+                f"stdout: {stdout}"
+            )
+        try:
+            resp = requests.get(f"{base_url}/health", timeout=2)
+            if resp.ok:
+                return
+        except (requests.ConnectionError, requests.Timeout):
+            time.sleep(DEV_POLL_INTERVAL)
+
+    process.kill()
+    process.wait()
+    pytest.fail(f"pywrangler dev did not become ready within {DEV_STARTUP_TIMEOUT}s")
+
+
+@pytest.fixture(scope="module", params=COMPAT_DATES)
+def compat_date(request: pytest.FixtureRequest) -> str:
+    return request.param
+
+
+@pytest.fixture(scope="module")
+def dev_server(
+    tmp_path_factory: pytest.TempPathFactory, compat_date: str
+) -> Generator[str]:
+    """Start a pywrangler dev server on a free port and yield its base URL."""
+    tmp_path = tmp_path_factory.mktemp("bindings_test")
+    target = tmp_path / "bindings-test"
+    shutil.copytree(BINDINGS_TEST_DIR, target, ignore=shutil.ignore_patterns(".venv"))
+    env = os.environ | {"_PYODIDE_EXTRA_MOUNTS": str(tmp_path)}
+
+    replace_compat_date(target / "wrangler.jsonc", compat_date)
+
+    subprocess.run(
+        ["uv", "run", "--with", WORKERS_PY, "pywrangler", "sync"],
+        cwd=target,
+        check=True,
+        env=env,
+    )
+
+    shutil.copytree(WORKERS_RUNTIME_SDK, target / "python_modules", dirs_exist_ok=True)
+
+    port: int = _get_free_port()
+    base_url: str = f"http://127.0.0.1:{port}"
+
+    process = subprocess.Popen(
+        [
+            "uv",
+            "run",
+            "--with",
+            WORKERS_PY,
+            "pywrangler",
+            "dev",
+            "--port",
+            str(port),
+            "--persist-to",
+            str(tmp_path / "state"),
+        ],
+        cwd=target,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        env=env,
+    )
+
+    _wait_for_ready(process, base_url)
+    yield base_url
+
+    process.terminate()
+    try:
+        process.wait(timeout=10)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+
+
+@functools.cache
+def _get_test_results(dev_server: str, suite: str) -> SuiteResults:
+    resp = requests.get(f"{dev_server}/run-tests/{suite}", timeout=60)
+    assert resp.ok, f"Suite '{suite}' returned {resp.status_code}: {resp.text}"
+    return resp.json()
+
+
+def _make_test(suite: str, test_name: str) -> Callable:
+    def test_fn(self: Any, dev_server: str) -> None:
+        results = _get_test_results(dev_server, suite)
+        result: BindingTestResult | None = results.get(test_name)
+        assert result is not None, f"Test {suite}::{test_name} not found in results"
+        if result["status"] == "skipped":
+            pytest.skip(result.get("reason", ""))
+        elif result["status"] == "failed":
+            pytest.fail(result["error"])
+        elif result["status"] == "error":
+            pytest.fail(f"{result['error']}\n{result.get('traceback', '')}")
+
+    test_fn.__name__ = f"test_{test_name}"
+    return test_fn
+
+
+def binding_suite(suite: str, tests: list[str]) -> type:
+    """Register a binding test suite: creates a test class with one method per test."""
+    return type(
+        f"Test{suite.upper()}",
+        (),
+        {f"test_{name}": _make_test(suite, name) for name in tests},
+    )
+
+
+def _discover_test_names(module_path: Path) -> list[str]:
+    """Return the suite-relative names of test functions defined in a module.
+
+    Parses the source statically (no import) and strips the ``test_`` prefix so
+    the names match the keys returned by the in-worker ResultCollector.
+    """
+    tree = ast.parse(module_path.read_text())
+    return [
+        node.name[len("test_") :]
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+        and node.name.startswith("test_")
+    ]
+
+
+def _discover_suites() -> dict[str, list[str]]:
+    """Map each ``test_<suite>.py`` module to its discovered test names."""
+    return {
+        module_path.stem[len("test_") :]: _discover_test_names(module_path)
+        for module_path in sorted(BINDINGS_SRC_DIR.glob("test_*.py"))
+    }
+
+
+# Generate a TestXxx class per discovered suite so each in-worker test surfaces
+# as its own pytest case without manual registration.
+for _suite, _test_names in _discover_suites().items():
+    _suite_cls = binding_suite(_suite, _test_names)
+    globals()[_suite_cls.__name__] = _suite_cls
