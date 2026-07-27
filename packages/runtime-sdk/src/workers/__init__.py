@@ -1,16 +1,15 @@
-from ._workers import (
+from .blob import Blob, BlobEnding, BlobValue, File
+from .entrypoints import (
     DurableObject,
     WorkerEntrypoint,
     WorkflowEntrypoint,
-    _EnvWrapper,
     handler,
 )
-from .blob import Blob, BlobEnding, BlobValue, File
 from .fetch import fetch
 from .formdata import FormData, FormDataValue
 from .request import Request
 from .response import FetchResponse, Response
-from .rpc import python_from_rpc, python_to_rpc
+from .rpc import _EnvWrapper, python_from_rpc, python_to_rpc
 from .types import (
     Body,
     Context,

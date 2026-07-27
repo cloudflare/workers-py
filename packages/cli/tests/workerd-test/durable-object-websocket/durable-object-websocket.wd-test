@@ -25,7 +25,7 @@ const mainWorker :Workerd.Worker = (
     (name = "ns", durableObjectNamespace = "DurableObjectWebSocket"),
   ],
   compatibilityDate = "%COMPAT_DATE",
-  compatibilityFlags = ["python_workers", "enable_python_external_sdk"],
+  compatibilityFlags = ["python_workers"],
 );
 
 const testerWorker :Workerd.Worker = (

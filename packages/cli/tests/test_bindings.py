@@ -27,14 +27,18 @@ BINDINGS_TEST_DIR: Path = TEST_DIR / "bindings-test"
 BINDINGS_SRC_DIR: Path = BINDINGS_TEST_DIR / "src"
 
 
-@pytest.fixture(scope="module", params=COMPAT_DATES)
-def compat_date(request: pytest.FixtureRequest) -> str:
+@pytest.fixture(
+    scope="module",
+    params=COMPAT_CONFIGS,
+    ids=[c.python_version for c in COMPAT_CONFIGS],
+)
+def compat_config(request: pytest.FixtureRequest) -> CompatConfig:
     return request.param
 
 
 @pytest.fixture(scope="module")
 def dev_server(
-    tmp_path_factory: pytest.TempPathFactory, compat_date: str
+    tmp_path_factory: pytest.TempPathFactory, compat_config: CompatConfig
 ) -> Generator[str]:
     yield from start_dev_server(
         BINDINGS_TEST_DIR, tmp_path_factory, compat_date, "bindings_test"

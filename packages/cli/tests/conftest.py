@@ -11,13 +11,47 @@ import socket
 import subprocess
 import time
 from collections.abc import Callable, Generator
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal, TypedDict
 
 import pytest
 import requests
 
-COMPAT_DATES: list[str] = ["2025-09-01", "2026-01-01"]
+
+@dataclass(frozen=True)
+class CompatConfig:
+    compat_date: str
+    python_version: str
+    extra_compat_flags: list[str] = field(default_factory=list)
+
+
+COMPAT_CONFIGS: list[CompatConfig] = [
+    CompatConfig(
+        compat_date="2025-09-01",
+        python_version="3.12",
+        extra_compat_flags=[
+            "enable_python_external_sdk",
+            "python_process_pth_files",
+            "python_request_headers_preserve_commas",
+        ],
+    ),
+    CompatConfig(
+        compat_date="2026-01-01",
+        python_version="3.13",
+        extra_compat_flags=[
+            "enable_python_external_sdk",
+            "python_process_pth_files",
+            "python_request_headers_preserve_commas",
+        ],
+    ),
+    CompatConfig(
+        compat_date="2026-07-01",
+        python_version="3.14",
+        # TODO: remove these when 3.14 is stable, and enabled by date
+        extra_compat_flags=["python_workers_20260610", "experimental"],
+    ),
+]
 
 TEST_DIR: Path = Path(__file__).parent
 WORKERS_PY: Path = TEST_DIR.parent
@@ -193,3 +227,12 @@ def discover_suites(src_dir: Path) -> dict[str, list[str]]:
         module_path.stem[len("test_") :]: discover_test_names(module_path)
         for module_path in sorted(src_dir.glob("test_*.py"))
     }
+
+
+def inject_compat_flags(file: Path, extra_flags: list[str]) -> None:
+    if not extra_flags:
+        return
+    content = file.read_text()
+    for flag in extra_flags:
+        content = content.replace('"python_workers"', f'"python_workers", "{flag}"')
+    file.write_text(content)
