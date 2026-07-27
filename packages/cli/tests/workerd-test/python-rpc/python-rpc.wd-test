@@ -18,7 +18,7 @@ const pyWorker :Workerd.Worker = (
     (name = "FOO", text = "text binding"),
   ],
   compatibilityDate = "%COMPAT_DATE",
-  compatibilityFlags = ["python_workers", "service_binding_extra_handlers", "enable_python_external_sdk"],
+  compatibilityFlags = ["python_workers", "service_binding_extra_handlers"],
 );
 
 const jsWorker :Workerd.Worker = (

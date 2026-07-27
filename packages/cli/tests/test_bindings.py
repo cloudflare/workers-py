@@ -24,7 +24,12 @@ from typing import Any, Literal, TypedDict
 
 import pytest
 import requests
-from conftest import COMPAT_DATES, replace_compat_date
+from conftest import (
+    COMPAT_CONFIGS,
+    CompatConfig,
+    inject_compat_flags,
+    replace_compat_date,
+)
 
 TEST_DIR: Path = Path(__file__).parent
 BINDINGS_TEST_DIR: Path = TEST_DIR / "bindings-test"
@@ -74,14 +79,18 @@ def _wait_for_ready(process: subprocess.Popen[str], base_url: str) -> None:
     pytest.fail(f"pywrangler dev did not become ready within {DEV_STARTUP_TIMEOUT}s")
 
 
-@pytest.fixture(scope="module", params=COMPAT_DATES)
-def compat_date(request: pytest.FixtureRequest) -> str:
+@pytest.fixture(
+    scope="module",
+    params=COMPAT_CONFIGS,
+    ids=[c.python_version for c in COMPAT_CONFIGS],
+)
+def compat_config(request: pytest.FixtureRequest) -> CompatConfig:
     return request.param
 
 
 @pytest.fixture(scope="module")
 def dev_server(
-    tmp_path_factory: pytest.TempPathFactory, compat_date: str
+    tmp_path_factory: pytest.TempPathFactory, compat_config: CompatConfig
 ) -> Generator[str]:
     """Start a pywrangler dev server on a free port and yield its base URL."""
     tmp_path = tmp_path_factory.mktemp("bindings_test")
@@ -89,10 +98,14 @@ def dev_server(
     shutil.copytree(BINDINGS_TEST_DIR, target)
     env = os.environ | {"_PYODIDE_EXTRA_MOUNTS": str(tmp_path)}
 
-    replace_compat_date(target / "wrangler.jsonc", compat_date)
+    wrangler_jsonc = target / "wrangler.jsonc"
+    replace_compat_date(wrangler_jsonc, compat_config.compat_date)
+    inject_compat_flags(wrangler_jsonc, compat_config.extra_compat_flags)
+
+    pywrangler_cmd = ["uv", "run", "--no-project", "--with", WORKERS_PY, "pywrangler"]
 
     subprocess.run(
-        ["uv", "run", "--with", WORKERS_PY, "pywrangler", "sync"],
+        [*pywrangler_cmd, "sync"],
         cwd=target,
         check=True,
         env=env,
@@ -105,11 +118,7 @@ def dev_server(
 
     process = subprocess.Popen(
         [
-            "uv",
-            "run",
-            "--with",
-            WORKERS_PY,
-            "pywrangler",
+            *pywrangler_cmd,
             "dev",
             "--port",
             str(port),
