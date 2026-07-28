@@ -300,7 +300,10 @@ async def process_websocket(app: Any, req: "Request | js.Request") -> js.Respons
     onopen(1)
 
     def onclose(evt):
-        msg = {"type": "websocket.close", "code": evt.code, "reason": evt.reason}
+        # Client-initiated closes surface to the app as "websocket.disconnect"
+        # per the ASGI spec ("websocket.close" is the app->server direction);
+        # frameworks raise their disconnect exceptions only on this type.
+        msg = {"type": "websocket.disconnect", "code": evt.code, "reason": evt.reason}
         queue.put_nowait(msg)
 
     def onmessage(evt):
