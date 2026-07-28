@@ -308,7 +308,7 @@ async def process_websocket(app: Any, req: "Request | js.Request") -> js.Respons
         queue.put_nowait(msg)
 
     server.onopen = onopen
-    server.onopen = onclose
+    server.onclose = onclose
     server.onmessage = onmessage
 
     async def ws_send(got):
