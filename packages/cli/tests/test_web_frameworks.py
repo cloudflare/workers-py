@@ -9,40 +9,33 @@ async tests via ``loop.run_until_complete``, which is a no-op on Pyodide 0.26.0a
 passes.
 """
 
-from collections.abc import Generator
 from pathlib import Path
 
 import pytest
-from conftest import (
-    COMPAT_DATES,
-    TEST_DIR,
-    discover_suites,
-    start_dev_server,
-    suite_class,
+from conftest import COMPAT_CONFIGS, CompatConfig, register_in_worker_suites
+
+WEB_FRAMEWORKS_DIR: Path = (
+    Path(__file__).parent / "web-frameworks-test" / "django-async"
 )
-
-WEB_FRAMEWORKS_DIR: Path = TEST_DIR / "web-frameworks-test"
-DJANGO_ASYNC_DIR: Path = WEB_FRAMEWORKS_DIR / "django-async"
-DJANGO_ASYNC_SRC_DIR: Path = DJANGO_ASYNC_DIR / "src"
-
-
-ASYNC_COMPAT_DATES = [d for d in COMPAT_DATES if d != "2025-09-01"]
-
-
-@pytest.fixture(scope="module", params=ASYNC_COMPAT_DATES)
-def compat_date(request: pytest.FixtureRequest) -> str:
-    return request.param
+WEB_FRAMEWORKS_SRC_DIR: Path = WEB_FRAMEWORKS_DIR / "src"
 
 
 @pytest.fixture(scope="module")
-def dev_server(
-    tmp_path_factory: pytest.TempPathFactory, compat_date: str
-) -> Generator[str]:
-    yield from start_dev_server(
-        DJANGO_ASYNC_DIR, tmp_path_factory, compat_date, "django_async_test"
-    )
+def worker_project_dir() -> Path:
+    return WEB_FRAMEWORKS_DIR
 
 
-for _suite, _test_names in discover_suites(DJANGO_ASYNC_SRC_DIR).items():
-    _suite_cls = suite_class(_suite, _test_names)
-    globals()[_suite_cls.__name__] = _suite_cls
+# Exclude Python 3.12 (Pyodide 0.26.0a2) for async tests
+ASYNC_COMPAT_CONFIGS = [c for c in COMPAT_CONFIGS if c.python_version != "3.12"]
+
+
+@pytest.fixture(
+    scope="module",
+    params=ASYNC_COMPAT_CONFIGS,
+    ids=[c.python_version for c in ASYNC_COMPAT_CONFIGS],
+)
+def compat_config(request: pytest.FixtureRequest) -> CompatConfig:
+    return request.param
+
+
+register_in_worker_suites(globals(), WEB_FRAMEWORKS_SRC_DIR)
