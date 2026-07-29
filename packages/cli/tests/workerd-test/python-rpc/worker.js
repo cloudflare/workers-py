@@ -25,6 +25,14 @@ export class JsRpcTester extends WorkerEntrypoint {
     assert.deepStrictEqual(req.constructor.name, 'Request');
     return req;
   }
+
+  async newCounter() {
+    let value = 0;
+    return (amount = 0) => {
+      value += amount;
+      return value;
+    };
+  }
 }
 
 export default {
@@ -73,5 +81,10 @@ export default {
     );
     assert.deepStrictEqual(py_request.method, 'POST');
     assert.equal(py_request.constructor.name, 'Request');
+
+    const counter = await env.PythonRpc.new_counter();
+    assert.strictEqual(await counter(2), 2);
+    assert.strictEqual(await counter(1), 3);
+    assert.strictEqual(await counter(-5), -2);
   },
 };
