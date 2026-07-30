@@ -2,6 +2,23 @@
 
 <!-- version list -->
 
+## v1.6.4 (2026-07-30)
+
+### Bug Fixes
+
+- **runtime-sdk**: Deliver client WebSocket close events to the ASGI app
+  ([#158](https://github.com/cloudflare/workers-py/pull/158),
+  [`6f53155`](https://github.com/cloudflare/workers-py/commit/6f53155b5620137c749a64dc4ee785505cede74e))
+
+- **runtime-sdk**: Register the WebSocket close handler on onclose
+  ([#158](https://github.com/cloudflare/workers-py/pull/158),
+  [`6f53155`](https://github.com/cloudflare/workers-py/commit/6f53155b5620137c749a64dc4ee785505cede74e))
+
+- **runtime-sdk**: Surface client closes as websocket.disconnect
+  ([#158](https://github.com/cloudflare/workers-py/pull/158),
+  [`6f53155`](https://github.com/cloudflare/workers-py/commit/6f53155b5620137c749a64dc4ee785505cede74e))
+
+
 ## v1.6.3 (2026-07-17)
 
 ### Bug Fixes
