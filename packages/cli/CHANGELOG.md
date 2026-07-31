@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.16.1 (2026-07-31)
+
+### Bug Fixes
+
+- Force --color never on the parsed uv pip freeze output
+  ([#171](https://github.com/cloudflare/workers-py/pull/171),
+  [`000ac1e`](https://github.com/cloudflare/workers-py/commit/000ac1e2d13bb47ea2b4ae2698be0aa27aa9d265))
+
+
 ## v1.16.0 (2026-07-27)
 
 ### Features
