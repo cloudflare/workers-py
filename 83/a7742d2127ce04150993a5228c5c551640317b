@@ -1,0 +1,19 @@
+.pre-commit-config.yaml
+  s_8066fa248e08b9::t_d35b233e9ed4a1 43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "83a7742d2127ce04150993a5228c5c551640317b",
+  "prompts": {},
+  "sessions": {
+    "s_8066fa248e08b9": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_049627a1cffejA9WbkDzuY7AWO",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    }
+  }
+}
