@@ -287,7 +287,7 @@ class CFDatabase:
 
     _defer_foreign_keys = False
 
-    lastResult: CFResult = None
+    lastResult: CFResult | None = None
 
     def defer_foreign_keys(self, state):
         self._defer_foreign_keys = state
@@ -343,8 +343,6 @@ class CFDatabase:
             params = tuple(newParams)
 
         self.lastResult = self.databaseWrapper.run_query(query, params)
-
-        return self
 
     def close(self):
         return
@@ -473,7 +471,7 @@ class CFDatabaseWrapper(SQLiteDatabaseWrapper):
     introspection_class = CFDatabaseIntrospection
     ops_class = CFDatabaseOperations
 
-    transaction_modes = frozenset([])
+    transaction_modes: frozenset[str] = frozenset([])
 
     def get_compiler(self, default_using=None, using=None, **kwargs):
         if using is None:
