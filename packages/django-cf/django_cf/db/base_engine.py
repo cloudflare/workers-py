@@ -123,17 +123,6 @@ class CFDatabaseOperations(SQLiteDatabaseOperations):
                 results += self._quote_params_for_last_executed_query(chunk)
             return results
 
-        sql = "SELECT " + ", ".join(["QUOTE(?)"] * len(params))
-        # Bypass Django's wrappers and use the underlying sqlite3 connection
-        # to avoid logging this query - it would trigger infinite recursion.
-
-        cursor = self.connection.connection.cursor()
-        # Native sqlite3 cursors cannot be used as context managers.
-        # try:
-        #     return cursor.execute(sql, params).fetchone()
-        # finally:
-        #     cursor.close()
-
     def last_executed_query(self, cursor, sql, params):
         # Python substitutes parameters in Modules/_sqlite/cursor.c with:
         # bind_parameters(state, self->statement, parameters);
