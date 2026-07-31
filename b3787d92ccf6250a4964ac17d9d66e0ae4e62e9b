@@ -1,0 +1,21 @@
+packages/django-cf/django_cf/middleware/__init__.py
+  s_8066fa248e08b9::t_e4a4044c6ba92d 2-3
+packages/django-cf/pyproject.toml
+  s_8066fa248e08b9::t_cda6e8db78bb8f 66-69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "b3787d92ccf6250a4964ac17d9d66e0ae4e62e9b",
+  "prompts": {},
+  "sessions": {
+    "s_8066fa248e08b9": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_049627a1cffejA9WbkDzuY7AWO",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    }
+  }
+}

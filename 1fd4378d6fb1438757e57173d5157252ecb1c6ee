@@ -1,0 +1,209 @@
+packages/django-cf/templates/durable-objects/src/templates/blog/post_list.html
+  s_8066fa248e08b9::t_2821175d70e73e 1-44
+packages/django-cf/templates/d1/src/blog/migrations/0001_initial.py
+  s_8066fa248e08b9::t_33740a060eb05a 1-43
+packages/django-cf/templates/d1/src/blog/static/css/style.css
+  s_8066fa248e08b9::t_4a92883f8bfbbf 1-37
+packages/django-cf/django_cf/db/backends/do/storage.py
+  s_8066fa248e08b9::t_0291bd811388fa 1-10
+packages/django-cf/README.md
+  s_8066fa248e08b9::t_77841b367b2e4a 1-635
+packages/django-cf/tests/d1/test_admin.py
+  s_8066fa248e08b9::t_5174d642cd3678 1-207
+packages/django-cf/pyproject.toml
+  s_8066fa248e08b9::t_e521aa91f5e652 1-65
+packages/django-cf/tests/servers/r2/src/index.py
+  s_8066fa248e08b9::t_5cae95a48ab821 1-8
+packages/django-cf/templates/durable-objects/src/templates/blog/base.html
+  s_8066fa248e08b9::t_1106ea8a625766 1-66
+packages/django-cf/tests/servers/r2/package.json
+  s_8066fa248e08b9::t_f7acdc786a9f3b 1-14
+packages/django-cf/CHANGELOG.md
+  s_8066fa248e08b9::t_fd5369db002c7e 1-7
+packages/django-cf/django_cf/storage/__init__.py
+  s_8066fa248e08b9::t_f3af4bf4377194 1-3
+packages/django-cf/tests/servers/r2/src/app/asgi.py
+  s_8066fa248e08b9::t_8152ae975b2b43 1-16
+packages/django-cf/templates/d1/src/app/urls.py
+  s_8066fa248e08b9::t_8037992c49ebdd 1-63
+packages/django-cf/templates/d1/src/templates/landing.html
+  s_8066fa248e08b9::t_ec04da23721cf8 1-307
+packages/django-cf/.gitignore
+  s_8066fa248e08b9::t_fb64a6dd33eb5f 1-156
+packages/django-cf/templates/d1/src/manage.py
+  s_8066fa248e08b9::t_f24ac7ee5bd45e 1-23
+packages/django-cf/templates/d1/src/blog/views.py
+  s_8066fa248e08b9::t_4b53520440fc9c 1-12
+packages/django-cf/templates/d1/src/templates/blog/post_list.html
+  s_8066fa248e08b9::t_567f0a3a737936 1-44
+packages/django-cf/templates/durable-objects/src/blog/static/css/style.css
+  s_8066fa248e08b9::t_2613b236c9baa8 1-37
+packages/django-cf/templates/durable-objects/src/blog/migrations/0001_initial.py
+  s_8066fa248e08b9::t_aa28bfe5defb1a 1-43
+packages/django-cf/tests/durable_objects/__init__.py
+  s_8066fa248e08b9::t_8f13ba238aef88 1
+packages/django-cf/templates/d1/src/templates/blog/post_detail.html
+  s_8066fa248e08b9::t_9e1aac54e1fd5d 1-27
+packages/django-cf/tests/r2/test_storage_errors.py
+  s_8066fa248e08b9::t_5b822f1ab4132d 1-667
+packages/django-cf/CLAUDE.md
+  s_8066fa248e08b9::t_386779a63bd209 1-63
+packages/django-cf/scripts/version.sh
+  s_8066fa248e08b9::t_8bd73be101b498 1-9
+packages/django-cf/tests/db/test_do_backend.py
+  s_8066fa248e08b9::t_8061cbe1f75653 1-382
+packages/django-cf/tests/test_date_trunc.py
+  s_8066fa248e08b9::t_a6f11d9f47642c 1-241
+packages/django-cf/tests/durable_objects/test_worker.py
+  s_8066fa248e08b9::t_86601986630116 1-22
+packages/django-cf/templates/durable-objects/src/app/asgi.py
+  s_8066fa248e08b9::t_26f47422c57b5d 1-16
+packages/django-cf/tests/servers/r2/src/app/migrations/0001_initial.py
+  s_8066fa248e08b9::t_54dc5bbe776703 1-65
+packages/django-cf/templates/d1/package.json
+  s_8066fa248e08b9::t_28efcaf4061c6b 1-14
+packages/django-cf/tests/servers/r2/src/app/urls.py
+  s_8066fa248e08b9::t_b66653f2b9b387 1-346
+packages/django-cf/tests/servers/r2/pyproject.toml
+  s_8066fa248e08b9::t_aec3f31cb862a1 1-17
+packages/django-cf/django_cf/db/base_engine.py
+  s_8066fa248e08b9::t_c5c84ac814781a 1-534
+packages/django-cf/templates/durable-objects/src/templates/landing.html
+  s_8066fa248e08b9::t_a8985bd9112c2f 1-307
+packages/django-cf/templates/durable-objects/README.md
+  s_8066fa248e08b9::t_2dc1f575e130d1 1-135
+packages/django-cf/DEVELOPMENT.md
+  s_8066fa248e08b9::t_1a41eaba2be1bf 1-10
+packages/django-cf/templates/durable-objects/pyproject.toml
+  s_8066fa248e08b9::t_f20987f0fc56b9 1-17
+packages/django-cf/tests/db/test_d1_backend.py
+  s_8066fa248e08b9::t_56a4246374da13 1-341
+packages/django-cf/package-lock.json
+  s_8066fa248e08b9::t_71c9fdc7a9f52a 1-2896
+packages/django-cf/templates/durable-objects/src/blog/apps.py
+  s_8066fa248e08b9::t_6f03086ff57df9 1-6
+packages/django-cf/tests/servers/r2/src/app/models.py
+  s_8066fa248e08b9::t_66d3ae93a48399 1-34
+packages/django-cf/templates/d1/src/app/wsgi.py
+  s_8066fa248e08b9::t_99181eb836a03a 1-16
+packages/django-cf/tests/servers/r2/.gitignore
+  s_8066fa248e08b9::t_f52b5d351a93b9 1-7
+packages/django-cf/templates/d1/src/index.py
+  s_8066fa248e08b9::t_0455bb99eabc45 1-8
+packages/django-cf/templates/durable-objects/wrangler.jsonc
+  s_8066fa248e08b9::t_bf7cbcf4e2b275 1-46
+packages/django-cf/tests/servers/r2/src/app/admin.py
+  s_8066fa248e08b9::t_e5a0a04b7af407 1-36
+packages/django-cf/templates/durable-objects/src/templates/blog/post_detail.html
+  s_8066fa248e08b9::t_88974ee8465907 1-27
+packages/django-cf/tests/test_wsgi_handler.py
+  s_8066fa248e08b9::t_2ed994bfdcf340 1-68
+packages/django-cf/templates/durable-objects/src/blog/admin.py
+  s_8066fa248e08b9::t_d49844a0babd0e 1-4
+packages/django-cf/templates/durable-objects/src/index.py
+  s_8066fa248e08b9::t_457b84274aa292 1-17
+packages/django-cf/django_cf/middleware/CloudflareAccessMiddleware.py
+  s_8066fa248e08b9::t_2c3c7dc54c189e 1-516
+packages/django-cf/django_cf/storage/r2.py
+  s_8066fa248e08b9::t_c30ceb0253a43f 1-285
+packages/django-cf/django_cf/db/backends/do/base.py
+  s_8066fa248e08b9::t_f11bfe835a0b27 1-59
+packages/django-cf/tests/d1/__init__.py
+  s_8066fa248e08b9::t_31f04950bc9a2a 1
+packages/django-cf/templates/durable-objects/src/blog/urls.py
+  s_8066fa248e08b9::t_c63a6cf9530149 1-11
+packages/django-cf/package.json
+  s_8066fa248e08b9::t_89f4d062b2d4a6 1-29
+packages/django-cf/templates/durable-objects/src/blog/views.py
+  s_8066fa248e08b9::t_4c43104d4a1a45 1-12
+packages/django-cf/templates/d1/src/blog/admin.py
+  s_8066fa248e08b9::t_4304ed3a96b759 1-4
+packages/django-cf/templates/durable-objects/src/app/urls.py
+  s_8066fa248e08b9::t_fc1ad2051c68c4 1-63
+packages/django-cf/templates/durable-objects/.gitignore
+  s_8066fa248e08b9::t_4817653925e2e8 1-74
+packages/django-cf/templates/d1/.gitignore
+  s_8066fa248e08b9::t_0b5dbaed45502b 1-74
+packages/django-cf/templates/durable-objects/src/app/settings.py
+  s_8066fa248e08b9::t_0b32cfde04db7f 1-130
+packages/django-cf/templates/d1/README.md
+  s_8066fa248e08b9::t_942b35bf3bbf97 1-145
+packages/django-cf/templates/d1/src/blog/urls.py
+  s_8066fa248e08b9::t_3c78fcf1f2efd2 1-11
+packages/django-cf/tests/durable_objects/test_admin.py
+  s_8066fa248e08b9::t_37fe618acd7f44 1-207
+packages/django-cf/django_cf/__init__.py
+  s_8066fa248e08b9::t_84063f1f2dc01d 1-99
+packages/django-cf/templates/d1/src/app/settings.py
+  s_8066fa248e08b9::t_67e020909155cd 1-130
+packages/django-cf/tests/servers/r2/src/app/wsgi.py
+  s_8066fa248e08b9::t_6a05a6f041f3d3 1-16
+packages/django-cf/templates/durable-objects/src/app/wsgi.py
+  s_8066fa248e08b9::t_464f27531b68c7 1-16
+packages/django-cf/templates/d1/src/templates/blog/base.html
+  s_8066fa248e08b9::t_11b3472a0bb84c 1-66
+packages/django-cf/AGENTS.md
+  s_8066fa248e08b9::t_77d663b907e252 1-86
+packages/django-cf/templates/d1/src/blog/apps.py
+  s_8066fa248e08b9::t_9021e1ee64c4c5 1-6
+packages/django-cf/tests/r2/test_storage.py
+  s_8066fa248e08b9::t_a38b95543f8f50 1-215
+packages/django-cf/templates/d1/src/blog/models.py
+  s_8066fa248e08b9::t_e03e59299b2c00 1-11
+packages/django-cf/django_cf/middleware/__init__.py
+  s_8066fa248e08b9::t_9a41c643676cfc 1
+packages/django-cf/templates/d1/pyproject.toml
+  s_8066fa248e08b9::t_8df69dd0aa251f 1-17
+packages/django-cf/templates/d1/src/blog/tests.py
+  s_8066fa248e08b9::t_044937583ce0ee 1
+packages/django-cf/templates/d1/src/app/asgi.py
+  s_8066fa248e08b9::t_0e6b430ce9ed83 1-16
+packages/django-cf/LICENSE
+  s_8066fa248e08b9::t_21ecbd7152a596 1-21
+packages/django-cf/templates/durable-objects/package.json
+  s_8066fa248e08b9::t_1d739206c26f12 1-14
+packages/django-cf/tests/__init__.py
+  s_8066fa248e08b9::t_d5adbe9a29742e 1
+packages/django-cf/templates/durable-objects/src/manage.py
+  s_8066fa248e08b9::t_293163805d0bcb 1-23
+packages/django-cf/tests/e2e/test_workflows.py
+  s_8066fa248e08b9::t_26b50ff886cbbc 1-349
+packages/django-cf/tests/servers/r2/wrangler.jsonc
+  s_8066fa248e08b9::t_839592e90dd579 1-44
+packages/django-cf/templates/d1/wrangler.jsonc
+  s_8066fa248e08b9::t_6b7112c0abb598 1-37
+packages/django-cf/tests/servers/r2/src/manage.py
+  s_8066fa248e08b9::t_2e6eb21926d6d4 1-23
+packages/django-cf/tests/middleware/test_cloudflare_access.py
+  s_8066fa248e08b9::t_206040a1e396b2 1-951
+packages/django-cf/templates/durable-objects/src/blog/tests.py
+  s_8066fa248e08b9::t_9c0b955bea15bb 1
+packages/django-cf/tests/servers/r2/src/app/settings.py
+  s_8066fa248e08b9::t_2a0751ae035930 1-147
+packages/django-cf/tests/db/test_base_engine.py
+  s_8066fa248e08b9::t_3b3f1fd9463ef9 1-769
+packages/django-cf/tests/utils.py
+  s_8066fa248e08b9::t_b167e38e3e87af 1-109
+packages/django-cf/templates/durable-objects/src/blog/models.py
+  s_8066fa248e08b9::t_4b3a1fe043f3bf 1-11
+packages/django-cf/django_cf/db/backends/d1/base.py
+  s_8066fa248e08b9::t_87c60b6f3e467d 1-104
+packages/django-cf/tests/d1/test_worker.py
+  s_8066fa248e08b9::t_6de4605a96482d 1-20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "1fd4378d6fb1438757e57173d5157252ecb1c6ee",
+  "prompts": {},
+  "sessions": {
+    "s_8066fa248e08b9": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_049627a1cffejA9WbkDzuY7AWO",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    }
+  }
+}
