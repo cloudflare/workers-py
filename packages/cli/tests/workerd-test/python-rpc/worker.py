@@ -89,6 +89,10 @@ class PythonRpcTester(WorkerEntrypoint):
     async def test_wait_until_coroutine_lifetime(self):
         self.ctx.waitUntil(self.sleep_then_set_result())
 
+    async def use_counter(self, counter_func):
+        result = await counter_func(10)
+        return result
+
 
 class CustomType:
     def __init__(self, x):
@@ -366,3 +370,14 @@ class Default(WorkerEntrypoint):
                 len(obj)
             with assertRaises(TypeError):
                 list(obj)
+
+        # --- Forwarding RPC stubs ---
+        # Get a counter from Python, forward it to JS useCounter
+        py_counter2 = await env.PythonRpc.new_counter()
+        forwarded_result = await env.JsRpc.useCounter(py_counter2)
+        assert forwarded_result == 10
+
+        # Get a counter from JS, forward it to Python use_counter
+        js_counter2 = await env.JsRpc.newCounter()
+        forwarded_result2 = await env.PythonRpc.use_counter(js_counter2)
+        assert forwarded_result2 == 10

@@ -33,6 +33,11 @@ export class JsRpcTester extends WorkerEntrypoint {
       return value;
     };
   }
+
+  async useCounter(counterFunc) {
+    const result = await counterFunc(10);
+    return result;
+  }
 }
 
 export default {
@@ -86,5 +91,11 @@ export default {
     assert.strictEqual(await counter(2), 2);
     assert.strictEqual(await counter(1), 3);
     assert.strictEqual(await counter(-5), -2);
+
+    // --- Forwarding RPC stubs ---
+    // Get a counter from Python, forward it to Python use_counter
+    using pyCounter2 = await env.PythonRpc.new_counter();
+    const forwarded = await env.PythonRpc.use_counter(pyCounter2);
+    assert.strictEqual(forwarded, 10);
   },
 };
