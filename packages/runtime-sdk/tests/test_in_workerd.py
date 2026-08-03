@@ -4,7 +4,12 @@ import sys
 from pathlib import Path
 
 import pytest
-from conftest import COMPAT_DATES, replace_compat_date
+from conftest import (
+    COMPAT_CONFIGS,
+    CompatConfig,
+    inject_compat_flags,
+    replace_compat_date,
+)
 
 TEST_DIR = Path(__file__).parent
 WORKERD_TESTS = TEST_DIR / "workerd-test"
@@ -51,17 +56,31 @@ def bundle_cache_dir(tmp_path_factory):
     yield tmp_path_factory.mktemp("bundle_cache")
 
 
-@pytest.mark.parametrize("compat_date", COMPAT_DATES)
+@pytest.mark.parametrize(
+    "compat_config",
+    COMPAT_CONFIGS,
+    ids=[c.python_version for c in COMPAT_CONFIGS],
+)
 @pytest.mark.parametrize("test_dir, wd_test_file", discover_workerd_tests())
 def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
-    tmp_path, test_dir, wd_test_file, compat_date, pytestconfig, bundle_cache_dir
+    tmp_path,
+    test_dir,
+    wd_test_file,
+    compat_config: CompatConfig,
+    pytestconfig,
+    bundle_cache_dir,
 ):
+    compat_date = compat_config.compat_date
+
     # FIXME:
     # pywrangler sync fails to install pyodide packages in unittest environment + Python 3.12 + Linux
     # This is reproducible only in the unittest environment, and doesn't happen
     # when running the same worker manually.
     if (
-        test_dir.name in ("sdk", "entropy-patches", "asgi")
+        (
+            test_dir.name in ("sdk", "entropy-patches")
+            or test_dir.name.startswith("asgi")
+        )
         and compat_date < "2025-09-29"
         and sys.platform == "linux"
     ):
@@ -81,9 +100,12 @@ def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
     disk_service_dir.mkdir(exist_ok=True)
 
     replace_compat_date(target / "wrangler.jsonc", compat_date)
+    inject_compat_flags(target / "wrangler.jsonc", compat_config.extra_compat_flags)
+
+    pywrangler_cmd = ["uv", "run", "--no-project", "--with", WORKERS_PY, "pywrangler"]
 
     subprocess.run(
-        ["uv", "run", "--with", WORKERS_PY, "pywrangler", "sync"],
+        [*pywrangler_cmd, "sync"],
         cwd=target,
         check=True,
     )
@@ -105,6 +127,8 @@ def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
         .replace("%COLOR", str(color).lower())
         .replace("%COMPAT_DATE", compat_date)
     )
+    inject_compat_flags(wd_config, compat_config.extra_compat_flags)
+
     subprocess.run(
         ["npm", "i", "workerd"],
         cwd=target,
@@ -119,7 +143,7 @@ def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
         ".",
         f"-d{DISK_SERVICE_NAME}={disk_service_dir}",
         "--pyodide-bundle-disk-cache-dir",
-        bundle_cache_dir / compat_date,
+        bundle_cache_dir / compat_config.python_version,
     ]
     subprocess.run(
         [

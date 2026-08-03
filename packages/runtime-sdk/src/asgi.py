@@ -3,6 +3,7 @@ from asyncio import Event, Future, Queue, create_task, ensure_future
 from collections.abc import Awaitable
 from contextlib import contextmanager
 from typing import Any
+from urllib.parse import unquote
 
 import js
 
@@ -55,7 +56,10 @@ def request_to_scope(req, env, ws=False):
     url = URL.new(req.url)
     assert url.protocol[-1] == ":"
     scheme = url.protocol[:-1]
-    path = url.pathname
+    # ASGI requires "path" to be percent-decoded; the encoded original is
+    # available to apps via "raw_path".
+    # https://asgi.readthedocs.io/en/latest/specs/www.html#http-connection-scope
+    path = unquote(url.pathname)
     assert "?".startswith(url.search[0:1])
     query_string = url.search[1:].encode()
     if ws:
@@ -69,6 +73,7 @@ def request_to_scope(req, env, ws=False):
         "method": req.method,
         "scheme": scheme,
         "path": path,
+        "raw_path": url.pathname.encode(),
         "query_string": query_string,
         "type": ty,
         "env": env,
@@ -300,7 +305,10 @@ async def process_websocket(app: Any, req: "Request | js.Request") -> js.Respons
     onopen(1)
 
     def onclose(evt):
-        msg = {"type": "websocket.close", "code": evt.code, "reason": evt.reason}
+        # Client-initiated closes surface to the app as "websocket.disconnect"
+        # per the ASGI spec ("websocket.close" is the app->server direction);
+        # frameworks raise their disconnect exceptions only on this type.
+        msg = {"type": "websocket.disconnect", "code": evt.code, "reason": evt.reason}
         queue.put_nowait(msg)
 
     def onmessage(evt):
@@ -308,7 +316,7 @@ async def process_websocket(app: Any, req: "Request | js.Request") -> js.Respons
         queue.put_nowait(msg)
 
     server.onopen = onopen
-    server.onopen = onclose
+    server.onclose = onclose
     server.onmessage = onmessage
 
     async def ws_send(got):

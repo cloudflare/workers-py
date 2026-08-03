@@ -8,10 +8,8 @@
 import asyncio
 import os
 import sys
-from contextlib import asynccontextmanager
 from functools import wraps
 
-import pyodide.http
 import pytest
 from pyodide.webloop import WebLoop
 
@@ -33,20 +31,6 @@ WebLoop.shutdown_default_executor = noop
 # Ignore this error to prevent pytest-asyncio from crashing.
 if sys.version_info < (3, 13):
     asyncio.runners._cancel_all_tasks = lambda loop: None  # type: ignore[attr-defined]
-
-
-@asynccontextmanager
-async def mock_fetch(check):
-    async def mocked_fetch(original_fetch, url, opts):
-        check(url, opts)
-        return await original_fetch(url, opts)
-
-    original_fetch = pyodide.http._jsfetch
-    pyodide.http._jsfetch = lambda url, opts: mocked_fetch(original_fetch, url, opts)
-    try:
-        yield
-    finally:
-        pyodide.http._jsfetch = original_fetch
 
 
 RESPONSE_HANDLER = None

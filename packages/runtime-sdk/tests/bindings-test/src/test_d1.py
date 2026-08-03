@@ -1,6 +1,8 @@
 import pytest
 from pyodide.ffi import JsException
 
+from workers.rpc import _BindingWrapper, _RpcStubWrapper
+
 TEST_TABLE = "_test_d1"
 TEST_TABLE_TYPES = "_test_d1_types"
 TEST_TABLE_BATCH = "_test_d1_batch"
@@ -35,6 +37,21 @@ async def _ensure_tables(db):
         f"CREATE TABLE IF NOT EXISTS {TEST_TABLE_BATCH} "
         f"(id INTEGER PRIMARY KEY, val TEXT)"
     )
+
+
+@pytest.mark.asyncio
+async def test_chained_statements_stay_binding_wrappers(env):
+    # A binding method returning another binding object must keep the plain
+    # binding wrapper.
+    statement = env.DB.prepare(f"SELECT 1 FROM {TEST_TABLE} WHERE name = ?")
+    assert isinstance(statement, _BindingWrapper)
+    assert not isinstance(statement, _RpcStubWrapper)
+    assert not callable(statement)
+
+    bound = statement.bind("x")
+    assert isinstance(bound, _BindingWrapper)
+    assert not isinstance(bound, _RpcStubWrapper)
+    assert not callable(bound)
 
 
 @pytest.mark.asyncio

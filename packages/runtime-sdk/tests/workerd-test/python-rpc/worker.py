@@ -15,6 +15,7 @@ import js
 from pyodide.ffi import JsException, JsProxy, to_js
 
 from workers import Blob, Request, Response, WorkerEntrypoint
+from workers.rpc import _RpcStubWrapper
 
 assertRaises = TestCase().assertRaises
 assertRaisesRegex = TestCase().assertRaisesRegex
@@ -61,6 +62,16 @@ class PythonRpcTester(WorkerEntrypoint):
 
     async def caller(self, func):
         return await func()
+
+    async def new_counter(self):
+        value = 0
+
+        def increment(amount=0):
+            nonlocal value
+            value += amount
+            return value
+
+        return increment
 
     async def check_env(self):
         # Verify that the `env` supplied to the entrypoint class is wrapped.
@@ -327,3 +338,32 @@ class Default(WorkerEntrypoint):
         assert not testFuture.done()
         await sleep(0.2)
         assert testFuture.result() == 100
+
+        # Python RPC returning a function (closure)
+        counter = await env.PythonRpc.new_counter()
+        assert isinstance(counter, _RpcStubWrapper), (
+            f"expected a stub wrapper, got {type(counter).__name__}"
+        )
+        assert callable(counter)
+        assert await counter(2) == 2
+        assert await counter(1) == 3
+        assert await counter(-5) == -2
+        assert bool(env.PythonRpc), "a service binding should be truthy"
+        assert bool(counter), "a stub should be truthy"
+
+        # JS RPC returning a function (closure)
+        counter = await env.JsRpc.newCounter()
+        assert isinstance(counter, _RpcStubWrapper), (
+            f"expected a stub wrapper, got {type(counter).__name__}"
+        )
+        assert callable(counter)
+        assert await counter(2) == 2
+        assert await counter(1) == 3
+        assert await counter(-5) == -2
+
+        counter = await env.PythonRpc.new_counter()
+        for obj in [env.PythonRpc, counter]:
+            with assertRaisesRegex(TypeError, "has no len"):
+                len(obj)
+            with assertRaises(TypeError):
+                list(obj)

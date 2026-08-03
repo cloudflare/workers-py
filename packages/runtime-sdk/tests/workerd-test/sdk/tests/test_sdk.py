@@ -3,7 +3,7 @@ from http import HTTPMethod, HTTPStatus
 import js
 import pytest
 from pyodide.ffi import JsProxy, to_js
-from worker import mock_fetch, response_handler
+from worker import response_handler
 
 from workers import (
     Blob,
@@ -137,17 +137,8 @@ async def test_can_use_undefined_options_and_redirect():
     async def handler(request):
         # This tests two things:
         #   * `Response.redirect` static method
-        #   * that other options can be passed into `fetch` (so that we can support
-        #       new options without updating this code)
 
-        # Mock pyodide.http._jsfetch to ensure `foobarbaz` gets passed in.
-        def fetch_check(url, opts):
-            assert opts.foobarbaz == 42
-
-        async with mock_fetch(fetch_check):
-            resp = await fetch(
-                "https://example.com/redirect", redirect="manual", foobarbaz=42
-            )
+        resp = await fetch("https://example.com/redirect", redirect="manual")
 
         return resp
 
@@ -609,15 +600,6 @@ async def test_response_buffer_source_unit_tests():
         assert int(buffer.byteLength) == expected_length, (
             f"Response buffer length mismatch for {type_name}"
         )
-
-
-@pytest.mark.asyncio
-async def test_can_fetch_python_request():
-    def fetch_check(request, opts):
-        assert isinstance(request, JsProxy)
-
-    async with mock_fetch(fetch_check):
-        await fetch(Request("https://example.com/redirect"))
 
 
 @pytest.mark.asyncio

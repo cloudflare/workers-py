@@ -168,8 +168,19 @@ class Default(WorkerEntrypoint):
             )
 
         collector = ResultCollector()
-        pytest.main(
-            ["--pyargs", module, "-p", "no:cacheprovider"],
-            plugins=[collector, EnvPlugin(self.env)],
-        )
+        # pytest-asyncio drives each test through asyncio.Runner, which calls
+        # asyncio.new_event_loop(). In Pyodide that constructs a WebLoop whose
+        # __init__ calls asyncio._set_running_loop(self) and is never restored on
+        # close(), so after pytest.main() the running loop points at an abandoned
+        # WebLoop. Save and restore it so the next request's fetch coroutine runs
+        # on the real workerd-driven loop instead of hanging on a dead one.
+        # TODO: fix this behavior in Pyodide
+        saved_loop = asyncio.events._get_running_loop()
+        try:
+            pytest.main(
+                ["--pyargs", module, "-p", "no:cacheprovider"],
+                plugins=[collector, EnvPlugin(self.env)],
+            )
+        finally:
+            asyncio.events._set_running_loop(saved_loop)
         return Response.json(collector.results)

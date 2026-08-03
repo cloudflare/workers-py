@@ -1,4 +1,5 @@
 import asyncio
+import json
 import logging
 
 import js
@@ -379,3 +380,22 @@ async def test_lifespan_shutdown_failed_propagates():
     req = js.Request.new("http://example.com/shutdown-fail")
     with pytest.raises(RuntimeError, match="boom-shutdown"):
         await asyncio.wait_for(asgi.fetch(_ShutdownFailApp(), req, env), timeout=5)
+
+
+async def _scope(path):
+    response = await asyncio.wait_for(
+        env.SELF.fetch(f"http://example.com{path}"), timeout=5
+    )
+    return json.loads(await response.text())
+
+
+@pytest.mark.asyncio
+async def test_scope_path_is_percent_decoded():
+    scope = await _scope("/scope/hello%20world")
+    assert scope["path"] == "/scope/hello world"
+
+
+@pytest.mark.asyncio
+async def test_scope_exposes_raw_path():
+    scope = await _scope("/scope/hello%20world")
+    assert scope["raw_path"] == "/scope/hello%20world"

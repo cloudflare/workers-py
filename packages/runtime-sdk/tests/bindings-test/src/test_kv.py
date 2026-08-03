@@ -313,3 +313,8 @@ async def test_binding_no_len(env):
     kv = env.KV
     with pytest.raises(TypeError, match="KvNamespace.*has no len"):
         len(kv)
+
+
+@pytest.mark.asyncio
+async def test_binding_is_truthy(env):
+    assert env.KV

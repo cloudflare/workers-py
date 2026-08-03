@@ -2,6 +2,45 @@
 
 <!-- version list -->
 
+## v1.6.6 (2026-08-03)
+
+### Bug Fixes
+
+- **runtime-sdk**: Percent-decode `scope["path"]` per the ASGI spec
+  ([#169](https://github.com/cloudflare/workers-py/pull/169),
+  [`2138e44`](https://github.com/cloudflare/workers-py/commit/2138e44dc0bc419a1227497576154346da3ea522))
+
+- **runtime-sdk**: Percent-decode scope["path"] per the ASGI spec
+  ([#169](https://github.com/cloudflare/workers-py/pull/169),
+  [`2138e44`](https://github.com/cloudflare/workers-py/commit/2138e44dc0bc419a1227497576154346da3ea522))
+
+
+## v1.6.5 (2026-08-03)
+
+### Bug Fixes
+
+- Fix function object returned from RPC to be a callable
+  ([#160](https://github.com/cloudflare/workers-py/pull/160),
+  [`1019d7e`](https://github.com/cloudflare/workers-py/commit/1019d7e74d824db38328a0a25a7bf09956a7f961))
+
+
+## v1.6.4 (2026-07-30)
+
+### Bug Fixes
+
+- **runtime-sdk**: Deliver client WebSocket close events to the ASGI app
+  ([#158](https://github.com/cloudflare/workers-py/pull/158),
+  [`6f53155`](https://github.com/cloudflare/workers-py/commit/6f53155b5620137c749a64dc4ee785505cede74e))
+
+- **runtime-sdk**: Register the WebSocket close handler on onclose
+  ([#158](https://github.com/cloudflare/workers-py/pull/158),
+  [`6f53155`](https://github.com/cloudflare/workers-py/commit/6f53155b5620137c749a64dc4ee785505cede74e))
+
+- **runtime-sdk**: Surface client closes as websocket.disconnect
+  ([#158](https://github.com/cloudflare/workers-py/pull/158),
+  [`6f53155`](https://github.com/cloudflare/workers-py/commit/6f53155b5620137c749a64dc4ee785505cede74e))
+
+
 ## v1.6.3 (2026-07-17)
 
 ### Bug Fixes

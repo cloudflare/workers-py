@@ -2,6 +2,27 @@
 
 <!-- version list -->
 
+## v1.16.1 (2026-07-31)
+
+### Bug Fixes
+
+- Force --color never on the parsed uv pip freeze output
+  ([#171](https://github.com/cloudflare/workers-py/pull/171),
+  [`000ac1e`](https://github.com/cloudflare/workers-py/commit/000ac1e2d13bb47ea2b4ae2698be0aa27aa9d265))
+
+
+## v1.16.0 (2026-07-27)
+
+### Features
+
+- Add experimental python 314 support ([#129](https://github.com/cloudflare/workers-py/pull/129),
+  [`cfe5327`](https://github.com/cloudflare/workers-py/commit/cfe5327ed207df07f4c958dd81b0b1cd45ed0d6c))
+
+- Update minimum required wrangler version to 4.109.0
+  ([#129](https://github.com/cloudflare/workers-py/pull/129),
+  [`cfe5327`](https://github.com/cloudflare/workers-py/commit/cfe5327ed207df07f4c958dd81b0b1cd45ed0d6c))
+
+
 ## v1.15.0 (2026-07-08)
 
 ### Features

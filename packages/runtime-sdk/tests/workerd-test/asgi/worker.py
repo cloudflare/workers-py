@@ -181,9 +181,39 @@ class StreamingApp:
 # App instances and constants
 # ---------------------------------------------------------------------------
 
+
+class ScopeEchoApp:
+    """Echoes selected scope fields as JSON so tests can inspect them."""
+
+    async def __call__(self, scope, receive, send):
+        import json
+
+        if scope["type"] == "lifespan":
+            message = await receive()
+            if message["type"] == "lifespan.startup":
+                await send({"type": "lifespan.startup.complete"})
+            return
+        await receive()
+        body = json.dumps(
+            {
+                "path": scope["path"],
+                "raw_path": (scope.get("raw_path") or b"").decode(),
+            }
+        ).encode()
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [(b"content-type", b"application/json")],
+            }
+        )
+        await send({"type": "http.response.body", "body": body})
+
+
 app = HeaderEchoApp()
 sse_app = SSEApp()
 streaming_app = StreamingApp()
+scope_echo_app = ScopeEchoApp()
 
 example_hdr = {"Header1": "Value1", "Header2": "Value2"}
 
@@ -199,6 +229,8 @@ class Default(WorkerEntrypoint):
             return await asgi.fetch(sse_app, request, self.env, self.ctx)
         elif path == "/stream":
             return await asgi.fetch(streaming_app, request, self.env, self.ctx)
+        elif path.startswith("/scope"):
+            return await asgi.fetch(scope_echo_app, request, self.env, self.ctx)
 
         return await asgi.fetch(app, request, self.env, self.ctx)
 
