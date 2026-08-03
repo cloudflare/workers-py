@@ -1,3 +1,4 @@
+import os
 import shutil
 import subprocess
 from pathlib import Path
@@ -93,6 +94,7 @@ def test_in_workerd(  # noqa: PLR0913  (too-many-arguments)
         [*pywrangler_cmd, "sync"],
         cwd=target,
         check=True,
+        env=os.environ | {"_PYODIDE_EXTRA_MOUNTS": str(tmp_path)},
     )
 
     # Copy runtime-sdk to the python modules as well
