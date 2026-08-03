@@ -255,28 +255,47 @@ class _BindingWrapper:
         js_type = _get_js_constructor_name(jsobj)
         return js_type and js_type not in _JS_PASSTHROUGH_TYPES
 
+    def _wrap_js_value(self, value):
+        """
+        Wrap JSProxy returned from RPC calls with a
+        proper wrapper class.
+        """
+        if not self._should_wrap_nested_attribute(value):
+            return value
+
+        # A function or RpcTarget returned over RPC arrives as a callable JsRpcStub.
+        # Boxing it in a wrapper that has __call__ allows it to be called.
+        if callable(value):
+            return _RpcStubWrapper(value)
+
+        return self.__class__(value)
+
     def _convert_result(self, result):
         converted = python_from_rpc(result)
 
         # After python_from_rpc, some objects may still be JsProxy objects.
         # We need to wrap them with _BindingWrapper (or a subclass of it) again
         # to ensure that accessing attributes on them will be properly converted.
-        if self._should_wrap_nested_attribute(converted):
-            return self.__class__(converted)
         if isinstance(converted, list):
-            return [
-                self.__class__(item)
-                if self._should_wrap_nested_attribute(item)
-                else item
-                for item in converted
-            ]
-        return converted
+            return [self._wrap_js_value(item) for item in converted]
+        return self._wrap_js_value(converted)
 
     @staticmethod
     def _convert_args(args, kwargs):
         js_args = [python_to_rpc(arg) for arg in args]
         js_kwargs = {k: python_to_rpc(v) for k, v in kwargs.items()}
         return js_args, js_kwargs
+
+    def _conver_and_invoke(self, fn, args, kwargs):
+        js_args, js_kwargs = self._convert_args(args, kwargs)
+        result = fn(*js_args, **js_kwargs)
+        if hasattr(result, "then") and callable(result.then):
+
+            async def await_and_convert():
+                return self._convert_result(await result)
+
+            return await_and_convert()
+        return self._convert_result(result)
 
     def _getattr_helper(self, name):
         attr = getattr(self._binding, name)
@@ -285,15 +304,7 @@ class _BindingWrapper:
             return self._convert_result(attr)
 
         def wrapper(*args, **kwargs):
-            js_args, js_kwargs = self._convert_args(args, kwargs)
-            result = attr(*js_args, **js_kwargs)
-            if hasattr(result, "then") and callable(result.then):
-
-                async def await_and_convert():
-                    return self._convert_result(await result)
-
-                return await_and_convert()
-            return self._convert_result(result)
+            return self._conver_and_invoke(attr, args, kwargs)
 
         return wrapper
 
@@ -314,11 +325,28 @@ class _BindingWrapper:
         for item in binding:
             yield self._convert_result(item)
 
+    def __bool__(self):
+        return self._binding is not None
+
     def __len__(self):
-        binding = self._binding
-        if not hasattr(binding, "length"):
+        length = getattr(self._binding, "length", None)
+        # RPC object always returns true for attribute lookup,
+        # so make sure it is actually a numeric length.
+        if not isinstance(length, int):
             raise TypeError(f"'{self._real_name}' object has no len()")
-        return binding.length
+        return length
+
+
+class _RpcStubWrapper(_BindingWrapper):
+    """
+    A function or RpcTarget received over RPC.
+
+    Calling is always allowed but the server will reject it
+    if the target turns out not to be callable.
+    """
+
+    def __call__(self, *args, **kwargs):
+        return self._conver_and_invoke(self._binding, args, kwargs)
 
 
 class _FetcherWrapper(_BindingWrapper):
