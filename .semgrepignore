@@ -1,0 +1,4 @@
+# Imported from https://github.com/G4brym/django-cf with full git history and
+# kept identical to upstream for now. See the matching exclude in
+# .pre-commit-config.yaml.
+packages/django-cf/
