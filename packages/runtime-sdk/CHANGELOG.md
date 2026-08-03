@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.6.6 (2026-08-03)
+
+### Bug Fixes
+
+- **runtime-sdk**: Percent-decode `scope["path"]` per the ASGI spec
+  ([#169](https://github.com/cloudflare/workers-py/pull/169),
+  [`2138e44`](https://github.com/cloudflare/workers-py/commit/2138e44dc0bc419a1227497576154346da3ea522))
+
+- **runtime-sdk**: Percent-decode scope["path"] per the ASGI spec
+  ([#169](https://github.com/cloudflare/workers-py/pull/169),
+  [`2138e44`](https://github.com/cloudflare/workers-py/commit/2138e44dc0bc419a1227497576154346da3ea522))
+
+
 ## v1.6.5 (2026-08-03)
 
 ### Bug Fixes
