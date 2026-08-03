@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.6.5 (2026-08-03)
+
+### Bug Fixes
+
+- Fix function object returned from RPC to be a callable
+  ([#160](https://github.com/cloudflare/workers-py/pull/160),
+  [`1019d7e`](https://github.com/cloudflare/workers-py/commit/1019d7e74d824db38328a0a25a7bf09956a7f961))
+
+
 ## v1.6.4 (2026-07-30)
 
 ### Bug Fixes
