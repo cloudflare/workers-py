@@ -286,7 +286,7 @@ class _BindingWrapper:
         js_kwargs = {k: python_to_rpc(v) for k, v in kwargs.items()}
         return js_args, js_kwargs
 
-    def _invoke(self, fn, args, kwargs):
+    def _conver_and_invoke(self, fn, args, kwargs):
         js_args, js_kwargs = self._convert_args(args, kwargs)
         result = fn(*js_args, **js_kwargs)
         if hasattr(result, "then") and callable(result.then):
@@ -304,7 +304,7 @@ class _BindingWrapper:
             return self._convert_result(attr)
 
         def wrapper(*args, **kwargs):
-            return self._invoke(attr, args, kwargs)
+            return self._conver_and_invoke(attr, args, kwargs)
 
         return wrapper
 
@@ -346,7 +346,7 @@ class _RpcStubWrapper(_BindingWrapper):
     """
 
     def __call__(self, *args, **kwargs):
-        return self._invoke(self._binding, args, kwargs)
+        return self._conver_and_invoke(self._binding, args, kwargs)
 
 
 class _FetcherWrapper(_BindingWrapper):
