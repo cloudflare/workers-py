@@ -1,0 +1,11 @@
+{
+    "name": "fastapi-tests",
+    "main": "src/worker.py",
+    "compatibility_date": "%COMPAT_DATE",
+    "compatibility_flags": ["python_workers"],
+    "assets": {
+        "directory": "./public/",
+        "binding": "ASSETS",
+        "run_worker_first": true
+    }
+}

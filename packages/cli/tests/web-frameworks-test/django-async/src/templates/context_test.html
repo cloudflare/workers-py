@@ -1,0 +1,6 @@
+{% if show_items %}
+{% for item in items %}{{ item }}{% if not forloop.last %},{% endif %}{% endfor %}
+{% endif %}
+{{ greeting|upper }}
+{% greet "Worker" %}
+{{ 3|multiply:4 }}
