@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.16.2 (2026-08-04)
+
+### Bug Fixes
+
+- Fix host python path being used when running uv commands
+  ([#178](https://github.com/cloudflare/workers-py/pull/178),
+  [`789c29e`](https://github.com/cloudflare/workers-py/commit/789c29e7eb1691f1afd90a8ee76a7f3220ba26a9))
+
+- Prevent host python path being used when running uv commands
+  ([#178](https://github.com/cloudflare/workers-py/pull/178),
+  [`789c29e`](https://github.com/cloudflare/workers-py/commit/789c29e7eb1691f1afd90a8ee76a7f3220ba26a9))
+
+
 ## v1.16.1 (2026-07-31)
 
 ### Bug Fixes
