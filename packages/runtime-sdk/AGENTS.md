@@ -20,4 +20,4 @@ This package provides utilities for:
 ## Testing
 
 - All the tests should be done inside `workerd`, not in the host environment.
-- Tests should be implemented in `../cli/tests` directory.
+- Tests should be implemented in this package's `tests/` directory.

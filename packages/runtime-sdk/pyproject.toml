@@ -20,6 +20,7 @@ dev = [
   "pytest>=7.0.0",
   "ruff>=0.1.0",
   "mypy>=1.0.0",
+  "requests>=2.28.0",
 ]
 
 [project.urls]
@@ -56,6 +57,13 @@ lint.ignore = [
   "UP038", # Use X | Y instead of (X, Y)
 ]
 lint.flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
+lint.per-file-ignores."tests/**" = ["PLR2004", "PLR0913"]
+lint.per-file-ignores."tests/workerd-test/**" = ["C901", "PLR0911", "PLR0912", "PLR2004", "PLW0603"]
+lint.per-file-ignores."tests/bindings-test/**" = ["C901", "PLR0911", "PLR0912", "PLR2004", "PLW0603"]
+lint.per-file-ignores."tests/web-frameworks-test/**" = ["C901", "PLR0911", "PLR0912", "PLR2004", "PLW0603"]
+
+[tool.pytest.ini_options]
+addopts = ["--ignore=tests/workerd-test", "--ignore=tests/bindings-test", "--ignore=tests/web-frameworks-test"]
 
 [tool.mypy]
 packages = ["workers_runtime_sdk"]
