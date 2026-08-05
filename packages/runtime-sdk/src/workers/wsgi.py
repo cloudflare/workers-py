@@ -10,6 +10,7 @@ import js
 from workers import Context, Request
 
 logger = logging.getLogger("wsgi")
+NULL_BODY_STATUSES = frozenset({101, 103, 204, 205, 304})
 
 
 def _wsgi_native_string(value: str) -> str:
@@ -230,7 +231,8 @@ def _make_streaming_response(
 
     # WSGI status is e.g. "200 OK"; split into code + reason phrase.
     code_str, _, reason = status.partition(" ")
-    options: dict[str, Any] = {"status": int(code_str)}
+    code = int(code_str)
+    options: dict[str, Any] = {"status": code}
     if reason:
         options["statusText"] = reason
 
@@ -239,6 +241,12 @@ def _make_streaming_response(
         # `append` (not `set`) preserves repeated headers such as Set-Cookie.
         js_headers.append(key, value)
     options["headers"] = js_headers
+
+    if code in NULL_BODY_STATUSES:
+        # 101/103/204/205/304 must not carry a body per the Fetch spec.
+        # https://fetch.spec.whatwg.org/#null-body-status
+        on_close()
+        return Response.new(None, **options)
 
     proxies: list[Any] = []
     done = False
