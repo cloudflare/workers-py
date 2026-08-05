@@ -1,4 +1,5 @@
 import asyncio
+import time
 
 import pytest
 from js import Object
@@ -11,15 +12,14 @@ TERMINAL = ("complete", "errored", "terminated")
 
 
 async def _poll(instance, until=TERMINAL, timeout=10.0):
-    elapsed = 0.0
     interval = 0.1
-    while elapsed < timeout:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
         status = await instance.status()
         assert not isinstance(status, JsProxy)
         if status["status"] in until:
             return status
         await asyncio.sleep(interval)
-        elapsed += interval
     raise AssertionError(f"workflow did not reach {until} within {timeout}s")
 
 
@@ -29,14 +29,13 @@ async def _poll_until_settled(instance, timeout=20.0):
     Returns the first status that is either terminal or waiting (e.g. blocked on
     an event), without depending on the exact runtime-specific waiting label.
     """
-    elapsed = 0.0
     interval = 0.1
+    deadline = time.monotonic() + timeout
     status = await instance.status()
-    while elapsed < timeout:
+    while time.monotonic() < deadline:
         if status["status"] not in ("queued", "running"):
             return status
         await asyncio.sleep(interval)
-        elapsed += interval
         status = await instance.status()
     return status
 

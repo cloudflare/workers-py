@@ -21,6 +21,8 @@ WORKERS_RUNTIME_SDK: Path = TEST_DIR.parent / "src"
 
 DEV_STARTUP_TIMEOUT: int = 120
 DEV_POLL_INTERVAL: float = 0.5
+SUITE_CONNECT_TIMEOUT: int = 10
+SUITE_READ_TIMEOUT: int = 300
 
 
 @dataclass(frozen=True)
@@ -87,22 +89,24 @@ def get_free_port() -> int:
         return s.getsockname()[1]
 
 
-def wait_for_ready(process: subprocess.Popen[str], base_url: str) -> None:
+def wait_for_ready(
+    process: subprocess.Popen[bytes], base_url: str, log_path: Path
+) -> None:
     """Poll the /health endpoint until the dev server is accepting requests."""
     deadline = time.time() + DEV_STARTUP_TIMEOUT
     while time.time() < deadline:
         if process.poll() is not None:
-            stdout = process.stdout.read() if process.stdout else ""
             pytest.fail(
                 f"pywrangler dev exited early with code {process.returncode}\n"
-                f"stdout: {stdout}"
+                f"stdout: {log_path.read_text(errors='replace')}"
             )
         try:
             resp = requests.get(f"{base_url}/health", timeout=2)
             if resp.ok:
                 return
         except (requests.ConnectionError, requests.Timeout):
-            time.sleep(DEV_POLL_INTERVAL)
+            pass
+        time.sleep(DEV_POLL_INTERVAL)
 
     process.kill()
     process.wait()
@@ -159,43 +163,54 @@ def dev_server(
     port: int = get_free_port()
     base_url: str = f"http://127.0.0.1:{port}"
 
-    process = subprocess.Popen(
-        [
-            *pywrangler_cmd,
-            "dev",
-            "--port",
-            str(port),
-            "--persist-to",
-            str(tmp_path / "state"),
-        ],
-        cwd=target,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        env=env,
-    )
+    log_path = tmp_path / "dev.log"
+    with log_path.open("w") as log_file:
+        process = subprocess.Popen(
+            [
+                *pywrangler_cmd,
+                "dev",
+                "--port",
+                str(port),
+                "--persist-to",
+                str(tmp_path / "state"),
+            ],
+            cwd=target,
+            stdout=log_file,
+            stderr=subprocess.STDOUT,
+            env=env,
+        )
 
-    wait_for_ready(process, base_url)
-    yield base_url
+        wait_for_ready(process, base_url, log_path)
+        yield base_url
 
-    process.terminate()
-    try:
-        process.wait(timeout=10)
-    except subprocess.TimeoutExpired:
-        process.kill()
-        process.wait()
+        process.terminate()
+        try:
+            process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
 
 
 @functools.cache
-def get_suite_results(dev_server: str, suite: str) -> SuiteResults:
-    resp = requests.get(f"{dev_server}/run-tests/{suite}", timeout=60)
-    assert resp.ok, f"Suite '{suite}' returned {resp.status_code}: {resp.text}"
+def get_suite_results(dev_server: str, suite: str) -> SuiteResults | str:
+    try:
+        resp = requests.get(
+            f"{dev_server}/run-tests/{suite}",
+            timeout=(SUITE_CONNECT_TIMEOUT, SUITE_READ_TIMEOUT),
+        )
+    except requests.RequestException as error:
+        return f"Suite '{suite}' request failed: {error}"
+    if not resp.ok:
+        return f"Suite '{suite}' returned {resp.status_code}: {resp.text}"
     return resp.json()
 
 
 def _make_test(suite: str, test_name: str) -> Callable:
     def test_fn(self: Any, dev_server: str) -> None:
         results = get_suite_results(dev_server, suite)
+        if isinstance(results, str):
+            pytest.fail(results)
+            return
         result: InWorkerTestResult | None = results.get(test_name)
         assert result is not None, f"Test {suite}::{test_name} not found in results"
         if result["status"] == "skipped":
