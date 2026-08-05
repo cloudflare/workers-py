@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.6.8 (2026-08-05)
+
+### Bug Fixes
+
+- **runtime-sdk**: Do not include HTTP body for null body status codes
+  ([#162](https://github.com/cloudflare/workers-py/pull/162),
+  [`693d594`](https://github.com/cloudflare/workers-py/commit/693d5945fd6531beb0d9d2fd3c97bf7ee2c8f1f3))
+
+
 ## v1.6.7 (2026-08-05)
 
 ### Bug Fixes
