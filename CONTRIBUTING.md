@@ -54,7 +54,18 @@ Each package includes these development tools:
    cd packages/<package-name>
    ```
 
-3. Run our code formatter via `uvx ruff format` and linter via `uvx ruff fix .`
+3. Run the formatter and linter through pre-commit, which uses the same
+   pinned tool versions as CI (a bare `uvx ruff` runs the latest release,
+   whose rule set can disagree with the pinned one):
+
+   ```bash
+   uvx pre-commit run ruff-format -a   # format
+   uvx pre-commit run ruff -a          # lint (applies safe fixes)
+   ```
+
+   Or run every check CI runs with `uvx pre-commit run -a`. Installing the
+   hook once with `uvx pre-commit install` runs them automatically on each
+   commit.
 
 4. Add or update tests as needed
 

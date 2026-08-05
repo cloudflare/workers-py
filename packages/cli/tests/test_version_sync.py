@@ -38,6 +38,36 @@ def test_parse_pip_freeze():
     assert result == ["shapely==2.0.7", "numpy==1.26.4"]
 
 
+def test_get_vendor_package_versions_disables_color():
+    """The freeze output is parsed, so uv must not colorize it even under
+    color-forcing environments (e.g. FORCE_COLOR=1)."""
+    with (
+        patch.object(pywrangler_sync, "run_command") as mock_run,
+        patch.object(pywrangler_sync, "get_vendor_modules_path"),
+        patch.object(
+            pywrangler_sync,
+            "get_pyodide_venv_path",
+            return_value=Path("pyodide-venv"),
+        ),
+    ):
+        mock_run.return_value.returncode = 0
+        mock_run.return_value.stdout = "shapely==2.0.7\n"
+
+        result = pywrangler_sync._get_vendor_package_versions()
+
+    assert result == ["shapely==2.0.7"]
+    command = mock_run.call_args[0][0]
+    assert command[:7] == [
+        "uv",
+        "pip",
+        "freeze",
+        "--python",
+        "pyodide-venv",
+        "--color",
+        "never",
+    ]
+
+
 class TestInstallRequirements:
     @patch.object(pywrangler_sync, "_install_requirements_to_vendor")
     @patch.object(pywrangler_sync, "_get_vendor_package_versions")

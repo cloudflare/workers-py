@@ -186,7 +186,13 @@ def _install_requirements_to_vendor(
         shutil.rmtree(pyodide_site_packages)
         pyodide_site_packages.mkdir()
 
-    install_cmd = ["uv", "pip", "install"]
+    install_cmd = [
+        "uv",
+        "pip",
+        "install",
+        "--python",
+        str(get_pyodide_venv_path()),
+    ]
     if not allow_build:
         install_cmd.append("--no-build")
     else:
@@ -200,7 +206,6 @@ def _install_requirements_to_vendor(
         install_cmd,
         capture_output=True,
         check=False,
-        env=os.environ | {"VIRTUAL_ENV": str(get_pyodide_venv_path())},
     )
 
     if result.returncode != 0:
@@ -243,9 +248,16 @@ def _install_requirements_to_venv(requirements: list[str]) -> str | None:
 
     with temp_requirements_file(requirements) as requirements_file:
         result = run_command(
-            ["uv", "pip", "install", "-r", requirements_file],
+            [
+                "uv",
+                "pip",
+                "install",
+                "--python",
+                str(venv_workers_path),
+                "-r",
+                requirements_file,
+            ],
             check=False,
-            env=os.environ | {"VIRTUAL_ENV": str(venv_workers_path)},
             capture_output=True,
         )
         if result.returncode != 0:
@@ -262,8 +274,14 @@ def _install_requirements_to_venv(requirements: list[str]) -> str | None:
 
 def _log_installed_packages(venv_path: Path) -> None:
     result = run_command(
-        ["uv", "pip", "list", "--format=freeze"],
-        env=os.environ | {"VIRTUAL_ENV": str(venv_path)},
+        [
+            "uv",
+            "pip",
+            "list",
+            "--python",
+            str(venv_path),
+            "--format=freeze",
+        ],
         capture_output=True,
         check=False,
     )
@@ -287,8 +305,22 @@ def _parse_pip_freeze(result: str) -> list[str]:
 def _get_vendor_package_versions() -> list[str]:
     """Get pinned package versions from pyodide venv (e.g., ["shapely==2.0.7"])."""
     result = run_command(
-        ["uv", "pip", "freeze", "--path", str(get_vendor_modules_path())],
-        env=os.environ | {"VIRTUAL_ENV": str(get_pyodide_venv_path())},
+        [
+            "uv",
+            "pip",
+            "freeze",
+            "--python",
+            str(get_pyodide_venv_path()),
+            # This output is parsed, and FORCE_COLOR-style env vars make uv
+            # colorize even when captured. "\x1b[1mshapely\x1b[0m==2.0.7"
+            # still contains "==", so it survives _parse_pip_freeze and then
+            # trips uv's requirements parser: error: Unexpected '<ESC>',
+            # expected '-c', '-e', '-r' or the start of a requirement.
+            "--color",
+            "never",
+            "--path",
+            str(get_vendor_modules_path()),
+        ],
         capture_output=True,
     )
     if result.returncode != 0:

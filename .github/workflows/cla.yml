@@ -25,5 +25,8 @@ jobs:
           path-to-signatures: 'signatures/version1/cla.json'
           path-to-document: 'https://www.cloudflare.com/cla/'
           branch: 'cla-signatures'
-          allowlist: dependabot[bot],workers-devprod
+          # G4brym authored the django-cf history imported into
+          # packages/django-cf; the two bot accounts authored commits in that
+          # same history and cannot sign a CLA.
+          allowlist: dependabot[bot],workers-devprod,G4brym,google-labs-jules[bot],github-actions[bot]
           lock-pullrequest-aftermerge: false

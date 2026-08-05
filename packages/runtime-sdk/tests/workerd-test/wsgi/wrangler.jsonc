@@ -1,0 +1,5 @@
+{
+    "name": "test-worker",
+    "compatibility_date": "%COMPAT_DATE",
+    "compatibility_flags": ["python_workers"]
+}
