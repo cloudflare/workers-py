@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  cli-test:
+  test:
     strategy:
       fail-fast: false
       matrix:
@@ -36,7 +36,7 @@ jobs:
       run: |
         uv run --frozen pywrangler --help
 
-  test:
+  sdk-test:
     strategy:
       fail-fast: false
       matrix:
