@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.6.7 (2026-08-05)
+
+### Bug Fixes
+
+- Fix entropy patch for newer pydantic versions
+  ([#153](https://github.com/cloudflare/workers-py/pull/153),
+  [`81a4b6b`](https://github.com/cloudflare/workers-py/commit/81a4b6bad37373e0b448dd2dbedbf6cec0f47b8c))
+
+
 ## v1.6.6 (2026-08-03)
 
 ### Bug Fixes
