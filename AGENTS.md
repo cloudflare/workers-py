@@ -10,10 +10,11 @@ Subdirectory `AGENTS.md` files provide package-specific context (key classes, wh
 
 ## Project overview
 
-This repository (`workers-py`) contains two Python packages that are used for Cloudflare Python Workers.
+This repository (`workers-py`) contains three Python packages that are used for Cloudflare Python Workers.
 
 - `packages/cli` contains the command-line interface for managing Python Workers, including installing packages, running workers locally, and uploading workers to Cloudflare.
 - `packages/runtime-sdk` contains the runtime SDK for Python Workers, which provides a base class for Python Workers and utilities for working with Cloudflare's runtime.
+- `packages/django-cf` is the Django integration package, providing database backends for D1 and Durable Objects, an R2 storage backend, and Cloudflare Access middleware.
 
 ### `packages/cli`
 
@@ -23,6 +24,10 @@ For cli conventions, see `packages/cli/AGENTS.md`.
 
 For runtime-sdk conventions, see `packages/runtime-sdk/AGENTS.md`.
 
+### `packages/django-cf`
+
+For django-cf conventions, see `packages/django-cf/AGENTS.md`.
+
 ## Build System & Commands
 
 This project uses the following tools to manage the build process:
@@ -31,5 +36,5 @@ This project uses the following tools to manage the build process:
 - `pytest` for the implementation of tests, use `uv run pytest` to run tests.
 - `pre-commit` for linting and formatting, use `uv run pre-commit run --all-files` to run pre-commit.
 
-Since this repository contains two packages, `cli` and `runtime-sdk`, the build system and commands are managed separately for each package.
+Since this repository contains three packages, `cli`, `runtime-sdk`, and `django-cf`, the build system and commands are managed separately for each package.
 Every command should be run inside the respective package directory, not at the root of the repository.

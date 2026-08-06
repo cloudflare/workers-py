@@ -27,6 +27,7 @@ This is a monorepo containing multiple Python packages. Each package is located 
 
 - `packages/cli/` - The Python workers cli, `workers-py` on PyPI
 - `packages/runtime-sdk/` - Python SDK for Cloudflare Workers, `workers-runtime-sdk` on PyPI
+- `packages/django-cf/` - Django integration for Cloudflare services, `django-cf` on PyPI
 
 ### Working with a specific package
 
@@ -94,12 +95,14 @@ For monorepo support, use the package-specific scope prefix:
 
 - `cli` - For changes to the workers-py package
 - `runtime-sdk` - For changes to the workers-runtime-sdk package
+- `django-cf` - For changes to the django-cf package
 
 ### Examples
 
 ```
 feat(cli): add new CLI command for syncing
 fix(runtime-sdk): handle edge case in API client
+feat(django-cf): add support for new R2 feature
 docs(cli): update README with new usage examples
 ```
 
