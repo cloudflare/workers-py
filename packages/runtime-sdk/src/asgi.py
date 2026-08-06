@@ -113,7 +113,9 @@ async def start_application(app):
                 startup.set_result(True)
             return
         if got["type"] == "lifespan.startup.failed":
-            message = got.get("message", "ASGI lifespan startup failed")
+            # `or`, not a .get default: an empty message field is legal and
+            # would otherwise produce RuntimeError('').
+            message = got.get("message") or "ASGI lifespan startup failed"
             if not startup.done():
                 startup.set_exception(RuntimeError(message))
             return
@@ -122,7 +124,7 @@ async def start_application(app):
                 shutdown_complete.set_result(None)
             return
         if got["type"] == "lifespan.shutdown.failed":
-            message = got.get("message", "ASGI lifespan shutdown failed")
+            message = got.get("message") or "ASGI lifespan shutdown failed"
             if not shutdown_complete.done():
                 shutdown_complete.set_exception(RuntimeError(message))
             return
@@ -147,10 +149,29 @@ async def start_application(app):
                 shutdown_complete.set_result(None)
         except Exception as exc:
             # Spec: an exception raised before startup is acked signals that the
-            # app doesn't support lifespan; swallow it and serve requests anyway.
+            # app doesn't support lifespan; serve requests anyway, but leave a
+            # trace — an app that crashed mid-startup-work looks identical to
+            # one that simply has no lifespan handler.
             if not startup.done():
+                logger.debug(
+                    "ASGI lifespan task raised before reporting startup; "
+                    "treating the app as not supporting lifespan",
+                    exc_info=exc,
+                )
                 startup.set_result(False)
                 return
+            # Frameworks re-raise the original error right after sending
+            # startup.failed / shutdown.failed (Starlette does). In that
+            # common same-tick case the awaiter has not resumed yet, so
+            # attaching the real exception here means the caller receives the
+            # reported RuntimeError with the app's own error chained as its
+            # cause (best-effort if the app suspended in between).
+            for reported in (startup, shutdown_complete):
+                if reported.done() and not reported.cancelled():
+                    failure = reported.exception()
+                    if failure is not None:
+                        failure.__cause__ = exc
+                        return
             # After a successful startup, a shutdown-phase error can't affect the
             # already-served request, so log it and let shutdown complete.
             logger.exception("Exception in ASGI lifespan application", exc_info=exc)
