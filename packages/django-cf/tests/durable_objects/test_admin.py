@@ -1,7 +1,5 @@
 import requests
 
-from ..utils import durable_objects_web_server  # noqa: F401
-
 
 def get_csrf_token(client, url):
     """Fetches a page and extracts the CSRF token from a form."""
