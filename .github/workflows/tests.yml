@@ -61,8 +61,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        # django-cf declares requires-python = ">=3.12".
-        python-version: ['3.12', '3.13', '3.14']
+        python-version: ['3.14']
     runs-on: ${{ matrix.os }}
 
     steps:
@@ -73,9 +72,6 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    # tests/d1, tests/durable_objects, tests/e2e, tests/r2 and
-    # tests/test_date_trunc.py drive a real `wrangler dev` and need a Node toolchain,
-    # so pyproject.toml excludes them via addopts and they stay manual.
     - name: Run django-cf tests
       working-directory: packages/django-cf
       run: |

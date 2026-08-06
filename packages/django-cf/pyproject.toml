@@ -98,8 +98,8 @@ lint.per-file-ignores."templates/**" = ["F401"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-# The ignored subtrees drive a real `wrangler dev` through tests/utils.py, so they
-# need Node and `npm run setup-test`. Run them explicitly by path.
+# The ignored subtrees requires running wrangler locally.
+# TODO: Run these tests in CI using the same dev server in the SDK tests.
 addopts = [
     "-ra",
     "--ignore=tests/d1",
