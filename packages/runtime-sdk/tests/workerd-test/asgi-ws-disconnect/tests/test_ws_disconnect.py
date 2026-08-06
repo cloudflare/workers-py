@@ -70,3 +70,25 @@ async def test_client_close_reaches_app_as_disconnect():
             return
         await asyncio.sleep(0.2)
     pytest.fail("the app never observed the client's disconnect")
+
+
+@pytest.mark.asyncio
+async def test_app_initiated_close_reaches_the_client():
+    response = await _ws_connect("/ws-app-close")
+    ws = response.webSocket
+    assert ws is not None
+    ws.accept()
+    close = _listen(ws, "close")
+    evt = await asyncio.wait_for(close, TIMEOUT_S)
+    assert evt.code == 4001
+
+
+@pytest.mark.asyncio
+async def test_app_crash_closes_the_transport():
+    response = await _ws_connect("/ws-crash")
+    ws = response.webSocket
+    assert ws is not None
+    ws.accept()
+    close = _listen(ws, "close")
+    evt = await asyncio.wait_for(close, TIMEOUT_S)
+    assert evt.code == 1011
