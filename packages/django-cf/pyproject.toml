@@ -25,7 +25,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12"
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest",
     "pytest-cov",
@@ -98,7 +98,16 @@ lint.per-file-ignores."templates/**" = ["F401"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q"
+# The ignored subtrees drive a real `wrangler dev` through tests/utils.py, so they
+# need Node and `npm run setup-test`. Run them explicitly by path.
+addopts = [
+    "-ra",
+    "--ignore=tests/d1",
+    "--ignore=tests/durable_objects",
+    "--ignore=tests/e2e",
+    "--ignore=tests/r2",
+    "--ignore=tests/test_date_trunc.py",
+]
 testpaths = [
     "tests",
 ]

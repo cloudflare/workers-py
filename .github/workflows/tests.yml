@@ -55,3 +55,28 @@ jobs:
       working-directory: packages/runtime-sdk
       run: |
         uv run --frozen pytest -v --color=yes tests
+
+  django-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        # django-cf declares requires-python = ">=3.12".
+        python-version: ['3.12', '3.13', '3.14']
+    runs-on: ${{ matrix.os }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    # tests/d1, tests/durable_objects, tests/e2e, tests/r2 and
+    # tests/test_date_trunc.py drive a real `wrangler dev` and need a Node toolchain,
+    # so pyproject.toml excludes them via addopts and they stay manual.
+    - name: Run django-cf tests
+      working-directory: packages/django-cf
+      run: |
+        uv run --frozen pytest -v --color=yes tests
