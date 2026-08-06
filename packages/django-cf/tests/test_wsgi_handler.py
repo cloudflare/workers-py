@@ -21,14 +21,15 @@ class TestDjangoCFErrorMessages:
 
     def test_djangocf_durable_object_get_app_error_message(self):
         """Test that DjangoCFDurableObject.get_app() raises NotImplementedError with correct message."""
-        # DjangoCFDurableObject.__init__ requires ctx and env, so test get_app directly
+        # DjangoCFDurableObject.__init__ requires ctx and env, so call the unbound
+        # get_app rather than instantiating. It never touches self.
+        with pytest.raises(NotImplementedError) as exc_info:
+            DjangoCFDurableObject.get_app(None)
+        # Verify no duplicate "implement" word
         assert (
-            "implement get_app" in DjangoCFDurableObject.get_app.__code__.co_consts[1]
+            str(exc_info.value) == "Please implement get_app in your django_cf worker"
         )
-        # Verify no duplicate word in the source constant
-        for const in DjangoCFDurableObject.get_app.__code__.co_consts:
-            if isinstance(const, str) and "implement" in const:
-                assert "implement implement" not in const
+        assert "implement implement" not in str(exc_info.value)
 
 
 class TestWSGIHeaderTransformation:

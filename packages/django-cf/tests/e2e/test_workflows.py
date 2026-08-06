@@ -7,13 +7,6 @@ They require running Cloudflare Workers via wrangler.
 import pytest
 import requests
 
-# Import fixtures from utils
-from ..utils import (  # noqa: F401
-    d1_web_server,
-    durable_objects_web_server,
-    r2_web_server,
-)
-
 
 class TestD1CRUDWorkflow:
     """Test complete CRUD workflow with D1 backend."""
