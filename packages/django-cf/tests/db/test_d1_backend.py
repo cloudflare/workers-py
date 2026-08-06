@@ -1,6 +1,7 @@
 """Tests for django_cf/db/backends/d1/base.py - D1 database backend."""
 
 import sys
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -220,25 +221,28 @@ class TestD1GetConnectionParams:
 class TestD1ExceptionHandling:
     """Tests for D1 backend exception handling."""
 
-    def test_run_query_uses_except_exception(self):
-        """Test that run_query uses 'except Exception' instead of bare 'except'.
+    def test_run_query_lets_binding_errors_propagate(self):
+        """run_query must not catch errors raised by the D1 binding.
 
-        Bare except clauses catch BaseException subclasses like KeyboardInterrupt
-        and SystemExit, which should be allowed to propagate normally.
+        It used to catch everything and re-raise a bare ``js.Error`` carrying only
+        a JavaScript stack, which discarded the Python exception. That is how the
+        eager-conversion break stayed invisible: every failure looked like the
+        same opaque wasm trace.
         """
+        import ast
         import importlib.util
 
         spec = importlib.util.find_spec("django_cf.db.backends.d1.base")
-        with open(spec.origin) as f:
-            content = f.read()
-            # Should use 'except Exception:' not bare 'except:'
-            assert "except Exception:" in content
-            # Should NOT have bare except (except inside 'except Exception')
-            lines = content.split("\n")
-            for line in lines:
-                stripped = line.strip()
-                if stripped.startswith("except") and stripped.endswith(":"):
-                    assert stripped != "except:", f"Found bare 'except:' clause: {line}"
+        tree = ast.parse(Path(spec.origin).read_text())
+
+        run_query = next(
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef) and node.name == "run_query"
+        )
+        handlers = [n for n in ast.walk(run_query) if isinstance(n, ast.ExceptHandler)]
+
+        assert handlers == []
 
 
 class TestD1ParameterHandling:
