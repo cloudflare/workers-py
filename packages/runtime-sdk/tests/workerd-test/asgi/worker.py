@@ -182,6 +182,34 @@ class StreamingApp:
 # ---------------------------------------------------------------------------
 
 
+class HeaderNamesApp:
+    """Echoes the request header names seen in the scope as JSON."""
+
+    async def __call__(self, scope, receive, send):
+        import json
+
+        if scope["type"] == "lifespan":
+            message = await receive()
+            if message["type"] == "lifespan.startup":
+                await send({"type": "lifespan.startup.complete"})
+            return
+        await receive()
+        header_names = sorted({name.decode() for name, _ in scope["headers"]})
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [(b"content-type", b"application/json")],
+            }
+        )
+        await send(
+            {
+                "type": "http.response.body",
+                "body": json.dumps({"header_names": header_names}).encode(),
+            }
+        )
+
+
 class ScopeEchoApp:
     """Echoes selected scope fields as JSON so tests can inspect them."""
 
@@ -214,6 +242,7 @@ app = HeaderEchoApp()
 sse_app = SSEApp()
 streaming_app = StreamingApp()
 scope_echo_app = ScopeEchoApp()
+header_names_app = HeaderNamesApp()
 
 example_hdr = {"Header1": "Value1", "Header2": "Value2"}
 
@@ -231,6 +260,8 @@ class Default(WorkerEntrypoint):
             return await asgi.fetch(streaming_app, request, self.env, self.ctx)
         elif path.startswith("/scope"):
             return await asgi.fetch(scope_echo_app, request, self.env, self.ctx)
+        elif path == "/header-names":
+            return await asgi.fetch(header_names_app, request, self.env, self.ctx)
 
         return await asgi.fetch(app, request, self.env, self.ctx)
 
