@@ -1,0 +1,31 @@
+packages/django-cf/AGENTS.md
+  s_0cd53b87ee5914::t_1fd92cb92820c2 30,32-34,36-41
+.github/workflows/tests.yml
+  s_0cd53b87ee5914::t_fd650d279170cc 66-68,78-79
+packages/django-cf/tests/conftest.py
+  s_0cd53b87ee5914::t_b106e3628b9d43 1-9,11,16-18,23-77,80-89,91-99,102-120,123-125,127-128,130-141,143-149,151-176,180-181,185-190,194-195
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "d03a7596e11e14ee31b26dca6208d783699fd037",
+  "prompts": {},
+  "sessions": {
+    "s_0cd53b87ee5914": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_02995dc92ffe36YT0o4f7D0sVP",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    },
+    "s_c8bc9c0d20848a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_02a990756ffeOa0mKDMPl72iY8",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    }
+  }
+}
