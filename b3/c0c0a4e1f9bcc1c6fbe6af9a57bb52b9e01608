@@ -1,0 +1,39 @@
+packages/django-cf/tests/db/test_do_backend.py
+  s_c8bc9c0d20848a::t_c6caa5390d0326 237,241-250
+  s_c8bc9c0d20848a::t_9b1438cc8dd66b 3,229-230,232-235
+packages/django-cf/django_cf/db/backends/d1/base.py
+  s_c8bc9c0d20848a::t_fd934697eb7c89 83
+  s_c8bc9c0d20848a::t_7dc8ea6b8aaefb 84-96
+packages/django-cf/django_cf/db/backends/do/base.py
+  s_c8bc9c0d20848a::t_3633695c3bf304 48
+  s_c8bc9c0d20848a::t_5d62bbb42f47db 49-51
+packages/django-cf/django_cf/storage/r2.py
+  s_c8bc9c0d20848a::t_e8a39e1a8cb412 118,177
+packages/django-cf/tests/db/test_d1_backend.py
+  s_0cd53b87ee5914::t_46b2bd2814c4ae 232,236-245
+  s_c8bc9c0d20848a::t_5973de527b662e 4,224-225,227-230
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "b3c0c0a4e1f9bcc1c6fbe6af9a57bb52b9e01608",
+  "prompts": {},
+  "sessions": {
+    "s_0cd53b87ee5914": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_02995dc92ffe36YT0o4f7D0sVP",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    },
+    "s_c8bc9c0d20848a": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_02a990756ffeOa0mKDMPl72iY8",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    }
+  }
+}
