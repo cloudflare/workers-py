@@ -399,3 +399,10 @@ async def test_scope_path_is_percent_decoded():
 async def test_scope_exposes_raw_path():
     scope = await _scope("/scope/hello%20world")
     assert scope["raw_path"] == "/scope/hello%20world"
+
+
+@pytest.mark.asyncio
+async def test_multiple_set_cookie_headers_survive():
+    response = await env.SELF.fetch("http://example.com/multi-cookie")
+    cookies = list(response.js_object.headers.getSetCookie())
+    assert cookies == ["first=1; Path=/", "second=2; Path=/"]
