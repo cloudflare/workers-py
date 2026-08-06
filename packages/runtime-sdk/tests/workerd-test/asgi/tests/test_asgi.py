@@ -399,3 +399,19 @@ async def test_scope_path_is_percent_decoded():
 async def test_scope_exposes_raw_path():
     scope = await _scope("/scope/hello%20world")
     assert scope["raw_path"] == "/scope/hello%20world"
+
+
+@pytest.mark.asyncio
+async def test_accept_encoding_is_not_forwarded_to_the_app():
+    response = await asyncio.wait_for(
+        env.SELF.fetch(
+            "http://example.com/header-names",
+            headers=to_js({"Accept-Encoding": "gzip", "X-Custom": "propagates"}),
+        ),
+        timeout=5,
+    )
+    scope = json.loads(await response.text())
+    # The control header proves request headers reach the app at all, so the
+    # accept-encoding assertion cannot pass vacuously.
+    assert "x-custom" in scope["header_names"]
+    assert "accept-encoding" not in scope["header_names"]

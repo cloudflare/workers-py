@@ -52,7 +52,13 @@ def request_to_scope(req, env, ws=False):
     # Support both JS and Python http.client.HTTPMessage headers.
     req_headers = req.headers.items() if isinstance(req, Request) else req.headers
 
-    headers = [(k.lower().encode(), v.encode()) for k, v in req_headers]
+    # The runtime compresses responses itself, so an app-level compression
+    # middleware seeing accept-encoding would double-compress the body.
+    headers = [
+        (k.lower().encode(), v.encode())
+        for k, v in req_headers
+        if k.lower() != "accept-encoding"
+    ]
     url = URL.new(req.url)
     assert url.protocol[-1] == ":"
     scheme = url.protocol[:-1]
