@@ -1,33 +1,62 @@
 import re
+
 import sqlparse
-from django.db import DatabaseError, Error, DataError, OperationalError, \
-    IntegrityError, InternalError, ProgrammingError, NotSupportedError, InterfaceError
+from django.db import (
+    DatabaseError,
+    DataError,
+    Error,
+    IntegrityError,
+    InterfaceError,
+    InternalError,
+    NotSupportedError,
+    OperationalError,
+    ProgrammingError,
+)
 from django.db.backends.sqlite3.base import DatabaseWrapper as SQLiteDatabaseWrapper
 from django.db.backends.sqlite3.client import DatabaseClient as SQLiteDatabaseClient
-from django.db.backends.sqlite3.creation import DatabaseCreation as SQLiteDatabaseCreation
-from django.db.backends.sqlite3.features import DatabaseFeatures as SQLiteDatabaseFeatures
-from django.db.backends.sqlite3.introspection import DatabaseIntrospection as SQLiteDatabaseIntrospection
-from django.db.backends.sqlite3.operations import DatabaseOperations as SQLiteDatabaseOperations
-from django.db.backends.sqlite3.schema import DatabaseSchemaEditor as SQLiteDatabaseSchemaEditor
-from django.db.models.functions import TruncDate, TruncTime, TruncYear, TruncQuarter, TruncMonth, TruncWeek, TruncDay, TruncHour, TruncMinute, TruncSecond
+from django.db.backends.sqlite3.creation import (
+    DatabaseCreation as SQLiteDatabaseCreation,
+)
+from django.db.backends.sqlite3.features import (
+    DatabaseFeatures as SQLiteDatabaseFeatures,
+)
+from django.db.backends.sqlite3.introspection import (
+    DatabaseIntrospection as SQLiteDatabaseIntrospection,
+)
+from django.db.backends.sqlite3.operations import (
+    DatabaseOperations as SQLiteDatabaseOperations,
+)
+from django.db.backends.sqlite3.schema import (
+    DatabaseSchemaEditor as SQLiteDatabaseSchemaEditor,
+)
+from django.db.models.functions import (
+    TruncDate,
+    TruncDay,
+    TruncHour,
+    TruncMinute,
+    TruncMonth,
+    TruncQuarter,
+    TruncSecond,
+    TruncTime,
+    TruncWeek,
+    TruncYear,
+)
 from django.db.models.sql.compiler import SQLCompiler
 
 
 def replace_date_trunc_in_sql(sql):
     """Replace django_date_trunc and django_datetime_trunc function calls with SQLite equivalents."""
-    if 'django_date_trunc' not in sql and 'django_datetime_trunc' not in sql:
+    if "django_date_trunc" not in sql and "django_datetime_trunc" not in sql:
         return sql
-    
-    import re
-    
+
     # Pattern to match django_datetime_trunc(%s, field, %s, %s) or django_date_trunc(%s, field, %s, %s)
     # The kind is passed as a parameter (%s), so we need to replace the entire function call
     # with a CASE statement that handles all possible kinds
     pattern = r"django_(?:date|datetime)_trunc\(%s,\s*([^,]+),\s*%s,\s*%s\)"
-    
+
     def replace_func(match):
         field = match.group(1).strip()
-        
+
         # Since the kind is a parameter, we need to use a CASE statement
         # that handles all truncation types
         replacement = (
@@ -49,7 +78,7 @@ def replace_date_trunc_in_sql(sql):
             f"END"
         )
         return replacement
-    
+
     return re.sub(pattern, replace_func, sql)
 
 
@@ -91,15 +120,18 @@ class CFDatabaseOperations(SQLiteDatabaseOperations):
         if len(params) > BATCH_SIZE:
             results = ()
             for index in range(0, len(params), BATCH_SIZE):
-                chunk = params[index: index + BATCH_SIZE]
+                chunk = params[index : index + BATCH_SIZE]
                 results += self._quote_params_for_last_executed_query(chunk)
             return results
 
-        sql = "SELECT " + ", ".join(["QUOTE(?)"] * len(params))
+        # Both locals below are unused because the `return` that consumed them is
+        # commented out, so this function falls through and returns None. Left in
+        # place rather than deleted so the intended implementation stays visible.
+        sql = "SELECT " + ", ".join(["QUOTE(?)"] * len(params))  # noqa: F841
         # Bypass Django's wrappers and use the underlying sqlite3 connection
         # to avoid logging this query - it would trigger infinite recursion.
 
-        cursor = self.connection.connection.cursor()
+        cursor = self.connection.connection.cursor()  # noqa: F841
         # Native sqlite3 cursors cannot be used as context managers.
         # try:
         #     return cursor.execute(sql, params).fetchone()
@@ -206,7 +238,9 @@ class CFResult:
         return ret
 
     @staticmethod
-    def from_object(query, params, data, rows_read=None, rows_written=None, last_row_id=None):
+    def from_object(
+        query, params, data, rows_read=None, rows_written=None, last_row_id=None
+    ):
         try:
             from pyodide.ffi import jsnull
         except ImportError:
@@ -223,7 +257,7 @@ class CFResult:
                     else:
                         row_items += (v,)
             else:
-                for k, v in row.items():
+                for v in row.values():
                     if v is jsnull:
                         row_items += (None,)
                     else:
@@ -305,10 +339,10 @@ class CFDatabase:
 
     def execute(self, query, params=None) -> None:
         from decimal import Decimal
-        
+
         # Transform django_date_trunc function calls to SQLite equivalents
         query = replace_date_trunc_in_sql(query)
-        
+
         if params:
             newParams = []
             for v in list(params):
@@ -345,48 +379,71 @@ def is_read_only_query(query: str) -> bool:
         return True
 
     # List of modifying query types
-    modifying_types = {"INSERT", "UPDATE", "DELETE", "CREATE", "ALTER", "DROP", "REPLACE"}
+    modifying_types = {
+        "INSERT",
+        "UPDATE",
+        "DELETE",
+        "CREATE",
+        "ALTER",
+        "DROP",
+        "REPLACE",
+    }
 
     return statement.get_type().upper() not in modifying_types
 
 
 class CFSQLCompiler(SQLCompiler):
     def as_sql(self, with_limits=True, with_col_aliases=False):
-        sql, params = super().as_sql(with_limits=with_limits, with_col_aliases=with_col_aliases)
+        sql, params = super().as_sql(
+            with_limits=with_limits, with_col_aliases=with_col_aliases
+        )
         # Post-process the SQL to replace django_date_trunc calls with proper SQLite functions
         sql = self._replace_date_trunc_functions(sql)
         return sql, params
 
     def _replace_date_trunc_functions(self, sql):
         """Replace django_date_trunc function calls with SQLite equivalents."""
-        import re
-        
+
         # Pattern to match django_date_trunc('kind', field_name)
         pattern = r"django_date_trunc\('(\w+)',\s*([^)]+)\)"
-        
+
         def replace_func(match):
             kind = match.group(1)
             field = match.group(2)
-            
+
             templates = {
-                'year': f'STRFTIME("%Y-01-01", {field})',
-                'quarter': f'CASE ((CAST(STRFTIME("%m", {field}) AS INTEGER) - 1) / 3 + 1) WHEN 1 THEN STRFTIME("%Y-01-01", {field}) WHEN 2 THEN STRFTIME("%Y-04-01", {field}) WHEN 3 THEN STRFTIME("%Y-07-01", {field}) WHEN 4 THEN STRFTIME("%Y-10-01", {field}) END',
-                'month': f'STRFTIME("%Y-%m-01", {field})',
-                'week': f'DATE({field}, "-" || CAST((CAST(STRFTIME("%w", {field}) AS INTEGER) + 6) % 7 AS TEXT) || " days")',
-                'day': f'DATE({field})',
-                'hour': f'STRFTIME("%Y-%m-%d %H:00:00", {field})',
-                'minute': f'STRFTIME("%Y-%m-%d %H:%M:00", {field})',
-                'second': f'STRFTIME("%Y-%m-%d %H:%M:%S", {field})',
-                'date': f'DATE({field})',
-                'time': f'TIME({field})',
+                "year": f'STRFTIME("%Y-01-01", {field})',
+                "quarter": f'CASE ((CAST(STRFTIME("%m", {field}) AS INTEGER) - 1) / 3 + 1) WHEN 1 THEN STRFTIME("%Y-01-01", {field}) WHEN 2 THEN STRFTIME("%Y-04-01", {field}) WHEN 3 THEN STRFTIME("%Y-07-01", {field}) WHEN 4 THEN STRFTIME("%Y-10-01", {field}) END',
+                "month": f'STRFTIME("%Y-%m-01", {field})',
+                "week": f'DATE({field}, "-" || CAST((CAST(STRFTIME("%w", {field}) AS INTEGER) + 6) % 7 AS TEXT) || " days")',
+                "day": f"DATE({field})",
+                "hour": f'STRFTIME("%Y-%m-%d %H:00:00", {field})',
+                "minute": f'STRFTIME("%Y-%m-%d %H:%M:00", {field})',
+                "second": f'STRFTIME("%Y-%m-%d %H:%M:%S", {field})',
+                "date": f"DATE({field})",
+                "time": f"TIME({field})",
             }
-            
+
             return templates.get(kind, match.group(0))
-        
+
         return re.sub(pattern, replace_func, sql)
 
     def compile(self, node, **extra_context):
-        if isinstance(node, (TruncYear, TruncQuarter, TruncMonth, TruncWeek, TruncDay, TruncHour, TruncMinute, TruncSecond, TruncDate, TruncTime)):
+        if isinstance(
+            node,
+            (
+                TruncYear,
+                TruncQuarter,
+                TruncMonth,
+                TruncWeek,
+                TruncDay,
+                TruncHour,
+                TruncMinute,
+                TruncSecond,
+                TruncDate,
+                TruncTime,
+            ),
+        ):
             return self._compile_date_trunc(node, **extra_context)
         return super().compile(node, **extra_context)
 
@@ -396,16 +453,16 @@ class CFSQLCompiler(SQLCompiler):
         field_sql, params = super().compile(source_expr)
 
         templates = {
-            'year': 'STRFTIME("%Y-01-01", {})'.format(field_sql),
-            'quarter': 'CASE ((CAST(STRFTIME("%%m", {}) AS INTEGER) - 1) / 3 + 1) WHEN 1 THEN STRFTIME("%%Y-01-01", {}) WHEN 2 THEN STRFTIME("%%Y-04-01", {}) WHEN 3 THEN STRFTIME("%%Y-07-01", {}) WHEN 4 THEN STRFTIME("%%Y-10-01", {}) END'.format(field_sql, field_sql, field_sql, field_sql, field_sql),
-            'month': 'STRFTIME("%Y-%m-01", {})'.format(field_sql),
-            'week': 'DATE({}, "-" || CAST((CAST(STRFTIME("%w", {}) AS INTEGER) + 6) %% 7 AS TEXT) || " days")'.format(field_sql, field_sql),
-            'day': 'DATE({})'.format(field_sql),
-            'hour': 'STRFTIME("%Y-%m-%d %H:00:00", {})'.format(field_sql),
-            'minute': 'STRFTIME("%Y-%m-%d %H:%M:00", {})'.format(field_sql),
-            'second': 'STRFTIME("%Y-%m-%d %H:%M:%S", {})'.format(field_sql),
-            'date': 'DATE({})'.format(field_sql),
-            'time': 'TIME({})'.format(field_sql),
+            "year": f'STRFTIME("%Y-01-01", {field_sql})',
+            "quarter": f'CASE ((CAST(STRFTIME("%%m", {field_sql}) AS INTEGER) - 1) / 3 + 1) WHEN 1 THEN STRFTIME("%%Y-01-01", {field_sql}) WHEN 2 THEN STRFTIME("%%Y-04-01", {field_sql}) WHEN 3 THEN STRFTIME("%%Y-07-01", {field_sql}) WHEN 4 THEN STRFTIME("%%Y-10-01", {field_sql}) END',
+            "month": f'STRFTIME("%Y-%m-01", {field_sql})',
+            "week": f'DATE({field_sql}, "-" || CAST((CAST(STRFTIME("%w", {field_sql}) AS INTEGER) + 6) %% 7 AS TEXT) || " days")',
+            "day": f"DATE({field_sql})",
+            "hour": f'STRFTIME("%Y-%m-%d %H:00:00", {field_sql})',
+            "minute": f'STRFTIME("%Y-%m-%d %H:%M:00", {field_sql})',
+            "second": f'STRFTIME("%Y-%m-%d %H:%M:%S", {field_sql})',
+            "date": f"DATE({field_sql})",
+            "time": f"TIME({field_sql})",
         }
 
         sql = templates.get(kind, field_sql)
@@ -433,7 +490,7 @@ class CFDatabaseWrapper(SQLiteDatabaseWrapper):
         if using is None:
             using = default_using
         # The query object is passed in kwargs by Django's ORM
-        query = kwargs.get('query')
+        query = kwargs.get("query")
         return CFSQLCompiler(query, self, using, **kwargs)
 
     def get_database_version(self):
@@ -459,7 +516,7 @@ class CFDatabaseWrapper(SQLiteDatabaseWrapper):
         return
 
     def set_autocommit(
-            self, autocommit, force_begin_transaction_with_broken_autocommit=False
+        self, autocommit, force_begin_transaction_with_broken_autocommit=False
     ):
         return
 

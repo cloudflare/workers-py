@@ -1,16 +1,19 @@
 import os
 from datetime import datetime
 from io import BytesIO
-from django.core.files.storage import Storage
+
 from django.core.files.base import File
+from django.core.files.storage import Storage
 from django.utils.deconstruct import deconstructible
 from js import Uint8Array
+
 
 class R2File(File):
     """
     A file-like object for R2 storage.
     """
-    def __init__(self, name, storage, mode='rb'):
+
+    def __init__(self, name, storage, mode="rb"):
         self.name = name
         self._storage = storage
         self._mode = mode
@@ -27,7 +30,7 @@ class R2File(File):
         return self.file.read(num_bytes)
 
     def write(self, content):
-        if 'w' not in self._mode and 'a' not in self._mode:
+        if "w" not in self._mode and "a" not in self._mode:
             raise AttributeError("File not opened for writing")
         return self.file.write(content)
 
@@ -63,9 +66,9 @@ class R2Storage(Storage):
         }
     """
 
-    def __init__(self, binding='BUCKET', location='', allow_overwrite=False):
+    def __init__(self, binding="BUCKET", location="", allow_overwrite=False):
         self.binding = binding
-        self.location = location.strip('/')
+        self.location = location.strip("/")
         self.allow_overwrite = allow_overwrite
         self._bucket = None
         self._run_sync = None
@@ -76,12 +79,14 @@ class R2Storage(Storage):
             if self._run_sync is None:
                 try:
                     from pyodide.ffi import run_sync
+
                     self._run_sync = run_sync
 
-                except ImportError as e:
+                except ImportError:
                     raise Exception("Code not running inside a worker!")
 
             from workers import env
+
             self._bucket = getattr(env, self.binding)
 
         return self._bucket
@@ -92,7 +97,7 @@ class R2Storage(Storage):
             return f"{self.location}/{name}"
         return name
 
-    def _open(self, name, mode='rb'):
+    def _open(self, name, mode="rb"):
         """
         Retrieve the file from R2.
         """
@@ -120,7 +125,7 @@ class R2Storage(Storage):
         """
         full_path = self._full_path(name)
 
-        if hasattr(content, 'read'):
+        if hasattr(content, "read"):
             file_content = content.read()
             file_content = Uint8Array.new(file_content)
         else:
@@ -129,10 +134,12 @@ class R2Storage(Storage):
         bucket = self._get_bucket()
 
         options = {}
-        if hasattr(content, 'content_type') and content.content_type:
-            options['httpMetadata'] = {'contentType': content.content_type}
+        if hasattr(content, "content_type") and content.content_type:
+            options["httpMetadata"] = {"contentType": content.content_type}
 
-        self._run_sync(bucket.put(full_path, file_content, options if options else None))
+        self._run_sync(
+            bucket.put(full_path, file_content, options if options else None)
+        )
         return name
 
     def delete(self, name):
@@ -163,25 +170,28 @@ class R2Storage(Storage):
             tuple: (directories, files)
         """
         full_path = self._full_path(path)
-        if full_path and not full_path.endswith('/'):
-            full_path += '/'
+        if full_path and not full_path.endswith("/"):
+            full_path += "/"
 
         bucket = self._get_bucket()
-        result = self._run_sync(bucket.list({'prefix': full_path, 'delimiter': '/'})).to_py()
+        result = self._run_sync(
+            bucket.list({"prefix": full_path, "delimiter": "/"})
+        ).to_py()
 
         directories = []
         files = []
 
-        delimited_prefixes = result.get('delimitedPrefixes', [])
+        delimited_prefixes = result.get("delimitedPrefixes", [])
         for delimited_prefix in delimited_prefixes:
-            directories.append(os.path.basename(delimited_prefix.replace(full_path, "", 1).rstrip('/')))
+            directories.append(
+                os.path.basename(delimited_prefix.replace(full_path, "", 1).rstrip("/"))
+            )
 
-
-        objects = result.get('objects', [])
+        objects = result.get("objects", [])
         for obj in objects:
             _obj = obj.to_py()
 
-            if not obj.key.endswith('/'):
+            if not obj.key.endswith("/"):
                 files.append(os.path.basename(obj.key))
 
         return directories, files
@@ -194,7 +204,7 @@ class R2Storage(Storage):
         try:
             bucket = self._get_bucket()
             metadata = self._run_sync(bucket.head(full_path)).to_py()
-            if metadata and hasattr(metadata, 'size'):
+            if metadata and hasattr(metadata, "size"):
                 return metadata.size
             return 0
         except Exception:
@@ -203,20 +213,20 @@ class R2Storage(Storage):
     def url(self, name):
         """
         Return the URL for accessing the file.
-        
+
         Uses Django's MEDIA_URL setting to construct the file URL.
         Ensure your web server is configured to serve files from R2 at the MEDIA_URL path.
         """
         from django.conf import settings
-        
-        if not hasattr(settings, 'MEDIA_URL') or not settings.MEDIA_URL:
+
+        if not hasattr(settings, "MEDIA_URL") or not settings.MEDIA_URL:
             raise ValueError(
                 "MEDIA_URL must be configured in Django settings to use R2Storage. "
                 "Configure your web server to proxy requests from MEDIA_URL to your R2 bucket."
             )
-        
+
         full_path = self._full_path(name)
-        media_url = settings.MEDIA_URL.rstrip('/')
+        media_url = settings.MEDIA_URL.rstrip("/")
         return f"{media_url}/{full_path}"
 
     def get_accessed_time(self, name):
@@ -242,7 +252,7 @@ class R2Storage(Storage):
             bucket = self._get_bucket()
             metadata = self._run_sync(bucket.head(full_path)).to_py()
 
-            if metadata and hasattr(metadata, 'uploaded'):
+            if metadata and hasattr(metadata, "uploaded"):
                 uploaded = metadata.uploaded
                 if isinstance(uploaded, datetime):
                     return uploaded

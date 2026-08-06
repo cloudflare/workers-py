@@ -1,11 +1,5 @@
 default_language_version:
   python: "3.13"
-# packages/django-cf was imported from https://github.com/G4brym/django-cf with
-# its full git history and is intentionally kept byte-for-byte identical to
-# upstream for now. Exclude it from all hooks so the import stays reviewable as
-# a pure history move; drop this once the package is adopted into the monorepo
-# conventions.
-exclude: ^packages/django-cf/
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: "v5.0.0"
@@ -46,7 +40,9 @@ repos:
     rev: "v1.14.1"
     hooks:
       - id: mypy
-        exclude: (.*test.*|runtime-sdk)
+        # django-cf has no [tool.mypy] config yet and does not type-check clean
+        # under this hook's defaults; it is annotated in a follow-up.
+        exclude: (.*test.*|runtime-sdk|django-cf)
         additional_dependencies:
           - click
 ci:

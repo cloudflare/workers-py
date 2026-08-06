@@ -1,7 +1,9 @@
 """Tests for django_cf/db/base_engine.py - Core database functionality."""
-import pytest
+
 from decimal import Decimal
 from unittest.mock import MagicMock, patch
+
+import pytest
 
 
 class TestCFResult:
@@ -11,7 +13,7 @@ class TestCFResult:
         """Test CFResult initialization."""
         from django_cf.db.base_engine import CFResult
 
-        data = [(1, 'a'), (2, 'b'), (3, 'c')]
+        data = [(1, "a"), (2, "b"), (3, "c")]
         result = CFResult(data)
 
         assert result.data == data
@@ -22,11 +24,11 @@ class TestCFResult:
         """Test CFResult iteration."""
         from django_cf.db.base_engine import CFResult
 
-        data = [(1, 'a'), (2, 'b')]
+        data = [(1, "a"), (2, "b")]
         result = CFResult(data)
 
         items = list(result)
-        assert items == [(1, 'a'), (2, 'b')]
+        assert items == [(1, "a"), (2, "b")]
 
     def test_set_lastrowid(self):
         """Test setting lastrowid."""
@@ -50,11 +52,11 @@ class TestCFResult:
         """Test fetchone returns and removes last item."""
         from django_cf.db.base_engine import CFResult
 
-        data = [(1, 'a'), (2, 'b'), (3, 'c')]
+        data = [(1, "a"), (2, "b"), (3, "c")]
         result = CFResult(data)
 
         row = result.fetchone()
-        assert row == (3, 'c')
+        assert row == (3, "c")
         assert len(result.data) == 2
 
     def test_fetchone_empty(self):
@@ -70,12 +72,12 @@ class TestCFResult:
         """Test fetchall returns all rows."""
         from django_cf.db.base_engine import CFResult
 
-        data = [(1, 'a'), (2, 'b'), (3, 'c')]
+        data = [(1, "a"), (2, "b"), (3, "c")]
         result = CFResult(data)
 
         rows = result.fetchall()
         # Note: fetchall uses fetchone which pops from end, so order is reversed
-        assert rows == [(3, 'c'), (2, 'b'), (1, 'a')]
+        assert rows == [(3, "c"), (2, "b"), (1, "a")]
         assert len(result.data) == 0
 
     def test_fetchall_empty(self):
@@ -91,18 +93,18 @@ class TestCFResult:
         """Test fetchmany with default size=1."""
         from django_cf.db.base_engine import CFResult
 
-        data = [(1, 'a'), (2, 'b'), (3, 'c')]
+        data = [(1, "a"), (2, "b"), (3, "c")]
         result = CFResult(data)
 
         rows = result.fetchmany()
-        assert rows == [(3, 'c')]
+        assert rows == [(3, "c")]
         assert len(result.data) == 2
 
     def test_fetchmany_specific_size(self):
         """Test fetchmany with specific size."""
         from django_cf.db.base_engine import CFResult
 
-        data = [(1, 'a'), (2, 'b'), (3, 'c')]
+        data = [(1, "a"), (2, "b"), (3, "c")]
         result = CFResult(data)
 
         rows = result.fetchmany(2)
@@ -113,7 +115,7 @@ class TestCFResult:
         """Test fetchmany when requesting more than available."""
         from django_cf.db.base_engine import CFResult
 
-        data = [(1, 'a'), (2, 'b')]
+        data = [(1, "a"), (2, "b")]
         result = CFResult(data)
 
         rows = result.fetchmany(5)
@@ -124,20 +126,20 @@ class TestCFResult:
         """Test from_object with list-style row data."""
         from django_cf.db.base_engine import CFResult
 
-        data = [[1, 'hello', True], [2, 'world', False]]
-        result = CFResult.from_object('SELECT * FROM test', None, data)
+        data = [[1, "hello", True], [2, "world", False]]
+        result = CFResult.from_object("SELECT * FROM test", None, data)
 
         rows = list(result)
         assert len(rows) == 2
-        assert rows[0] == (1, 'hello', True)
-        assert rows[1] == (2, 'world', False)
+        assert rows[0] == (1, "hello", True)
+        assert rows[1] == (2, "world", False)
 
     def test_from_object_with_dict_rows(self):
         """Test from_object with dict-style row data."""
         from django_cf.db.base_engine import CFResult
 
-        data = [{'id': 1, 'name': 'hello'}, {'id': 2, 'name': 'world'}]
-        result = CFResult.from_object('SELECT * FROM test', None, data)
+        data = [{"id": 1, "name": "hello"}, {"id": 2, "name": "world"}]
+        result = CFResult.from_object("SELECT * FROM test", None, data)
 
         rows = list(result)
         assert len(rows) == 2
@@ -147,11 +149,7 @@ class TestCFResult:
         from django_cf.db.base_engine import CFResult
 
         result = CFResult.from_object(
-            'INSERT INTO test VALUES (1)',
-            None,
-            [],
-            rows_read=0,
-            rows_written=5
+            "INSERT INTO test VALUES (1)", None, [], rows_read=0, rows_written=5
         )
 
         assert result.rowcount == 5
@@ -161,11 +159,7 @@ class TestCFResult:
         from django_cf.db.base_engine import CFResult
 
         result = CFResult.from_object(
-            'UPDATE test SET name = "new"',
-            None,
-            [],
-            rows_read=0,
-            rows_written=3
+            'UPDATE test SET name = "new"', None, [], rows_read=0, rows_written=3
         )
 
         assert result.rowcount == 3
@@ -175,11 +169,7 @@ class TestCFResult:
         from django_cf.db.base_engine import CFResult
 
         result = CFResult.from_object(
-            'DELETE FROM test WHERE id = 1',
-            None,
-            [],
-            rows_read=0,
-            rows_written=2
+            "DELETE FROM test WHERE id = 1", None, [], rows_read=0, rows_written=2
         )
 
         assert result.rowcount == 2
@@ -189,11 +179,11 @@ class TestCFResult:
         from django_cf.db.base_engine import CFResult
 
         result = CFResult.from_object(
-            'SELECT * FROM test',
+            "SELECT * FROM test",
             None,
             [[1], [2], [3]],  # List-style rows, not tuples
             rows_read=3,
-            rows_written=0
+            rows_written=0,
         )
 
         assert result.rowcount == 3
@@ -203,10 +193,7 @@ class TestCFResult:
         from django_cf.db.base_engine import CFResult
 
         result = CFResult.from_object(
-            'INSERT INTO test VALUES (1)',
-            None,
-            [],
-            last_row_id=42
+            "INSERT INTO test VALUES (1)", None, [], last_row_id=42
         )
 
         assert result.lastrowid == 42
@@ -219,9 +206,9 @@ class TestIsReadOnlyQuery:
         """Test SELECT queries are read-only."""
         from django_cf.db.base_engine import is_read_only_query
 
-        assert is_read_only_query('SELECT * FROM users') is True
-        assert is_read_only_query('  SELECT id FROM users WHERE id = 1') is True
-        assert is_read_only_query('select * from users') is True
+        assert is_read_only_query("SELECT * FROM users") is True
+        assert is_read_only_query("  SELECT id FROM users WHERE id = 1") is True
+        assert is_read_only_query("select * from users") is True
 
     def test_insert_query(self):
         """Test INSERT queries are not read-only."""
@@ -239,38 +226,41 @@ class TestIsReadOnlyQuery:
         """Test DELETE queries are not read-only."""
         from django_cf.db.base_engine import is_read_only_query
 
-        assert is_read_only_query('DELETE FROM users WHERE id = 1') is False
+        assert is_read_only_query("DELETE FROM users WHERE id = 1") is False
 
     def test_create_table_query(self):
         """Test CREATE TABLE queries are not read-only."""
         from django_cf.db.base_engine import is_read_only_query
 
-        assert is_read_only_query('CREATE TABLE users (id INT)') is False
+        assert is_read_only_query("CREATE TABLE users (id INT)") is False
 
     def test_alter_table_query(self):
         """Test ALTER TABLE queries are not read-only."""
         from django_cf.db.base_engine import is_read_only_query
 
-        assert is_read_only_query('ALTER TABLE users ADD COLUMN email TEXT') is False
+        assert is_read_only_query("ALTER TABLE users ADD COLUMN email TEXT") is False
 
     def test_drop_table_query(self):
         """Test DROP TABLE queries are not read-only."""
         from django_cf.db.base_engine import is_read_only_query
 
-        assert is_read_only_query('DROP TABLE users') is False
+        assert is_read_only_query("DROP TABLE users") is False
 
     def test_replace_query(self):
         """Test REPLACE queries are not read-only."""
         from django_cf.db.base_engine import is_read_only_query
 
-        assert is_read_only_query('REPLACE INTO users (id, name) VALUES (1, "test")') is False
+        assert (
+            is_read_only_query('REPLACE INTO users (id, name) VALUES (1, "test")')
+            is False
+        )
 
     def test_empty_query(self):
         """Test empty query returns False."""
         from django_cf.db.base_engine import is_read_only_query
 
-        assert is_read_only_query('') is False
-        assert is_read_only_query('   ') is False
+        assert is_read_only_query("") is False
+        assert is_read_only_query("   ") is False
 
 
 class TestReplaceDateTruncInSql:
@@ -289,66 +279,66 @@ class TestReplaceDateTruncInSql:
         """Test django_date_trunc is replaced with CASE statement."""
         from django_cf.db.base_engine import replace_date_trunc_in_sql
 
-        sql = 'SELECT django_date_trunc(%s, created_at, %s, %s) FROM orders'
+        sql = "SELECT django_date_trunc(%s, created_at, %s, %s) FROM orders"
         result = replace_date_trunc_in_sql(sql)
 
         # Should contain CASE statement with STRFTIME
-        assert 'CASE %s' in result
-        assert 'STRFTIME' in result
-        assert 'django_date_trunc' not in result
+        assert "CASE %s" in result
+        assert "STRFTIME" in result
+        assert "django_date_trunc" not in result
 
     def test_django_datetime_trunc_replacement(self):
         """Test django_datetime_trunc is replaced with CASE statement."""
         from django_cf.db.base_engine import replace_date_trunc_in_sql
 
-        sql = 'SELECT django_datetime_trunc(%s, created_at, %s, %s) FROM orders'
+        sql = "SELECT django_datetime_trunc(%s, created_at, %s, %s) FROM orders"
         result = replace_date_trunc_in_sql(sql)
 
         # Should contain CASE statement
-        assert 'CASE %s' in result
-        assert 'django_datetime_trunc' not in result
+        assert "CASE %s" in result
+        assert "django_datetime_trunc" not in result
 
     def test_year_truncation_in_case(self):
         """Test year truncation template is in result."""
         from django_cf.db.base_engine import replace_date_trunc_in_sql
 
-        sql = 'SELECT django_date_trunc(%s, created_at, %s, %s) FROM orders'
+        sql = "SELECT django_date_trunc(%s, created_at, %s, %s) FROM orders"
         result = replace_date_trunc_in_sql(sql)
 
         assert "WHEN 'year'" in result
-        assert '%Y-01-01' in result
+        assert "%Y-01-01" in result
 
     def test_month_truncation_in_case(self):
         """Test month truncation template is in result."""
         from django_cf.db.base_engine import replace_date_trunc_in_sql
 
-        sql = 'SELECT django_date_trunc(%s, created_at, %s, %s) FROM orders'
+        sql = "SELECT django_date_trunc(%s, created_at, %s, %s) FROM orders"
         result = replace_date_trunc_in_sql(sql)
 
         assert "WHEN 'month'" in result
-        assert '%Y-%m-01' in result
+        assert "%Y-%m-01" in result
 
     def test_day_truncation_in_case(self):
         """Test day truncation template is in result."""
         from django_cf.db.base_engine import replace_date_trunc_in_sql
 
-        sql = 'SELECT django_date_trunc(%s, created_at, %s, %s) FROM orders'
+        sql = "SELECT django_date_trunc(%s, created_at, %s, %s) FROM orders"
         result = replace_date_trunc_in_sql(sql)
 
         assert "WHEN 'day'" in result
-        assert 'DATE(created_at)' in result
+        assert "DATE(created_at)" in result
 
     def test_multiple_date_truncs(self):
         """Test multiple django_date_trunc calls are replaced."""
         from django_cf.db.base_engine import replace_date_trunc_in_sql
 
-        sql = '''SELECT django_date_trunc(%s, created_at, %s, %s),
-                        django_date_trunc(%s, updated_at, %s, %s) FROM orders'''
+        sql = """SELECT django_date_trunc(%s, created_at, %s, %s),
+                        django_date_trunc(%s, updated_at, %s, %s) FROM orders"""
         result = replace_date_trunc_in_sql(sql)
 
-        assert 'django_date_trunc' not in result
+        assert "django_date_trunc" not in result
         # Should have multiple CASE statements
-        assert result.count('CASE %s') == 2
+        assert result.count("CASE %s") == 2
 
 
 class TestCFDatabase:
@@ -420,7 +410,7 @@ class TestCFDatabase:
         mock_wrapper.run_query.return_value = CFResult([])
 
         db = CFDatabase(mock_wrapper)
-        db.execute('INSERT INTO test VALUES (%s)', (True,))
+        db.execute("INSERT INTO test VALUES (%s)", (True,))
 
         # Check that True was converted to 1
         call_args = mock_wrapper.run_query.call_args
@@ -434,7 +424,7 @@ class TestCFDatabase:
         mock_wrapper.run_query.return_value = CFResult([])
 
         db = CFDatabase(mock_wrapper)
-        db.execute('INSERT INTO test VALUES (%s)', (False,))
+        db.execute("INSERT INTO test VALUES (%s)", (False,))
 
         # Check that False was converted to 0
         call_args = mock_wrapper.run_query.call_args
@@ -448,11 +438,11 @@ class TestCFDatabase:
         mock_wrapper.run_query.return_value = CFResult([])
 
         db = CFDatabase(mock_wrapper)
-        db.execute('INSERT INTO test VALUES (%s)', (Decimal('10.5'),))
+        db.execute("INSERT INTO test VALUES (%s)", (Decimal("10.5"),))
 
         # Check that Decimal was converted to string
         call_args = mock_wrapper.run_query.call_args
-        assert call_args[0][1] == ('10.5',)
+        assert call_args[0][1] == ("10.5",)
 
     def test_execute_no_params(self):
         """Test execute with no parameters."""
@@ -462,10 +452,10 @@ class TestCFDatabase:
         mock_wrapper.run_query.return_value = CFResult([])
 
         db = CFDatabase(mock_wrapper)
-        db.execute('SELECT * FROM test')
+        db.execute("SELECT * FROM test")
 
         call_args = mock_wrapper.run_query.call_args
-        assert call_args[0][0] == 'SELECT * FROM test'
+        assert call_args[0][0] == "SELECT * FROM test"
         assert call_args[0][1] is None
 
     def test_fetchone_delegates_to_result(self):
@@ -473,25 +463,25 @@ class TestCFDatabase:
         from django_cf.db.base_engine import CFDatabase, CFResult
 
         mock_wrapper = MagicMock()
-        mock_result = CFResult([(1, 'test')])
+        mock_result = CFResult([(1, "test")])
         mock_wrapper.run_query.return_value = mock_result
 
         db = CFDatabase(mock_wrapper)
-        db.execute('SELECT * FROM test')
+        db.execute("SELECT * FROM test")
         row = db.fetchone()
 
-        assert row == (1, 'test')
+        assert row == (1, "test")
 
     def test_fetchall_delegates_to_result(self):
         """Test fetchall delegates to lastResult."""
         from django_cf.db.base_engine import CFDatabase, CFResult
 
         mock_wrapper = MagicMock()
-        mock_result = CFResult([(1, 'a'), (2, 'b')])
+        mock_result = CFResult([(1, "a"), (2, "b")])
         mock_wrapper.run_query.return_value = mock_result
 
         db = CFDatabase(mock_wrapper)
-        db.execute('SELECT * FROM test')
+        db.execute("SELECT * FROM test")
         rows = db.fetchall()
 
         assert len(rows) == 2
@@ -506,7 +496,7 @@ class TestCFDatabase:
         mock_wrapper.run_query.return_value = mock_result
 
         db = CFDatabase(mock_wrapper)
-        db.execute('INSERT INTO test VALUES (1)')
+        db.execute("INSERT INTO test VALUES (1)")
 
         assert db.lastrowid == 42
 
@@ -584,7 +574,7 @@ class TestCFDatabaseWrapper:
         """Test get_database_version returns tuple."""
         from django_cf.db.base_engine import CFDatabaseWrapper
 
-        with patch.object(CFDatabaseWrapper, '__init__', lambda x, *args: None):
+        with patch.object(CFDatabaseWrapper, "__init__", lambda x, *args: None):
             wrapper = CFDatabaseWrapper.__new__(CFDatabaseWrapper)
             version = wrapper.get_database_version()
 
@@ -594,7 +584,7 @@ class TestCFDatabaseWrapper:
         """Test close() is a no-op."""
         from django_cf.db.base_engine import CFDatabaseWrapper
 
-        with patch.object(CFDatabaseWrapper, '__init__', lambda x, *args: None):
+        with patch.object(CFDatabaseWrapper, "__init__", lambda x, *args: None):
             wrapper = CFDatabaseWrapper.__new__(CFDatabaseWrapper)
             result = wrapper.close()
 
@@ -604,7 +594,7 @@ class TestCFDatabaseWrapper:
         """Test _savepoint_allowed returns False."""
         from django_cf.db.base_engine import CFDatabaseWrapper
 
-        with patch.object(CFDatabaseWrapper, '__init__', lambda x, *args: None):
+        with patch.object(CFDatabaseWrapper, "__init__", lambda x, *args: None):
             wrapper = CFDatabaseWrapper.__new__(CFDatabaseWrapper)
             result = wrapper._savepoint_allowed()
 
@@ -614,7 +604,7 @@ class TestCFDatabaseWrapper:
         """Test is_usable always returns True."""
         from django_cf.db.base_engine import CFDatabaseWrapper
 
-        with patch.object(CFDatabaseWrapper, '__init__', lambda x, *args: None):
+        with patch.object(CFDatabaseWrapper, "__init__", lambda x, *args: None):
             wrapper = CFDatabaseWrapper.__new__(CFDatabaseWrapper)
             result = wrapper.is_usable()
 
@@ -624,11 +614,11 @@ class TestCFDatabaseWrapper:
         """Test run_query raises NotImplementedError."""
         from django_cf.db.base_engine import CFDatabaseWrapper
 
-        with patch.object(CFDatabaseWrapper, '__init__', lambda x, *args: None):
+        with patch.object(CFDatabaseWrapper, "__init__", lambda x, *args: None):
             wrapper = CFDatabaseWrapper.__new__(CFDatabaseWrapper)
 
             with pytest.raises(NotImplementedError):
-                wrapper.run_query('SELECT 1')
+                wrapper.run_query("SELECT 1")
 
 
 class TestCFDatabaseOperations:
@@ -641,12 +631,12 @@ class TestCFDatabaseOperations:
         mock_wrapper = MagicMock()
         ops = CFDatabaseOperations(mock_wrapper)
 
-        fields = ['id', 'name']
-        placeholder_rows = [('%s', '%s'), ('%s', '%s')]
+        fields = ["id", "name"]
+        placeholder_rows = [("%s", "%s"), ("%s", "%s")]
 
         result = ops.bulk_insert_sql(fields, placeholder_rows)
 
-        assert result == 'VALUES (%s, %s), (%s, %s)'
+        assert result == "VALUES (%s, %s), (%s, %s)"
 
     def test_last_executed_query_no_params(self):
         """Test last_executed_query with no parameters."""
@@ -655,7 +645,7 @@ class TestCFDatabaseOperations:
         mock_wrapper = MagicMock()
         ops = CFDatabaseOperations(mock_wrapper)
 
-        sql = 'SELECT * FROM test'
+        sql = "SELECT * FROM test"
         result = ops.last_executed_query(None, sql, None)
 
         assert result == sql
@@ -670,14 +660,14 @@ class TestCFDatabaseOperations:
         mock_wrapper.connection.cursor.return_value = mock_cursor
         ops = CFDatabaseOperations(mock_wrapper)
 
-        sql = 'SELECT * FROM test WHERE id = %s'
+        sql = "SELECT * FROM test WHERE id = %s"
         # The actual result depends on _quote_params_for_last_executed_query
         # which may return None, causing substitution to either work or fall back
         result = ops.last_executed_query(None, sql, [1])
 
         # Result should be a string (either substituted or original)
         assert isinstance(result, str)
-        assert 'SELECT * FROM test WHERE id' in result
+        assert "SELECT * FROM test WHERE id" in result
 
     def test_last_executed_query_catches_formatting_errors(self):
         """Test last_executed_query catches Exception on format failure."""
@@ -687,7 +677,7 @@ class TestCFDatabaseOperations:
         ops = CFDatabaseOperations(mock_wrapper)
 
         # Mismatched format string and params to trigger formatting error
-        sql = 'SELECT * FROM test WHERE id = %s AND name = %s'
+        sql = "SELECT * FROM test WHERE id = %s AND name = %s"
         params = (1,)  # Too few params for the format string
 
         result = ops.last_executed_query(None, sql, params)
@@ -706,13 +696,14 @@ class TestCFDatabaseOperations:
         class BadStr:
             def __str__(self):
                 raise KeyboardInterrupt()
+
             def __format__(self, spec):
                 raise KeyboardInterrupt()
 
         # Patch _quote_params to return a tuple with our bad object
         ops._quote_params_for_last_executed_query = lambda params: (BadStr(),)
 
-        sql = 'SELECT * FROM test WHERE id = %s'
+        sql = "SELECT * FROM test WHERE id = %s"
 
         with pytest.raises(KeyboardInterrupt):
             ops.last_executed_query(None, sql, [1])
@@ -731,7 +722,7 @@ class TestCFSQLCompiler:
         result = compiler._replace_date_trunc_functions(sql)
 
         assert 'STRFTIME("%Y-01-01", created_at)' in result
-        assert 'django_date_trunc' not in result
+        assert "django_date_trunc" not in result
 
     def test_replace_date_trunc_functions_month(self):
         """Test _replace_date_trunc_functions for month truncation."""
@@ -753,7 +744,7 @@ class TestCFSQLCompiler:
         sql = "SELECT django_date_trunc('day', created_at) FROM orders"
         result = compiler._replace_date_trunc_functions(sql)
 
-        assert 'DATE(created_at)' in result
+        assert "DATE(created_at)" in result
 
     def test_replace_date_trunc_functions_hour(self):
         """Test _replace_date_trunc_functions for hour truncation."""

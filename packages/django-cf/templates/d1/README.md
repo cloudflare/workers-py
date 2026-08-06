@@ -37,15 +37,15 @@ template-root/
 
 1.  **Install Dependencies:**
     Ensure you have Node.js, npm, and Python installed. Then:
-    
+
     ```bash
     # Install Node.js dependencies
     npm install
-    
+
     # Install Python dependencies
     uv sync
     ```
-    
+
     If you don't have `uv` installed, install it first:
     ```bash
     pip install uv
