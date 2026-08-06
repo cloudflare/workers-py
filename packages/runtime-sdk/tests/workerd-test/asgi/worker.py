@@ -182,6 +182,29 @@ class StreamingApp:
 # ---------------------------------------------------------------------------
 
 
+class LateFailureStreamApp:
+    """Starts a streaming response, then raises: the stream must terminate."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            message = await receive()
+            if message["type"] == "lifespan.startup":
+                await send({"type": "lifespan.startup.complete"})
+            return
+        await receive()
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [(b"content-type", b"application/octet-stream")],
+            }
+        )
+        await send(
+            {"type": "http.response.body", "body": b"chunk-1", "more_body": True}
+        )
+        raise RuntimeError("app failed mid-stream")
+
+
 class ScopeEchoApp:
     """Echoes selected scope fields as JSON so tests can inspect them."""
 
@@ -214,6 +237,7 @@ app = HeaderEchoApp()
 sse_app = SSEApp()
 streaming_app = StreamingApp()
 scope_echo_app = ScopeEchoApp()
+late_failure_stream_app = LateFailureStreamApp()
 
 example_hdr = {"Header1": "Value1", "Header2": "Value2"}
 
@@ -231,6 +255,10 @@ class Default(WorkerEntrypoint):
             return await asgi.fetch(streaming_app, request, self.env, self.ctx)
         elif path.startswith("/scope"):
             return await asgi.fetch(scope_echo_app, request, self.env, self.ctx)
+        elif path == "/stream-late-failure":
+            return await asgi.fetch(
+                late_failure_stream_app, request, self.env, self.ctx
+            )
 
         return await asgi.fetch(app, request, self.env, self.ctx)
 
