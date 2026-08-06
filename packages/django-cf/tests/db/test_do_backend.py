@@ -1,5 +1,6 @@
 """Tests for django_cf/db/backends/do/base.py - Durable Objects database backend."""
 
+from pathlib import Path
 from unittest.mock import MagicMock
 
 
@@ -221,51 +222,32 @@ class TestDOQueryExecution:
         result = mock_run_query("SELECT * FROM users", is_read=True)
         assert result == []
 
-    def test_error_handling_exposes_stack(self):
-        """
-        Test documenting that DO backend exposes full stack traces.
-
-        This is a potential security issue - stack traces should not
-        be exposed in production errors.
-        """
-        # The DO backend has this pattern:
-        # except:
-        #     from js import Error
-        #     Error.stackTraceLimit = 1e10
-        #     raise Error(Error.new().stack)
-
-        import importlib.util
-
-        spec = importlib.util.find_spec("django_cf.db.backends.do.base")
-        with open(spec.origin) as f:
-            content = f.read()
-            # Verify the problematic pattern exists
-            assert "Error.stackTraceLimit = 1e10" in content
-            assert "raise Error(Error.new().stack)" in content
-
 
 class TestDOExceptionHandling:
     """Tests for DO backend exception handling."""
 
-    def test_run_query_uses_except_exception(self):
-        """Test that run_query uses 'except Exception' instead of bare 'except'.
+    def test_run_query_lets_binding_errors_propagate(self):
+        """run_query must not catch errors raised by the Durable Object binding.
 
-        Bare except clauses catch BaseException subclasses like KeyboardInterrupt
-        and SystemExit, which should be allowed to propagate normally.
+        It used to catch everything and re-raise a bare ``js.Error`` carrying only
+        a JavaScript stack, which discarded the Python exception. That is how a
+        real backend break stayed invisible: every failure looked like the same
+        opaque wasm trace.
         """
+        import ast
         import importlib.util
 
         spec = importlib.util.find_spec("django_cf.db.backends.do.base")
-        with open(spec.origin) as f:
-            content = f.read()
-            # Should use 'except Exception:' not bare 'except:'
-            assert "except Exception:" in content
-            # Should NOT have bare except
-            lines = content.split("\n")
-            for line in lines:
-                stripped = line.strip()
-                if stripped.startswith("except") and stripped.endswith(":"):
-                    assert stripped != "except:", f"Found bare 'except:' clause: {line}"
+        tree = ast.parse(Path(spec.origin).read_text())
+
+        run_query = next(
+            node
+            for node in ast.walk(tree)
+            if isinstance(node, ast.FunctionDef) and node.name == "run_query"
+        )
+        handlers = [n for n in ast.walk(run_query) if isinstance(n, ast.ExceptHandler)]
+
+        assert handlers == []
 
 
 class TestDOParamConversion:

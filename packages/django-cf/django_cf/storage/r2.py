@@ -115,7 +115,7 @@ class R2Storage(Storage):
             if r2_object is None:
                 return None
 
-            return self._run_sync(r2_object.arrayBuffer()).to_bytes()
+            return bytes(self._run_sync(r2_object.arrayBuffer()))
         except Exception:
             return None
 
@@ -174,9 +174,7 @@ class R2Storage(Storage):
             full_path += "/"
 
         bucket = self._get_bucket()
-        result = self._run_sync(
-            bucket.list({"prefix": full_path, "delimiter": "/"})
-        ).to_py()
+        result = self._run_sync(bucket.list({"prefix": full_path, "delimiter": "/"}))
 
         directories = []
         files = []
@@ -189,8 +187,6 @@ class R2Storage(Storage):
 
         objects = result.get("objects", [])
         for obj in objects:
-            _obj = obj.to_py()
-
             if not obj.key.endswith("/"):
                 files.append(os.path.basename(obj.key))
 

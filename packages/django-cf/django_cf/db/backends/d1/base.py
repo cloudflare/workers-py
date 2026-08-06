@@ -80,25 +80,17 @@ class DatabaseWrapper(CFDatabaseWrapper):
         else:
             stmt = db.prepare(proc_query)
 
-        read_only = is_read_only_query(proc_query)
-        try:
-            if read_only:
-                response = self.run_sync(stmt.raw()).to_py()
-                result = CFResult.from_object(query, params, response, len(response), 0)
-            else:
-                response = self.run_sync(stmt.all())
-                result = CFResult.from_object(
-                    query,
-                    params,
-                    response.results.to_py(),
-                    response.meta.rows_read,
-                    response.meta.rows_written,
-                    response.meta.last_row_id,
-                )
-        except Exception:
-            from js import Error
+        if is_read_only_query(proc_query):
+            response = self.run_sync(stmt.raw())
+            return CFResult.from_object(query, params, response, len(response), 0)
 
-            Error.stackTraceLimit = 1e10
-            raise Error(Error.new().stack)
-
-        return result
+        response = self.run_sync(stmt.all())
+        meta = response["meta"]
+        return CFResult.from_object(
+            query,
+            params,
+            response["results"],
+            meta["rows_read"],
+            meta["rows_written"],
+            meta["last_row_id"],
+        )
