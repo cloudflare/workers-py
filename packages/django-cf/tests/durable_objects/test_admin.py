@@ -1,6 +1,7 @@
 import requests
 
-from ..utils import durable_objects_web_server  # NOQA
+from ..utils import durable_objects_web_server  # noqa: F401
+
 
 def get_csrf_token(client, url):
     """Fetches a page and extracts the CSRF token from a form."""
@@ -42,6 +43,7 @@ def test_admin_login_page_loads(durable_objects_web_server):
     assert response.status_code == 200
     assert "Django administration" in response.text
 
+
 def test_admin_dashboard_unauthorized_access(durable_objects_web_server):
     """Test that accessing the admin dashboard without login redirects to the login page."""
     admin_dashboard_url = f"{durable_objects_web_server.base_url}/admin/"
@@ -49,7 +51,9 @@ def test_admin_dashboard_unauthorized_access(durable_objects_web_server):
 
     client = requests.Session()
     # First check with allow_redirects=False to see the 302
-    response_no_redirect = client.get(admin_dashboard_url, timeout=10, allow_redirects=False)
+    response_no_redirect = client.get(
+        admin_dashboard_url, timeout=10, allow_redirects=False
+    )
     assert response_no_redirect.status_code == 302
     location_header = response_no_redirect.headers.get("Location", "")
     # The location might be relative /admin/login/?next=/admin/ or absolute
@@ -59,8 +63,13 @@ def test_admin_dashboard_unauthorized_access(durable_objects_web_server):
     # Then check with allow_redirects=True (default) to ensure it lands on the login page
     response_followed = client.get(admin_dashboard_url, timeout=10)
     assert response_followed.status_code == 200
-    assert response_followed.url.startswith(login_url) # Final URL should be the login page
-    assert "Django administration" in response_followed.text # Should show the login page content
+    assert response_followed.url.startswith(
+        login_url
+    )  # Final URL should be the login page
+    assert (
+        "Django administration" in response_followed.text
+    )  # Should show the login page content
+
 
 def test_admin_login_successful(durable_objects_web_server):
     """Test a successful login to the Django admin."""
@@ -79,7 +88,7 @@ def test_admin_login_successful(durable_objects_web_server):
     response = client.post(login_url, data=login_data, headers=headers, timeout=10)
 
     assert response.status_code == 200
-    assert response.url.rstrip('/') == admin_dashboard_url.rstrip('/')
+    assert response.url.rstrip("/") == admin_dashboard_url.rstrip("/")
     assert "Site administration" in response.text
     assert "Log out" in response.text
 
@@ -102,6 +111,7 @@ def test_admin_login_failed_wrong_password(durable_objects_web_server):
     assert "Please enter the correct username and password" in response.text
     assert "Log out" not in response.text
 
+
 def test_admin_login_failed_wrong_username(durable_objects_web_server):
     """Test a failed login attempt with a non-existent username."""
     login_url = f"{durable_objects_web_server.base_url}/admin/login/"
@@ -120,6 +130,7 @@ def test_admin_login_failed_wrong_username(durable_objects_web_server):
     assert "Please enter the correct username and password" in response.text
     assert "Log out" not in response.text
 
+
 def test_admin_logout(durable_objects_web_server):
     """Test logging out from the Django admin."""
     login_url = f"{durable_objects_web_server.base_url}/admin/login/"
@@ -136,9 +147,11 @@ def test_admin_logout(durable_objects_web_server):
         "next": "/admin/",
     }
     headers_login = {"Referer": login_url}
-    response_login = client.post(login_url, data=login_data, headers=headers_login, timeout=10)
+    response_login = client.post(
+        login_url, data=login_data, headers=headers_login, timeout=10
+    )
     assert response_login.status_code == 200
-    assert response_login.url.rstrip('/') == admin_dashboard_url.rstrip('/')
+    assert response_login.url.rstrip("/") == admin_dashboard_url.rstrip("/")
     assert "Log out" in response_login.text
 
     # 2. Logout
@@ -160,22 +173,34 @@ def test_admin_logout(durable_objects_web_server):
 
     csrf_token_logout = get_csrf_token(client, admin_dashboard_url)
 
-    headers_logout = {"Referer": admin_dashboard_url} # Referer should be the page from which the POST is made
-    response_logout = client.post(logout_url, data={"csrfmiddlewaretoken": csrf_token_logout}, headers=headers_logout, timeout=10)
+    headers_logout = {
+        "Referer": admin_dashboard_url
+    }  # Referer should be the page from which the POST is made
+    response_logout = client.post(
+        logout_url,
+        data={"csrfmiddlewaretoken": csrf_token_logout},
+        headers=headers_logout,
+        timeout=10,
+    )
 
     # After a successful POST to /admin/logout/, Django typically redirects to the login page.
     # The status code of the POST response itself might be 200 (if it renders a "Logged out" page)
     # or 302 (if it immediately redirects). We should check the content of the page it lands on.
     # If it's 302, the client will follow it if allow_redirects is True (default for client.post).
 
-    assert response_logout.status_code == 200 # Django's default logout view returns 200
+    assert (
+        response_logout.status_code == 200
+    )  # Django's default logout view returns 200
     # Check for text that appears on the "Logged out" confirmation page, which is often the login page with a message.
     # For Django < 4.0, it's "Logged out". For Django 4.0+, it's "Logged out". Django 5.0 shows "Log in again" on the login page.
-    assert "Logged out" in response_logout.text or "Log in again" in response_logout.text
-
+    assert (
+        "Logged out" in response_logout.text or "Log in again" in response_logout.text
+    )
 
     # 3. Verify user is logged out by trying to access an authenticated page
-    response_dashboard_after_logout = client.get(admin_dashboard_url, timeout=10, allow_redirects=True) # allow_redirects is True by default for GET too
+    response_dashboard_after_logout = client.get(
+        admin_dashboard_url, timeout=10, allow_redirects=True
+    )  # allow_redirects is True by default for GET too
     assert response_dashboard_after_logout.status_code == 200
     assert response_dashboard_after_logout.url.startswith(login_url)
     assert "Django administration" in response_dashboard_after_logout.text

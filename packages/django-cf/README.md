@@ -171,7 +171,7 @@ Use Cloudflare R2, a global object storage service, as your Django storage backe
     ```
 
 2.  **Django Settings (`settings.py`):**
-    ```python 
+    ```python
     MEDIA_URL = 'https://pub-xxxxx.r2.dev/'
 
     STORAGES = {
@@ -272,10 +272,10 @@ def serve_media(request, file_path):
     # Add your access control logic here
     if not request.user.is_authenticated:
         return HttpResponseForbidden()
-    
+
     # Check if user has permission to access this file
     # (implement your own permission logic)
-    
+
     try:
         file = default_storage.open(file_path, 'rb')
         return FileResponse(file, content_type='application/octet-stream')
@@ -444,7 +444,7 @@ How long to cache Cloudflare's public keys (in seconds). Cloudflare rotates thes
 5. **Token Validation**: Validates the JWT against Cloudflare's public keys:
    - Validates token signature and expiration
    - Validates audience (AUD) if configured
-6. **User Management**: 
+6. **User Management**:
    - Extracts email and name from JWT claims
    - Creates new Django user if doesn't exist
    - Updates existing user's name if changed

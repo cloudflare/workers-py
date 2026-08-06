@@ -3,8 +3,8 @@ from io import BytesIO
 
 
 async def handle_wsgi(request, app):
-    os.environ.setdefault('DJANGO_ALLOW_ASYNC_UNSAFE', 'false')
-    from js import Object, Response, URL, console
+    os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "false")
+    from js import URL, Object, Response, console
 
     url = URL.new(request.url)
     assert url.protocol[-1] == ":"
@@ -14,36 +14,36 @@ async def handle_wsgi(request, app):
     query_string = url.search[1:]
     method = str(request.method).upper()
 
-    host = url.host.split(':')[0]
+    host = url.host.split(":")[0]
 
     wsgi_request = {
-        'REQUEST_METHOD': method,
-        'PATH_INFO': path,
-        'QUERY_STRING': query_string,
-        'SERVER_NAME': host,
-        'SERVER_PORT': url.port,
-        'SERVER_PROTOCOL': 'HTTP/1.1',
-        'wsgi.input': BytesIO(b''),
-        'wsgi.errors': console.error,
-        'wsgi.version': (1, 0),
-        'wsgi.multithread': False,
-        'wsgi.multiprocess': False,
-        'wsgi.run_once': True,
-        'wsgi.url_scheme': scheme,
+        "REQUEST_METHOD": method,
+        "PATH_INFO": path,
+        "QUERY_STRING": query_string,
+        "SERVER_NAME": host,
+        "SERVER_PORT": url.port,
+        "SERVER_PROTOCOL": "HTTP/1.1",
+        "wsgi.input": BytesIO(b""),
+        "wsgi.errors": console.error,
+        "wsgi.version": (1, 0),
+        "wsgi.multithread": False,
+        "wsgi.multiprocess": False,
+        "wsgi.run_once": True,
+        "wsgi.url_scheme": scheme,
     }
 
-    if request.headers.get('content-type'):
-        wsgi_request['CONTENT_TYPE'] = request.headers.get('content-type')
+    if request.headers.get("content-type"):
+        wsgi_request["CONTENT_TYPE"] = request.headers.get("content-type")
 
-    if request.headers.get('content-length'):
-        wsgi_request['CONTENT_LENGTH'] = request.headers.get('content-length')
+    if request.headers.get("content-length"):
+        wsgi_request["CONTENT_LENGTH"] = request.headers.get("content-length")
 
     for header in request.headers.items():
-        wsgi_request[f'HTTP_{header[0].upper().replace("-", "_")}'] = header[1]
+        wsgi_request[f"HTTP_{header[0].upper().replace('-', '_')}"] = header[1]
 
-    if method in ['POST', 'PUT', 'PATCH']:
+    if method in ["POST", "PUT", "PATCH"]:
         body = (await request._js_request.arrayBuffer()).to_bytes()
-        wsgi_request['wsgi.input'] = BytesIO(body)
+        wsgi_request["wsgi.input"] = BytesIO(body)
 
     def start_response(status_str, response_headers):
         nonlocal status, headers
@@ -54,7 +54,7 @@ async def handle_wsgi(request, app):
         resp = app(wsgi_request, start_response)
     except Exception as exc:
         # library should always print or console log the exception, because a production django should not show end users errors
-        print('Caught exception while loading application:', exc.__str__())
+        print("Caught exception while loading application:", exc.__str__())
         print(exc)
 
         raise exc
@@ -63,12 +63,14 @@ async def handle_wsgi(request, app):
     headers = resp.headers
 
     final_response = Response.new(
-        resp.content.decode('utf-8'), headers=Object.fromEntries(headers.items()), status=status
+        resp.content.decode("utf-8"),
+        headers=Object.fromEntries(headers.items()),
+        status=status,
     )
 
-    for k, v in resp.cookies.items():
+    for v in resp.cookies.values():
         value = str(v)
-        final_response.headers.set('Set-Cookie', value.replace('Set-Cookie: ', '', 1));
+        final_response.headers.set("Set-Cookie", value.replace("Set-Cookie: ", "", 1))
 
     return final_response
 
@@ -90,6 +92,7 @@ class DjangoCFDurableObject:
         self.env = env
 
         from django_cf.db.backends.do.storage import set_storage
+
         set_storage(self.ctx.storage.sql)
 
     def fetch(self, request):

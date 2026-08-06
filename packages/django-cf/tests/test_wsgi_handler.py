@@ -1,5 +1,7 @@
 """Tests for WSGI handler and DjangoCF classes."""
+
 import pytest
+
 from django_cf import DjangoCF, DjangoCFDurableObject
 
 
@@ -12,13 +14,17 @@ class TestDjangoCFErrorMessages:
         with pytest.raises(NotImplementedError) as exc_info:
             cf.get_app()
         # Verify no duplicate "implement" word
-        assert str(exc_info.value) == "Please implement get_app in your django_cf worker"
+        assert (
+            str(exc_info.value) == "Please implement get_app in your django_cf worker"
+        )
         assert "implement implement" not in str(exc_info.value)
 
     def test_djangocf_durable_object_get_app_error_message(self):
         """Test that DjangoCFDurableObject.get_app() raises NotImplementedError with correct message."""
         # DjangoCFDurableObject.__init__ requires ctx and env, so test get_app directly
-        assert "implement get_app" in DjangoCFDurableObject.get_app.__code__.co_consts[1]
+        assert (
+            "implement get_app" in DjangoCFDurableObject.get_app.__code__.co_consts[1]
+        )
         # Verify no duplicate word in the source constant
         for const in DjangoCFDurableObject.get_app.__code__.co_consts:
             if isinstance(const, str) and "implement" in const:
@@ -38,6 +44,7 @@ class TestWSGIHeaderTransformation:
     def test_header_transformation_replaces_dashes(self):
         """Verify the header transformation code replaces dashes with underscores."""
         import inspect
+
         from django_cf import handle_wsgi
 
         source = inspect.getsource(handle_wsgi)
@@ -57,7 +64,7 @@ class TestWSGIHeaderTransformation:
             ("cf-connecting-ip", "HTTP_CF_CONNECTING_IP"),
         ]
         for header_name, expected_key in test_cases:
-            result = f'HTTP_{header_name.upper().replace("-", "_")}'
+            result = f"HTTP_{header_name.upper().replace('-', '_')}"
             assert result == expected_key, (
                 f"Header '{header_name}' should map to '{expected_key}', got '{result}'"
             )
