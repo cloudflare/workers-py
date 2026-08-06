@@ -70,3 +70,32 @@ async def test_client_close_reaches_app_as_disconnect():
             return
         await asyncio.sleep(0.2)
     pytest.fail("the app never observed the client's disconnect")
+
+
+@pytest.mark.asyncio
+async def test_text_frame_arrives_as_asgi_text():
+    response = await _ws_connect("/ws-echo")
+    ws = response.webSocket
+    assert ws is not None
+    ws.accept()
+    message = _listen(ws, "message")
+    ws.send("hello")
+    evt = await asyncio.wait_for(message, TIMEOUT_S)
+    assert evt.data == "text=hello"
+    ws.close()
+
+
+@pytest.mark.asyncio
+async def test_binary_frame_arrives_as_asgi_bytes():
+    response = await _ws_connect("/ws-echo")
+    ws = response.webSocket
+    assert ws is not None
+    ws.accept()
+    message = _listen(ws, "message")
+    payload = b"\x00\x01binary"
+    ws.send(to_js(payload))
+    evt = await asyncio.wait_for(message, TIMEOUT_S)
+    data = evt.data
+    assert not isinstance(data, str), f"delivered to the app as text: {data!r}"
+    assert data.to_bytes() == b"bytes=" + payload
+    ws.close()
