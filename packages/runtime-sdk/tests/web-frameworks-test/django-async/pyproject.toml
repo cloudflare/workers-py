@@ -3,7 +3,9 @@ name = "django-async-test"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
-    "django",
+    # https://github.com/django/django/pull/21438/changes#r3399119797
+    # Remove this constraint when drf releases a version that supports Django 6.1
+    "django<6.1",
     "djangorestframework",
     "django-cors-headers",
     "pytest",
