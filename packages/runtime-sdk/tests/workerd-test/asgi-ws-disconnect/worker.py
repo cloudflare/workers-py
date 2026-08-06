@@ -1,6 +1,7 @@
 import asyncio
 import os
 import sys
+from urllib.parse import urlsplit
 
 import pytest
 from pyodide.webloop import WebLoop
@@ -49,13 +50,44 @@ class WSWatchApp:
                 return
 
 
+class WSAppCloseApp:
+    """Accepts, then closes from the app side with a custom code."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            await _drain_lifespan(receive, send)
+            return
+        message = await receive()
+        assert message["type"] == "websocket.connect"
+        await send({"type": "websocket.accept"})
+        await send({"type": "websocket.close", "code": 4001, "reason": "done"})
+
+
+class WSCrashApp:
+    """Accepts, then raises: the server must close the transport (1011)."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            await _drain_lifespan(receive, send)
+            return
+        message = await receive()
+        assert message["type"] == "websocket.connect"
+        await send({"type": "websocket.accept"})
+        raise RuntimeError("websocket app crashed")
+
+
 ws_app = WSWatchApp()
+lifecycle_apps = {
+    "/ws-app-close": WSAppCloseApp(),
+    "/ws-crash": WSCrashApp(),
+}
 
 
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
         if (request.headers.get("upgrade") or "").lower() == "websocket":
-            return await asgi.websocket(ws_app, request)
+            path = urlsplit(request.url).path
+            return await asgi.websocket(lifecycle_apps.get(path, ws_app), request)
         import json
 
         from workers import Response
