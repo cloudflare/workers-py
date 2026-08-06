@@ -1,0 +1,21 @@
+.github/workflows/tests.yml
+  s_0cd53b87ee5914::t_fd650d279170cc 66-68,78-79
+packages/django-cf/AGENTS.md
+  s_0cd53b87ee5914::t_1fd92cb92820c2 28,30,32-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "c581e77f65593773b6bec6aa2ee9861fd05e17ef",
+  "prompts": {},
+  "sessions": {
+    "s_0cd53b87ee5914": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_02995dc92ffe36YT0o4f7D0sVP",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    }
+  }
+}
