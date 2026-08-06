@@ -1,5 +1,4 @@
-# packages/django-cf now runs the full pre-commit suite (ruff, codespell,
-# shellcheck, ...) but is still skipped by Semgrep. Semgrep's `--config=auto`
-# ruleset is fetched at scan time, so the findings for this package have not
-# been triaged yet; enabling it belongs in its own PR.
+# Imported from https://github.com/G4brym/django-cf with full git history and
+# kept identical to upstream for now. See the matching exclude in
+# .pre-commit-config.yaml.
 packages/django-cf/

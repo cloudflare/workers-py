@@ -46,10 +46,7 @@ include = ["django_cf", "django_cf.*"]
 exclude = ["tests*", "docs*", "templates*", ".github*", "*.__pycache__"]
 
 [tool.ruff]
-# django-cf still declares `requires-python = ">=3.12"`, so the target version is
-# py312 here while packages/cli and packages/runtime-sdk use py311.
 target-version = "py312"
-# Generated/copied trees that only exist after `npm run setup-test`.
 extend-exclude = [".wrangler", "python_modules", "staticfiles"]
 lint.select = [
   "B0",     # bugbear (all B0* checks enabled by default)
