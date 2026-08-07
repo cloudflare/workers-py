@@ -1,0 +1,23 @@
+packages/runtime-sdk/src/_workers_sdk_entropy_import_context_loader.py
+  s_32374c68644d74::t_fe3589acb9433c 2,4-9,16
+packages/runtime-sdk/src/_workers_sdk_package_patches.py
+  s_32374c68644d74::t_cac270830d957d 1-45
+packages/runtime-sdk/tests/web-frameworks-test/fastapi-tests/wrangler.jsonc
+  s_32374c68644d74::t_0f769a0db1aa7a 6-15
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "12ff80da6e5b39276d693988c11c482a0f149adb",
+  "prompts": {},
+  "sessions": {
+    "s_32374c68644d74": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_023193c90ffezhCgofHaa6CEGB",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Dominik Picheta <dominik@cloudflare.com>"
+    }
+  }
+}
