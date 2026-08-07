@@ -1,0 +1,43 @@
+packages/runtime-sdk/src/_workers_sdk_package_patches.py
+  s_32374c68644d74::t_cac270830d957d 1-45
+packages/runtime-sdk/tests/web-frameworks-test/fastapi-tests/wrangler.jsonc
+  s_32374c68644d74::t_0f769a0db1aa7a 6-15
+packages/runtime-sdk/src/_workers_sdk_patch_loader.py
+  s_32374c68644d74::t_390f8923eb25dd 2,4-9,16
+packages/runtime-sdk/tests/web-frameworks-test/fastapi-tests/src/static/app.css
+  s_4e8edf3473a0b2::t_f09dc934803e97 1-4
+packages/runtime-sdk/tests/web-frameworks-test/fastapi-tests/src/static/data.json
+  s_4e8edf3473a0b2::t_a5828da2f1313b 1
+packages/runtime-sdk/tests/web-frameworks-test/fastapi-tests/src/static/hello.txt
+  s_4e8edf3473a0b2::t_c356b4da9151cf 1
+packages/runtime-sdk/tests/web-frameworks-test/fastapi-tests/src/static/index.html
+  s_4e8edf3473a0b2::t_d8c390799228c3 1-7
+packages/runtime-sdk/tests/web-frameworks-test/fastapi-tests/src/test_staticfiles.py
+  s_4e8edf3473a0b2::t_998d1602579089 1-117
+packages/runtime-sdk/tests/web-frameworks-test/fastapi-tests/src/worker.py
+  s_4e8edf3473a0b2::t_7fa594498bb24f 3,7,9,23-24,38-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "ec709cb7f24bd84e14a73a801b6178a3dd8b105b",
+  "prompts": {},
+  "sessions": {
+    "s_32374c68644d74": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_023193c90ffezhCgofHaa6CEGB",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Dominik Picheta <dominik@cloudflare.com>"
+    },
+    "s_4e8edf3473a0b2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0237d77f7ffexOeXVOxFtNULsu",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Dominik Picheta <dominik@cloudflare.com>"
+    }
+  }
+}
