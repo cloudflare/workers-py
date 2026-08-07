@@ -93,10 +93,7 @@ lint.per-file-ignores."templates/**" = ["F401"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-# tests/e2e is excluded because it is flaky, not because it is unsupported: it
-# is the only suite that keeps all three dev servers alive at once, and roughly
-# one run in three the D1 server dies mid-suite and the remaining tests fail
-# with connection errors. Run it explicitly with `pytest tests/e2e`.
+# TODO: flaky. Enable or refactor test cases
 addopts = ["-ra", "--ignore=tests/e2e"]
 testpaths = [
     "tests",
