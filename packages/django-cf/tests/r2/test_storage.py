@@ -1,7 +1,5 @@
 import requests
 
-from ..utils import r2_web_server  # noqa: F401
-
 
 def test_r2_upload_file(r2_web_server):
     """Test uploading a file to R2 storage."""

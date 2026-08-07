@@ -1,7 +1,5 @@
 import requests
 
-from ..utils import d1_web_server  # noqa: F401
-
 
 def test_migrations(d1_web_server):
     """Run migrations."""

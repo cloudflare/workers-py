@@ -1,7 +1,5 @@
 import requests
 
-from .utils import r2_web_server  # noqa: F401
-
 
 def test_date_trunc_month(r2_web_server):
     """Test truncating dates to month."""

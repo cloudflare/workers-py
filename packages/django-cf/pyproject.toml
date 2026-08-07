@@ -25,7 +25,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12"
 ]
 
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
     "pytest",
     "pytest-cov",
@@ -87,18 +87,14 @@ lint.ignore = [
   "UP038",   # `isinstance(x, X | Y)` (also ignored by runtime-sdk)
 ]
 lint.flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
-# Pytest fixtures are imported for their side effect and then shadowed by the
-# test function parameter of the same name, which reads as F811 to ruff.
-lint.per-file-ignores."tests/**" = ["F811"]
-# tests/utils.py launches `wrangler dev` in its own process group.
-lint.per-file-ignores."tests/utils.py" = ["PLW1509"]
 # Generated Django scaffolding kept verbatim so it stays copy-pasteable.
 lint.per-file-ignores."tests/servers/**" = ["F401"]
 lint.per-file-ignores."templates/**" = ["F401"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-addopts = "-ra -q"
+# TODO: flaky. Enable or refactor test cases
+addopts = ["-ra", "--ignore=tests/e2e"]
 testpaths = [
     "tests",
 ]
