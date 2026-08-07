@@ -1,9 +1,12 @@
 import asyncio
 import importlib.util
+from pathlib import Path
 
 import pytest
 from fastapi import FastAPI, Request
+from fastapi.responses import FileResponse
 from fastapi.responses import Response as FastAPIResponse
+from fastapi.staticfiles import StaticFiles
 from pyodide.webloop import WebLoop
 
 import asgi
@@ -17,6 +20,8 @@ async def _noop(*args):
 WebLoop.shutdown_asyncgens = _noop
 WebLoop.shutdown_default_executor = _noop
 
+STATIC_DIR = Path(__file__).parent / "static"
+
 app = FastAPI()
 
 
@@ -28,6 +33,17 @@ async def api_hello():
 @app.get("/health")
 async def health():
     return {"ok": True}
+
+
+@app.get("/native-file")
+async def native_file():
+    """Serve a single bundled file with FastAPI's native FileResponse."""
+    return FileResponse(STATIC_DIR / "hello.txt", media_type="text/plain")
+
+
+# Mounted before the catch-all below so `/static/*` is handled by Starlette's
+# own filesystem-backed static file app rather than the Assets binding.
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
 @app.get("/{path:path}")
