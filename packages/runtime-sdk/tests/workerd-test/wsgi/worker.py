@@ -3,6 +3,7 @@ import os
 import sys
 
 import pytest
+from pyodide.ffi import run_sync
 from pyodide.webloop import WebLoop
 
 from workers import WorkerEntrypoint, wsgi
@@ -96,6 +97,18 @@ def streaming_app(environ, start_response):
     return generate()
 
 
+def streaming_app_stack_switch(environ, start_response):
+    """WSGI app that returns multiple body chunks via a generator."""
+    start_response("200 OK", [("Content-Type", "application/octet-stream")])
+
+    def generate():
+        for i in range(STREAMING_NUM_CHUNKS):
+            run_sync(asyncio.sleep(0))
+            yield bytes([i % 256]) * STREAMING_CHUNK_SIZE
+
+    return generate()
+
+
 def crash_app(environ, start_response):
     raise RuntimeError("app crash before response for testing")
 
@@ -112,16 +125,15 @@ class Default(WorkerEntrypoint):
         url = URL.new(request.url)
         path = url.pathname
 
-        if path == "/echo-body":
-            return await wsgi.fetch(echo_body_app, request, self.env)
-        elif path == "/meta":
-            return await wsgi.fetch(echo_meta_app, request, self.env)
-        elif path == "/cookies":
-            return await wsgi.fetch(cookies_app, request, self.env)
-        elif path == "/stream":
-            return await wsgi.fetch(streaming_app, request, self.env)
+        app = {
+            "/echo-body": echo_body_app,
+            "/meta": echo_meta_app,
+            "/cookies": cookies_app,
+            "/stream": streaming_app,
+            "/stream-stack-switch": streaming_app_stack_switch,
+        }.get(path, header_echo_app)
 
-        return await wsgi.fetch(header_echo_app, request, self.env)
+        return await wsgi.fetch(app, request, self.env)
 
     async def test(self, ctrl):
         os.chdir("/session/metadata/tests")
