@@ -63,8 +63,6 @@ jobs:
         os: [ubuntu-latest, macos-latest]
         python-version: ['3.14']
     runs-on: ${{ matrix.os }}
-    # The wrangler-backed suites boot three `pywrangler dev` servers, so this job
-    # is minutes rather than seconds. Cap it so a wedged worker fails the run.
     timeout-minutes: 30
 
     steps:
@@ -75,8 +73,6 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
-    # No setup-node step: GitHub runners ship Node, and `pywrangler` reaches
-    # wrangler through `npx --yes`, exactly as the sdk-test job does.
     - name: Run django-cf tests
       working-directory: packages/django-cf
       run: |

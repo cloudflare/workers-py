@@ -5,6 +5,8 @@ servers run in uv *project* mode: each worker's ``wrangler.jsonc`` declares a
 ``build.command`` that shells out to ``python manage.py collectstatic``, which
 needs the project's own virtualenv on PATH. ``uv run --no-project`` would leave
 Django unimportable and the build would fail before the worker starts.
+
+TODO: reduce duplicated code with runtime-sdk after refactoring tests
 """
 
 import os
