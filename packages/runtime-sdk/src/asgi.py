@@ -294,6 +294,9 @@ async def process_websocket(app: Any, req: "Request | js.Request") -> js.Respons
 
     client, server = WebSocketPair.new().object_values()
     server.accept()
+    # Binary frames otherwise arrive as Blob (observed under wrangler dev),
+    # which cannot be read synchronously in the message callback.
+    server.binaryType = "arraybuffer"
     queue = Queue()
 
     def onopen(evt):
@@ -312,7 +315,14 @@ async def process_websocket(app: Any, req: "Request | js.Request") -> js.Respons
         queue.put_nowait(msg)
 
     def onmessage(evt):
-        msg = {"type": "websocket.receive", "text": evt.data}
+        data = evt.data
+        if isinstance(data, str):
+            msg = {"type": "websocket.receive", "text": data}
+        else:
+            # Binary frames arrive as an ArrayBuffer; the ASGI spec requires
+            # them under "bytes" (frameworks like Starlette dispatch on which
+            # key is present, so labeling them "text" breaks receive_bytes()).
+            msg = {"type": "websocket.receive", "bytes": data.to_bytes()}
         queue.put_nowait(msg)
 
     server.onopen = onopen
