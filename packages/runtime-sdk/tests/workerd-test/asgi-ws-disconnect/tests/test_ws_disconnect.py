@@ -1,4 +1,5 @@
 import asyncio
+import contextlib
 
 import pytest
 from pyodide.ffi import create_proxy, to_js
@@ -70,3 +71,45 @@ async def test_client_close_reaches_app_as_disconnect():
             return
         await asyncio.sleep(0.2)
     pytest.fail("the app never observed the client's disconnect")
+
+
+@contextlib.asynccontextmanager
+async def _ws_session(path):
+    """Accepted client socket, always closed again.
+
+    A test that raises before closing leaves the app awaiting receive(), and
+    the runtime keeps the request alive for that task, so the whole worker
+    invocation hangs instead of reporting the failure.
+    """
+    response = await _ws_connect(path)
+    ws = response.webSocket
+    assert ws is not None
+    ws.accept()
+    # Without this the payload arrives as a Blob, which cannot be read
+    # synchronously in the message callback.
+    ws.binaryType = "arraybuffer"
+    try:
+        yield ws
+    finally:
+        ws.close()
+
+
+@pytest.mark.asyncio
+async def test_text_frame_arrives_as_asgi_text():
+    async with _ws_session("/ws-echo") as ws:
+        message = _listen(ws, "message")
+        ws.send("hello")
+        evt = await asyncio.wait_for(message, TIMEOUT_S)
+        assert evt.data == "text=hello"
+
+
+@pytest.mark.asyncio
+async def test_binary_frame_arrives_as_asgi_bytes():
+    async with _ws_session("/ws-echo") as ws:
+        message = _listen(ws, "message")
+        payload = b"\x00\x01binary"
+        ws.send(to_js(payload))
+        evt = await asyncio.wait_for(message, TIMEOUT_S)
+        data = evt.data
+        assert not isinstance(data, str), f"delivered to the app as text: {data!r}"
+        assert data.to_bytes() == b"bytes=" + payload

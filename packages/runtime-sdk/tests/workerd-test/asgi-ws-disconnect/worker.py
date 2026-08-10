@@ -1,6 +1,7 @@
 import asyncio
 import os
 import sys
+from urllib.parse import urlsplit
 
 import pytest
 from pyodide.webloop import WebLoop
@@ -49,13 +50,46 @@ class WSWatchApp:
                 return
 
 
+class WSEchoApp:
+    """Accepts and echoes each frame back tagged with the ASGI key it arrived
+    under ("bytes=" / "text=" prefix), so tests can detect frames delivered
+    under the wrong key (an untagged echo would bounce a mislabeled frame
+    opaquely and pass anyway)."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            await _drain_lifespan(receive, send)
+            return
+        message = await receive()
+        assert message["type"] == "websocket.connect"
+        await send({"type": "websocket.accept"})
+        while True:
+            message = await receive()
+            if message["type"] == "websocket.disconnect":
+                return
+            if message.get("bytes") is not None:
+                await send(
+                    {"type": "websocket.send", "bytes": b"bytes=" + message["bytes"]}
+                )
+            else:
+                text = message.get("text")
+                # text is always str once frames are labeled correctly; repr()
+                # keeps a regression readable instead of timing out on a
+                # TypeError inside the app.
+                reply = "text=" + (text if isinstance(text, str) else repr(text))
+                await send({"type": "websocket.send", "text": reply})
+
+
 ws_app = WSWatchApp()
+echo_app = WSEchoApp()
 
 
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
         if (request.headers.get("upgrade") or "").lower() == "websocket":
-            return await asgi.websocket(ws_app, request)
+            path = urlsplit(request.url).path
+            app = echo_app if path == "/ws-echo" else ws_app
+            return await asgi.websocket(app, request)
         import json
 
         from workers import Response
