@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.11 (2026-08-10)
+
+### Bug Fixes
+
+- Implements tests for FastAPI StaticFiles and anyio thread patch
+  ([`a30f53e`](https://github.com/cloudflare/workers-py/commit/a30f53e95edcf42fc93e5e2dc84251121881418b))
+
+
 ## v1.6.10 (2026-08-10)
 
 ### Bug Fixes
