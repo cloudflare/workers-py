@@ -3,11 +3,12 @@ import importlib.util
 from pathlib import Path
 
 import pytest
-from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse
+from fastapi import Depends, FastAPI, File, Request, UploadFile
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.responses import Response as FastAPIResponse
 from fastapi.staticfiles import StaticFiles
 from pyodide.webloop import WebLoop
+from starlette.background import BackgroundTask
 
 import asgi
 from workers import Response, WorkerEntrypoint
@@ -24,6 +25,16 @@ STATIC_DIR = Path(__file__).parent / "static"
 
 app = FastAPI()
 
+# --------------------------------------------------------------------------- #
+# Shared mutable state used to verify side-effects (e.g. background tasks).
+# --------------------------------------------------------------------------- #
+_side_effects: dict = {}
+
+
+# --------------------------------------------------------------------------- #
+# Routes exercising the anyio.to_thread.run_sync patch
+# --------------------------------------------------------------------------- #
+
 
 @app.get("/api/hello")
 async def api_hello():
@@ -33,6 +44,87 @@ async def api_hello():
 @app.get("/health")
 async def health():
     return {"ok": True}
+
+
+# -- sync route handler (dispatched via run_in_threadpool) -------------------
+@app.get("/sync/hello")
+def sync_hello():
+    """A plain `def` (non-async) route handler."""
+    return {"message": "sync hello"}
+
+
+@app.post("/sync/echo")
+def sync_echo(request: Request):
+    """Sync POST handler that reads the body."""
+    # request.body() is async; the sync handler can still return a dict.
+    return {"method": request.method}
+
+
+# -- sync dependency ---------------------------------------------------------
+def _get_greeting():
+    """A plain `def` dependency (not async)."""
+    return "hello from sync dep"
+
+
+@app.get("/sync/dep")
+async def sync_dep_route(greeting: str = Depends(_get_greeting)):
+    """Async handler with a sync dependency."""
+    return {"greeting": greeting}
+
+
+# -- sync background task ----------------------------------------------------
+def _bg_task():
+    """Sync function executed as a BackgroundTask."""
+    _side_effects["bg_ran"] = True
+
+
+@app.get("/sync/background/run")
+async def sync_background_run():
+    """Fire a sync background task and return immediately."""
+    _side_effects.pop("bg_ran", None)
+    return JSONResponse({"submitted": True}, background=BackgroundTask(_bg_task))
+
+
+@app.get("/sync/background/check")
+async def sync_background_check():
+    """Return whether the background task has executed."""
+    return {"bg_ran": _side_effects.get("bg_ran", False)}
+
+
+# -- sync iterator streaming response ---------------------------------------
+def _sync_chunks():
+    """A plain generator (not async) yielding text chunks."""
+    for i in range(5):
+        yield f"chunk-{i}\n"
+
+
+@app.get("/sync/stream")
+async def sync_stream():
+    """StreamingResponse backed by a sync iterator."""
+    return StreamingResponse(_sync_chunks(), media_type="text/plain")
+
+
+# -- file upload (UploadFile.read/write/seek go through run_in_threadpool) ---
+@app.post("/upload/single")
+async def upload_single(file: UploadFile = File(...)):  # noqa: B008
+    """Accept a single file upload and echo its metadata + content."""
+    content = await file.read()
+    return {
+        "filename": file.filename,
+        "content_type": file.content_type,
+        "size": len(content),
+        "text": content.decode(errors="replace"),
+    }
+
+
+@app.post("/upload/multiple")
+async def upload_multiple(files: list[UploadFile] = File(...)):  # noqa: B008
+    """Accept multiple file uploads and echo their metadata."""
+    result = []
+    for f in files:
+        data = await f.read()
+        result.append({"filename": f.filename, "size": len(data)})
+    return result
 
 
 @app.get("/native-file")
