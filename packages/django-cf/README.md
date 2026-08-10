@@ -1,8 +1,8 @@
 # django-cf
 
-`django-cf` is a Python package that seamlessly integrates your Django applications with various Cloudflare services. Utilize the power of Cloudflare's global network for your Django projects.
+`django-cf` is a Python package that seamlessly integrates your Django applications with various Cloudflare services. This package lives in the `cloudflare/workers-py` monorepo under `packages/django-cf/`, while `pip install django-cf` remains the primary installation method.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/G4brym/django-cf/tree/main/templates/d1)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/workers-py/tree/main/packages/django-cf/templates/d1)
 
 ## Installation
 
@@ -11,7 +11,7 @@ pip install django-cf
 ```
 
 **Note on Cloudflare Workers Plan:**
-This package requires a **Cloudflare Workers Paid Plan** for production use. Django loads many modules which can exceed the CPU time limits included in free accounts. However, if you're interested in experimenting on the free account, feel free to try it out! If you manage to get it working on the free plan, please [open an issue](https://github.com/G4brym/django-cf/issues) describing your setup so other users can benefit from your solution.
+This package requires a **Cloudflare Workers Paid Plan** for production use. Django loads many modules which can exceed the CPU time limits included in free accounts. However, if you're interested in experimenting on the free account, feel free to try it out! If you manage to get it working on the free plan, please [open an issue](https://github.com/cloudflare/workers-py/issues) describing your setup so other users can benefit from your solution.
 
 ## Features
 
@@ -615,7 +615,7 @@ Each template includes:
 
 ## Contributing
 
-See [DEVELOPMENT.md](DEVELOPMENT.md) for details on setting up a development environment and contributing to `django-cf`.
+See [CONTRIBUTING.md](../../CONTRIBUTING.md) for details on setting up a development environment and contributing to `django-cf`.
 
 We welcome contributions! Please see our contributing guidelines and feel free to submit issues and pull requests.
 
