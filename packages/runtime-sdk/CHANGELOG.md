@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.6.9 (2026-08-10)
+
+### Bug Fixes
+
+- **runtime-sdk**: Deliver binary WebSocket frames as ASGI `bytes`
+  ([#164](https://github.com/cloudflare/workers-py/pull/164),
+  [`44ca368`](https://github.com/cloudflare/workers-py/commit/44ca36818367af23ffd0c76f5d2dc7588219b340))
+
+
 ## v1.6.8 (2026-08-05)
 
 ### Bug Fixes
