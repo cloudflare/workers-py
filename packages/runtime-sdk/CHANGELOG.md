@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.6.10 (2026-08-10)
+
+### Bug Fixes
+
+- **runtime-sdk**: Terminate the response stream when the app fails mid-stream
+  ([#168](https://github.com/cloudflare/workers-py/pull/168),
+  [`fd4dde9`](https://github.com/cloudflare/workers-py/commit/fd4dde98fcc39f405a7cf320a6db49a83426f46b))
+
+
 ## v1.6.9 (2026-08-10)
 
 ### Bug Fixes
