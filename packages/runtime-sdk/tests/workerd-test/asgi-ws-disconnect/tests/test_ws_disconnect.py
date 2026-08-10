@@ -26,6 +26,22 @@ def _listen(ws, event_type):
     return fut
 
 
+def _collect(ws, count):
+    """Future resolved with the payloads of the first `count` messages."""
+    fut = asyncio.get_event_loop().create_future()
+    messages = []
+
+    def callback(evt):
+        messages.append(evt.data)
+        if len(messages) == count and not fut.done():
+            fut.set_result(messages)
+
+    proxy = create_proxy(callback)
+    _proxies.append(proxy)
+    ws.addEventListener("message", proxy)
+    return fut
+
+
 async def _ws_connect(path):
     # Upgrade through the raw JS binding (as durable-object-websocket's
     # tester.js does): the SDK fetch wrapper routes through pyfetch, whose
@@ -113,3 +129,14 @@ async def test_binary_frame_arrives_as_asgi_bytes():
         data = evt.data
         assert not isinstance(data, str), f"delivered to the app as text: {data!r}"
         assert data.to_bytes() == b"bytes=" + payload
+
+
+@pytest.mark.asyncio
+async def test_empty_frames_reach_the_client():
+    async with _ws_session("/ws-empty") as ws:
+        received = _collect(ws, 3)
+        ws.send("go")
+        messages = await asyncio.wait_for(received, TIMEOUT_S)
+        assert messages[0] == ""
+        assert messages[1].to_bytes() == b""
+        assert messages[2] == "done"

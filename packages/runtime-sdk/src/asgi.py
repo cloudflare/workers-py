@@ -333,12 +333,12 @@ async def process_websocket(app: Any, req: "Request | js.Request") -> js.Respons
         if got["type"] == "websocket.send":
             b = got.get("bytes", None)
             s = got.get("text", None)
-            if b:
+            if b is not None:
                 with acquire_js_buffer(b) as jsbytes:
                     # Unlike the `Response` constructor,  server.send seems to
                     # eagerly copy the source buffer
                     server.send(jsbytes)
-            if s:
+            if s is not None:
                 server.send(s)
 
         else:
