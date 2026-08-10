@@ -1,7 +1,29 @@
-import js
-from pyodide.ffi import to_js
+import asyncio
+import contextvars
+import os
+import sys
 
-from workers import Request, WorkerEntrypoint, wsgi
+import pytest
+from pyodide.webloop import WebLoop
+from pyodide.ffi import run_sync
+
+from workers import WorkerEntrypoint, wsgi
+
+
+async def noop(*args):
+    pass
+
+
+# pytest-asyncio relies on these but in Pyodide < 0.29 WebLoop does not implement them
+WebLoop.shutdown_asyncgens = noop
+WebLoop.shutdown_default_executor = noop
+
+# Pyodide 0.26.0a2's _cancel_all_tasks calls task.exception() on pending tasks,
+# which raises InvalidStateError under Pyodide's WebLoop.
+# Ignore this error to prevent pytest-asyncio from crashing.
+if sys.version_info < (3, 13):
+    asyncio.runners._cancel_all_tasks = lambda loop: None  # type: ignore[attr-defined]
+
 
 # ---------------------------------------------------------------------------
 # WSGI apps
@@ -76,6 +98,43 @@ def streaming_app(environ, start_response):
     return generate()
 
 
+def streaming_app_stack_switch(environ, start_response):
+    """WSGI app that returns multiple body chunks via a generator."""
+    start_response("200 OK", [("Content-Type", "application/octet-stream")])
+
+    def generate():
+        for i in range(STREAMING_NUM_CHUNKS):
+            run_sync(asyncio.sleep(0))
+            yield bytes([i % 256]) * STREAMING_CHUNK_SIZE
+
+    return generate()
+
+STREAMING_CONTEXT_VAR = contextvars.ContextVar("streaming_counter")
+
+
+def streaming_app_uses_context(environ, start_response):
+    """WSGI app whose body generator reads and writes a ContextVar.
+
+    The generator is resumed from the `ReadableStream` pull callback, which runs
+    in a fresh context, so this only works if the server carries the request's
+    `contextvars.Context` into every pull. If the context is lost, `get()`
+    raises `LookupError` and the stream errors out; if a *fresh copy* is used
+    per pull, the mutations don't stick and every chunk repeats the same byte.
+    """
+    start_response("200 OK", [("Content-Type", "application/octet-stream")])
+    STREAMING_CONTEXT_VAR.set(0)
+
+    def generate():
+        for _ in range(STREAMING_NUM_CHUNKS):
+            # Stack switch so each chunk is pulled from a separate callback.
+            run_sync(asyncio.sleep(0))
+            counter = STREAMING_CONTEXT_VAR.get()
+            STREAMING_CONTEXT_VAR.set(counter + 1)
+            yield bytes([counter % 256]) * STREAMING_CHUNK_SIZE
+
+    return generate()
+
+
 def crash_app(environ, start_response):
     raise RuntimeError("app crash before response for testing")
 
@@ -84,122 +143,28 @@ example_hdr = {"Header1": "Value1", "Header2": "Value2"}
 
 
 class Default(WorkerEntrypoint):
+    # Each path in this handler serves one of the WSGI apps above; the
+    # assertions live in tests/test_wsgi.py.
     async def fetch(self, request):
         from js import URL
 
         url = URL.new(request.url)
         path = url.pathname
 
-        if path == "/echo-body":
-            return await wsgi.fetch(echo_body_app, request, self.env)
-        elif path == "/meta":
-            return await wsgi.fetch(echo_meta_app, request, self.env)
-        elif path == "/cookies":
-            return await wsgi.fetch(cookies_app, request, self.env)
-        elif path == "/stream":
-            return await wsgi.fetch(streaming_app, request, self.env)
+        app = {
+            "/echo-body" : echo_body_app,
+            "/meta": echo_meta_app,
+            "/cookies": cookies_app,
+            "/stream": streaming_app,
+            "/stream-stack-switch": streaming_app_stack_switch,
+            "/stream-context": streaming_app_uses_context,
+        }.get(path, header_echo_app)
 
-        # Verify `build_environ` handles JS-style and Python-style headers
-        # identically, mirroring the asgi `request_to_scope` check.
-        js_request = js.Request.new("http://example.com/", headers=to_js(example_hdr))
-        py_request = Request("http://example.com/", headers=example_hdr)
-        js_env = wsgi.build_environ(js_request, self.env, b"")
-        py_env = wsgi.build_environ(py_request, self.env, b"")
-        assert js_env["HTTP_HEADER1"] == py_env["HTTP_HEADER1"] == "Value1"
-        assert js_env["HTTP_HEADER2"] == py_env["HTTP_HEADER2"] == "Value2"
-
-        return await wsgi.fetch(header_echo_app, request, self.env)
+        return await wsgi.fetch(app, request, self.env)
 
     async def test(self, ctrl):
-        await test_headers(self.env)
-        await test_echo_body(self.env)
-        await test_meta(self.env)
-        await test_cookies(self.env)
-        await test_streaming(self.env)
-        await test_app_exception_is_raised(self.env)
-
-
-# ---------------------------------------------------------------------------
-# Tests
-# ---------------------------------------------------------------------------
-
-
-async def test_headers(env):
-    response = await env.SELF.fetch("http://example.com/", headers=to_js(example_hdr))
-    assert response.status == 200
-    text = await response.text()
-    assert text == "Hello, World"
-    # Echoed-back headers should be present.
-    assert response.headers.get("header1") == "Value1"
-    assert response.headers.get("header2") == "Value2"
-
-
-async def test_echo_body(env):
-    response = await env.SELF.fetch(
-        "http://example.com/echo-body",
-        method="POST",
-        body="hello body",
-    )
-    assert response.status == 200
-    text = await response.text()
-    assert text == "hello body"
-
-
-async def test_meta(env):
-    response = await env.SELF.fetch("http://example.com/meta?foo=bar&baz=qux")
-    assert response.status == 200
-    import json
-
-    payload = json.loads(await response.text())
-    assert payload["method"] == "GET"
-    assert payload["path"] == "/meta"
-    assert payload["query"] == "foo=bar&baz=qux"
-    assert payload["scheme"] == "http"
-    assert payload["has_env"] is True
-
-
-async def test_cookies(env):
-    response = await env.SELF.fetch("http://example.com/cookies")
-    assert response.status == 200
-    # `env.SELF.fetch` returns the SDK `FetchResponse`, whose `.headers` is an
-    # `http.client.HTTPMessage`. Repeated Set-Cookie headers are preserved as
-    # separate entries (see `python_request_headers_preserve_commas`), so use
-    # `get_all` to recover the individual values.
-    cookies = response.headers.get_all("Set-Cookie")
-    assert "a=1" in cookies
-    assert "b=2" in cookies
-
-
-async def test_streaming(env):
-    response = await env.SELF.fetch("http://example.com/stream")
-    assert response.status == 200
-    assert response.headers.get("content-type") == "application/octet-stream"
-
-    reader = response.body.getReader()
-    body_bytes = b""
-    while True:
-        result = await reader.read()
-        if result.done:
-            break
-        body_bytes += result.value.to_bytes()
-
-    expected_size = STREAMING_CHUNK_SIZE * STREAMING_NUM_CHUNKS
-    assert len(body_bytes) == expected_size, (
-        f"Expected {expected_size} bytes, got {len(body_bytes)}"
-    )
-    for i in range(STREAMING_NUM_CHUNKS):
-        start = i * STREAMING_CHUNK_SIZE
-        end = start + STREAMING_CHUNK_SIZE
-        expected_byte = i % 256
-        assert all(b == expected_byte for b in body_bytes[start:end])
-
-
-async def test_app_exception_is_raised(env):
-    req = js.Request.new("http://example.com/crash-test")
-    threw = False
-    try:
-        await wsgi.fetch(crash_app, req, env)
-    except RuntimeError as e:
-        threw = True
-        assert "app crash before response for testing" in str(e)
-    assert threw, "Expected RuntimeError to be raised from wsgi.fetch"
+        os.chdir("/session/metadata/tests")
+        args = [".", "-vv"]
+        if self.env.color:
+            args.append("--color=yes")
+        assert pytest.main(args) == 0

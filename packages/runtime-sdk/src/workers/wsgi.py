@@ -1,3 +1,4 @@
+import contextvars
 import io
 import logging
 import sys
@@ -250,6 +251,7 @@ def _make_streaming_response(
 
     proxies: list[Any] = []
     done = False
+    ctx = contextvars.copy_context()
 
     def cleanup() -> None:
         nonlocal done
@@ -257,15 +259,16 @@ def _make_streaming_response(
             return
         done = True
         try:
-            on_close()
+            ctx.run(on_close)
         finally:
             for proxy in proxies:
                 proxy.destroy()
 
+    # Make proxies async so that it is possible to stack switch inside them.
     @create_proxy
-    def pull(controller: Any) -> None:
+    async def pull(controller: Any) -> None:
         try:
-            chunk = next(chunks, _END)
+            chunk = ctx.run(next, chunks, _END)
         except Exception as exc:  # noqa: BLE001 - forward app errors to the stream
             logger.exception("Exception while streaming WSGI response body")
             cleanup()
@@ -278,7 +281,7 @@ def _make_streaming_response(
         controller.enqueue(_to_js_uint8array(chunk))
 
     @create_proxy
-    def cancel(_reason: Any = None) -> None:
+    async def cancel(_reason: Any = None) -> None:
         cleanup()
 
     proxies = [pull, cancel]
