@@ -1,7 +1,7 @@
+from app.wsgi import application
 from workers import DurableObject, WorkerEntrypoint
 
 from django_cf import DjangoCFDurableObject
-from app.wsgi import application
 
 
 class DjangoDO(DjangoCFDurableObject, DurableObject):

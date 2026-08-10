@@ -28,14 +28,16 @@ class WorkerFixture:
         self.base_url = f"http://localhost:{self.port}"
 
         # Clean up previous wrangler state
-        wrangler_state_dir = os.path.join(worker_dir, '.wrangler')
+        wrangler_state_dir = os.path.join(worker_dir, ".wrangler")
         if os.path.exists(wrangler_state_dir):
-            subprocess.run(['rm', '-rf', wrangler_state_dir], cwd=worker_dir, check=True)
+            subprocess.run(
+                ["rm", "-rf", wrangler_state_dir], cwd=worker_dir, check=True
+            )
 
         cmd_parts = ["npx", "wrangler", "dev", "--port", str(self.port)]
         self.process = subprocess.Popen(
             cmd_parts,
-            cwd=worker_dir, # Run npx from the worker directory
+            cwd=worker_dir,  # Run npx from the worker directory
             preexec_fn=os.setsid,  # So we can kill the process group later
         )
 
@@ -75,7 +77,9 @@ class WorkerFixture:
 @pytest.fixture(scope="session")
 def durable_objects_web_server():
     """Pytest fixture that starts the worker for the entire test session."""
-    worker_dir = os.path.join(os.path.dirname(__file__), '..', 'templates', 'durable-objects')
+    worker_dir = os.path.join(
+        os.path.dirname(__file__), "..", "templates", "durable-objects"
+    )
     server = WorkerFixture()
     server.start(worker_dir)
 
@@ -86,7 +90,7 @@ def durable_objects_web_server():
 @pytest.fixture(scope="session")
 def d1_web_server():
     """Pytest fixture that starts the worker for the entire test session."""
-    worker_dir = os.path.join(os.path.dirname(__file__), '..', 'templates', 'd1')
+    worker_dir = os.path.join(os.path.dirname(__file__), "..", "templates", "d1")
     server = WorkerFixture()
     server.start(worker_dir)
 
@@ -97,7 +101,7 @@ def d1_web_server():
 @pytest.fixture(scope="session")
 def r2_web_server():
     """Pytest fixture that starts the R2 test server for the entire test session."""
-    worker_dir = os.path.join(os.path.dirname(__file__), 'servers', 'r2')
+    worker_dir = os.path.join(os.path.dirname(__file__), "servers", "r2")
     server = WorkerFixture()
     server.start(worker_dir)
 
