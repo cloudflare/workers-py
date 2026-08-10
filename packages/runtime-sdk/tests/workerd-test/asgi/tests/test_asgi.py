@@ -399,3 +399,16 @@ async def test_scope_path_is_percent_decoded():
 async def test_scope_exposes_raw_path():
     scope = await _scope("/scope/hello%20world")
     assert scope["raw_path"] == "/scope/hello%20world"
+
+
+@pytest.mark.asyncio
+async def test_late_stream_failure_terminates_response():
+    # An app that raises after the streaming response started must terminate
+    # the stream (truncated EOF) instead of leaving the client hanging; a
+    # regression here surfaces as a timeout or workerd's hung-request
+    # cancellation instead of a clean read.
+    response = await asyncio.wait_for(
+        env.SELF.fetch("http://example.com/stream-late-failure"), timeout=5
+    )
+    body = await asyncio.wait_for(response.text(), timeout=5)
+    assert body == "chunk-1"

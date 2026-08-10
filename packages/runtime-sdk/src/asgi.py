@@ -28,6 +28,13 @@ def run_in_background(coro: Awaitable[Any]) -> None:
     fut.add_done_callback(_on_done)
 
 
+async def close_stream_quietly(writer):
+    try:
+        await writer.close()
+    except Exception:
+        logger.debug("Closing the response stream failed", exc_info=True)
+
+
 @contextmanager
 def acquire_js_buffer(pybuffer):
     from pyodide.ffi import create_proxy
@@ -182,6 +189,7 @@ async def process_request(
 
     # Streaming state — initialized lazily on first body chunk with more_body=True.
     writer = None
+    writer_closed = False
 
     receive_queue = Queue()
     if req.body:
@@ -208,6 +216,7 @@ async def process_request(
         nonlocal status
         nonlocal headers
         nonlocal writer
+        nonlocal writer_closed
 
         if got["type"] == "http.response.start":
             status = got["status"]
@@ -224,6 +233,7 @@ async def process_request(
                     await writer.write(jsbytes.slice())
                 if not more_body:
                     await writer.close()
+                    writer_closed = True
                     finished_response.set()
             elif more_body:
                 # First body chunk with more data coming — switch to streaming.
@@ -275,6 +285,15 @@ async def process_request(
                 # Response already sent — exception can't be propagated to the
                 # client, so log it to avoid silently swallowing errors.
                 logger.exception("Exception in ASGI application after response started")
+                finished_response.set()
+                if writer is not None and not writer_closed:
+                    # End the body so a client reading it sees the stream stop
+                    # instead of waiting forever for chunks that will never
+                    # come. Deliberately not awaited: close() settles only once
+                    # the queued chunks reach a consumer, so a response body
+                    # that nobody reads would block this task, which the
+                    # runtime is waiting on through wait_until.
+                    run_in_background(close_stream_quietly(writer))
 
     # Create task to run the application in the background
     app_task = create_proxy(create_task(run_app()))
