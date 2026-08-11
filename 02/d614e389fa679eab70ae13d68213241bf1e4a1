@@ -1,0 +1,33 @@
+.github/workflows/tests.yml
+  s_c66f1382658ac0::t_1e4e68319ec447 58-112
+packages/runtime-sdk/pyproject.toml
+  s_c66f1382658ac0::t_e54c25759646c7 67-69
+packages/runtime-sdk/tests/bindings-test/src/test_hyperdrive_mysql.py
+  s_56f950757248e1::t_bb6e1ae5492434 1-182
+packages/runtime-sdk/tests/bindings-test/src/test_hyperdrive_postgresql.py
+  s_56f950757248e1::t_c375a0313b6e14 1-150
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "02d614e389fa679eab70ae13d68213241bf1e4a1",
+  "prompts": {},
+  "sessions": {
+    "s_56f950757248e1": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_02559482fffexBdDu1MxidiC6q",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    },
+    "s_c66f1382658ac0": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_0854c873bffeltE2VfWNF071hd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    }
+  }
+}
