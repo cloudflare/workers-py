@@ -417,5 +417,7 @@ async def test_late_stream_failure_terminates_response():
 @pytest.mark.asyncio
 async def test_multiple_set_cookie_headers_survive():
     response = await env.SELF.fetch("http://example.com/multi-cookie")
-    cookies = list(response.js_object.headers.getSetCookie())
-    assert cookies == ["first=1; Path=/", "second=2; Path=/"]
+    assert response.headers.get_all("set-cookie") == [
+        "first=1; Path=/",
+        "second=2; Path=/",
+    ]
