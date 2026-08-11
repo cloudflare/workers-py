@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.6.12 (2026-08-11)
+
+### Bug Fixes
+
+- **runtime-sdk**: Send empty WebSocket frames instead of dropping them
+  ([#165](https://github.com/cloudflare/workers-py/pull/165),
+  [`a4128ce`](https://github.com/cloudflare/workers-py/commit/a4128cee402aa6f28f01e3e2268241d05d9fd393))
+
+
 ## v1.6.11 (2026-08-10)
 
 ### Bug Fixes
