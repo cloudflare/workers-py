@@ -370,8 +370,9 @@ def _make_test(suite: str, test_name: str) -> Callable:
 
 
 def make_suite_class(suite: str, tests: list[str]) -> type:
+    camel = "".join(part.title() for part in suite.split("_"))
     return type(
-        f"Test{suite.upper()}",
+        f"Test{camel}",
         (),
         {f"test_{name}": _make_test(suite, name) for name in tests},
     )
