@@ -80,15 +80,37 @@ class WSEchoApp:
                 await send({"type": "websocket.send", "text": reply})
 
 
+class WSEmptyFrameApp:
+    """On each client frame, replies with an empty text frame, an empty binary
+    frame, and a sentinel, so a test can tell whether empty frames reach the
+    client at all."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            await _drain_lifespan(receive, send)
+            return
+        message = await receive()
+        assert message["type"] == "websocket.connect"
+        await send({"type": "websocket.accept"})
+        while True:
+            message = await receive()
+            if message["type"] == "websocket.disconnect":
+                return
+            await send({"type": "websocket.send", "text": ""})
+            await send({"type": "websocket.send", "bytes": b""})
+            await send({"type": "websocket.send", "text": "done"})
+
+
 ws_app = WSWatchApp()
 echo_app = WSEchoApp()
+empty_frame_app = WSEmptyFrameApp()
 
 
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
         if (request.headers.get("upgrade") or "").lower() == "websocket":
             path = urlsplit(request.url).path
-            app = echo_app if path == "/ws-echo" else ws_app
+            app = {"/ws-echo": echo_app, "/ws-empty": empty_frame_app}.get(path, ws_app)
             return await asgi.websocket(app, request)
         import json
 
