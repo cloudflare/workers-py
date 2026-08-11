@@ -25,15 +25,10 @@ It is published to PyPI as `django-cf` and imported as `django_cf`.
 ## Testing
 
 - Lint everything with `uvx pre-commit run -a` from the repository root.
-- The suites split by whether they need a real Worker:
-  - Host-runnable, no Node required: `tests/db/`, `tests/middleware/`, `tests/test_wsgi_handler.py`.
-  - Require `wrangler dev`: `tests/d1/`, `tests/durable_objects/`, `tests/r2/`, `tests/e2e/`, `tests/test_date_trunc.py`.
-- A bare `pytest` collects everything and fails without a Node toolchain. For the host-runnable subset, run from `packages/django-cf`:
-  ```bash
-  uv sync
-  uv run pytest tests/db tests/middleware tests/test_wsgi_handler.py
-  ```
-- The Worker-backed suites additionally need `npm run setup-test`, which runs `npm install` and copies `django_cf/` into each fixture's `python_modules/` directory. Adding, moving or renaming library files means re-running it.
-- Those suites get their base URL from the `d1_web_server`, `durable_objects_web_server` and `r2_web_server` fixtures in `tests/utils.py`, each of which spawns `npx wrangler dev` on a free port.
-- The template and fixture apps expose management endpoints for test setup, such as `/__run_migrations__/` and `/__create_admin__/`, which creates an admin user with username `admin` and password `password`.
-- This package has no test job in `.github/workflows/tests.yml` yet, so nothing here runs in CI.
+- Every suite needs a Node toolchain, because every suite runs against a real Worker. Run them from `packages/django-cf` with `uv run --frozen pytest tests`; the `django-test` job in `.github/workflows/tests.yml` runs the same command.
+- `tests/conftest.py` is the whole harness. It copies the worker project into a tmpdir, runs `pywrangler sync`, overwrites the vendored `django_cf/` with the working tree, then starts `pywrangler dev` on a free port. Nothing is installed into the repository, so there is no setup step to re-run after editing library files.
+- Two shapes of suite:
+  - `tests/d1/`, `tests/durable_objects/`, `tests/r2/` and `tests/test_date_trunc.py` drive a deployed Django app over HTTP, via the session-scoped `d1_web_server`, `durable_objects_web_server` and `r2_web_server` fixtures. Those apps live in `templates/` and `tests/servers/r2/` and expose management endpoints for setup, such as `/__run_migrations__/` and `/__create_admin__/`, which creates an admin user with username `admin` and password `password`.
+  - `tests/in_worker/` runs pytest *inside* workerd. The real test bodies are `tests/in_worker/worker/src/test_*.py`; `register_in_worker_suites` discovers them by AST and generates one host-side test per in-worker test, so a failure inside the Worker surfaces as an ordinary pytest failure. `pyproject.toml` ignores that `src` directory so the host collector does not try to import Worker-only modules.
+- The in-worker suites run once per entry in `COMPAT_CONFIGS`, currently the 3.13 and 3.14 runtimes. See the `tests/in_worker/test_in_worker.py` docstring for why 3.12 is excluded.
+- `tests/e2e/` is excluded via `addopts` and does not run. Most of it duplicates the D1, DO and R2 suites; the cases only it covers are concurrent requests, a 1MB R2 upload and a binary-download `xfail`. Re-enable it or delete it rather than leaving it half-alive.

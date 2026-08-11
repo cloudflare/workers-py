@@ -93,7 +93,7 @@ lint.per-file-ignores."templates/**" = ["F401"]
 
 [tool.pytest.ini_options]
 minversion = "6.0"
-# TODO: flaky. Enable or refactor test cases
+# TODO: e2e tests are flaky. Enable or refactor test cases
 addopts = ["-ra", "--ignore=tests/e2e", "--ignore=tests/in_worker/worker/src"]
 testpaths = [
     "tests",
