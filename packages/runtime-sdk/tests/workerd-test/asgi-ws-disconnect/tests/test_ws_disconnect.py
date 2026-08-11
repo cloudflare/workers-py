@@ -140,3 +140,19 @@ async def test_empty_frames_reach_the_client():
         assert messages[0] == ""
         assert messages[1].to_bytes() == b""
         assert messages[2] == "done"
+
+
+@pytest.mark.asyncio
+async def test_app_initiated_close_reaches_the_client():
+    async with _ws_session("/ws-app-close") as ws:
+        close = _listen(ws, "close")
+        evt = await asyncio.wait_for(close, TIMEOUT_S)
+        assert evt.code == 4001
+
+
+@pytest.mark.asyncio
+async def test_app_crash_closes_the_transport():
+    async with _ws_session("/ws-crash") as ws:
+        close = _listen(ws, "close")
+        evt = await asyncio.wait_for(close, TIMEOUT_S)
+        assert evt.code == 1011
