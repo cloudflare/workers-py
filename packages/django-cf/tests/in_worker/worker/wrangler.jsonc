@@ -1,0 +1,13 @@
+{
+    "name": "django-cf-host-only-tests",
+    "main": "src/worker.py",
+    "compatibility_date": "%COMPAT_DATE",
+    "compatibility_flags": ["python_workers"],
+    "r2_buckets": [
+        {
+            "binding": "BUCKET",
+            "bucket_name": "django-test-bucket",
+            "preview_bucket_name": "django-test-bucket-preview"
+        }
+    ]
+}
