@@ -1,0 +1,19 @@
+packages/django-cf/README.md
+  s_2f17c2d0e73fb2::t_c4cf7ac9036eac 70
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "32da21e34fa23cd3605d8f68e21acd161a4546c4",
+  "prompts": {},
+  "sessions": {
+    "s_2f17c2d0e73fb2": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_00be48176ffeN7N2QQAacCWBSy",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    }
+  }
+}
