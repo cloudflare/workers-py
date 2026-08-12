@@ -1,9 +1,10 @@
 # pyright: reportMissingImports=false
 
 from django.db import connections
+from workers import DurableObject
+
 from django_cf import DjangoCFDurableObject
 from django_cf.db.backends.do.storage import get_storage
-from workers import DurableObject
 
 
 class TestDurableObject(DjangoCFDurableObject, DurableObject):
