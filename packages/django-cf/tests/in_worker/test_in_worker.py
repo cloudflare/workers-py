@@ -59,7 +59,7 @@ def test_django_wsgi_reads_post_request_body(in_worker_server: str) -> None:
     )
 
     assert response.status_code == 200
-    assert response.text == "request-body"
+    assert response.content == b"request-body"
 
 
 def test_django_wsgi_preserves_binary_response(in_worker_server: str) -> None:
