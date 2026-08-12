@@ -1,22 +1,6 @@
 """Host-side fixtures that serve the test workers with ``pywrangler dev``.
 
-Two kinds of worker are served from here:
-
-* The deployable apps under ``templates/`` and ``tests/servers/``, which back
-  the D1, Durable Objects, R2 and date-trunc suites. Each ``*_web_server``
-  fixture starts one, applies migrations, creates the admin user and hands out
-  its base URL. These run in uv *project* mode because their ``wrangler.jsonc``
-  declares a ``build.command`` that shells out to
-  ``python manage.py collectstatic``, which needs the project's own virtualenv
-  on PATH; ``uv run --no-project`` would leave Django unimportable and the build
-  would fail before the worker starts.
-* ``tests/in_worker/worker``, which runs pytest *inside* workerd and reports
-  each result over HTTP. ``register_in_worker_suites`` mirrors those results
-  back into host-side test functions, once per entry in the compat matrix.
-
-Ported from ``packages/runtime-sdk/tests/conftest.py``. The overlap with that
-copy is deliberate: each package keeps a self-contained harness rather than
-importing a sibling package's test helpers.
+TODO: reduce the duplication between this file and packages/runtime-sdk/tests/conftest.py
 """
 
 # pyright: reportMissingImports=false, reportMissingModuleSource=false
