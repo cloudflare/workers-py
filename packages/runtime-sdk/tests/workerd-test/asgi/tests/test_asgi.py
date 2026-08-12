@@ -412,3 +412,12 @@ async def test_late_stream_failure_terminates_response():
     )
     body = await asyncio.wait_for(response.text(), timeout=5)
     assert body == "chunk-1"
+
+
+@pytest.mark.asyncio
+async def test_multiple_set_cookie_headers_survive():
+    response = await env.SELF.fetch("http://example.com/multi-cookie")
+    assert response.headers.get_all("set-cookie") == [
+        "first=1; Path=/",
+        "second=2; Path=/",
+    ]

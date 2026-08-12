@@ -233,11 +233,35 @@ class ScopeEchoApp:
         await send({"type": "http.response.body", "body": body})
 
 
+class MultiCookieApp:
+    """Sends two Set-Cookie headers; both must reach the client."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            message = await receive()
+            if message["type"] == "lifespan.startup":
+                await send({"type": "lifespan.startup.complete"})
+            return
+        await receive()
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [
+                    (b"set-cookie", b"first=1; Path=/"),
+                    (b"set-cookie", b"second=2; Path=/"),
+                ],
+            }
+        )
+        await send({"type": "http.response.body", "body": b"ok"})
+
+
 app = HeaderEchoApp()
 sse_app = SSEApp()
 streaming_app = StreamingApp()
 scope_echo_app = ScopeEchoApp()
 late_failure_stream_app = LateFailureStreamApp()
+multi_cookie_app = MultiCookieApp()
 
 example_hdr = {"Header1": "Value1", "Header2": "Value2"}
 
@@ -259,6 +283,8 @@ class Default(WorkerEntrypoint):
             return await asgi.fetch(
                 late_failure_stream_app, request, self.env, self.ctx
             )
+        elif path == "/multi-cookie":
+            return await asgi.fetch(multi_cookie_app, request, self.env, self.ctx)
 
         return await asgi.fetch(app, request, self.env, self.ctx)
 

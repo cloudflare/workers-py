@@ -8,6 +8,7 @@ from urllib.parse import unquote
 import js
 
 from workers import Context, Request
+from workers.utils import _to_js_headers
 
 ASGI = {"spec_version": "2.0", "version": "3.0"}
 NULL_BODY_STATUSES = frozenset({101, 103, 204, 205, 304})
@@ -179,7 +180,7 @@ async def process_request(
     # TODO(later): remove this parameter after unvendoring Python SDK from workerd
     ctx: Context | None,
 ) -> js.Response:
-    from js import Object, Response, TransformStream
+    from js import Response, TransformStream
     from pyodide.ffi import create_proxy
 
     status = None
@@ -221,6 +222,8 @@ async def process_request(
         if got["type"] == "http.response.start":
             status = got["status"]
             # Like above, we need to convert byte-pairs into string explicitly.
+            # A response header name may repeat (multiple Set-Cookie), so this
+            # must stay a sequence of pairs, not a name-keyed mapping.
             headers = [(k.decode(), v.decode()) for k, v in got.get("headers", [])]
 
         elif got["type"] == "http.response.body":
@@ -243,7 +246,7 @@ async def process_request(
                 readable = transform_stream.readable
                 writer = transform_stream.writable.getWriter()
                 resp = Response.new(
-                    readable, headers=Object.fromEntries(headers), status=status
+                    readable, headers=_to_js_headers(headers), status=status
                 )
                 result.set_result(resp)
                 with acquire_js_buffer(body) as jsbytes:
@@ -252,7 +255,7 @@ async def process_request(
                 # 101/103/204/205/304 must not carry a body per the Fetch spec.
                 # https://fetch.spec.whatwg.org/#null-body-status
                 resp = Response.new(
-                    None, headers=Object.fromEntries(headers), status=status
+                    None, headers=_to_js_headers(headers), status=status
                 )
                 result.set_result(resp)
                 finished_response.set()
@@ -262,7 +265,7 @@ async def process_request(
                 buf = px.getBuffer()
                 px.destroy()
                 resp = Response.new(
-                    buf.data, headers=Object.fromEntries(headers), status=status
+                    buf.data, headers=_to_js_headers(headers), status=status
                 )
                 result.set_result(resp)
                 finished_response.set()
