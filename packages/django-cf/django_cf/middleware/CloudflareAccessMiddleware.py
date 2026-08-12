@@ -1,15 +1,15 @@
-import json
 import base64
 import hashlib
-import time
-import urllib.request
-import urllib.error
-from django.contrib.auth import get_user_model, login
-from django.contrib.auth.models import AnonymousUser
-from django.http import JsonResponse
-from django.conf import settings
-from django.core.cache import cache
+import json
 import logging
+import time
+import urllib.error
+import urllib.request
+
+from django.conf import settings
+from django.contrib.auth import get_user_model, login
+from django.core.cache import cache
+from django.http import JsonResponse
 
 logger = logging.getLogger(__name__)
 
@@ -48,11 +48,13 @@ class CloudflareAccessMiddleware:
         self.get_response = get_response
 
         # Validate required settings - at least one must be provided
-        self.aud = getattr(settings, 'CLOUDFLARE_ACCESS_AUD', None)
-        self.team_name = getattr(settings, 'CLOUDFLARE_ACCESS_TEAM_NAME', None)
+        self.aud = getattr(settings, "CLOUDFLARE_ACCESS_AUD", None)
+        self.team_name = getattr(settings, "CLOUDFLARE_ACCESS_TEAM_NAME", None)
 
         if not self.aud and not self.team_name:
-            raise ValueError("Either CLOUDFLARE_ACCESS_AUD or CLOUDFLARE_ACCESS_TEAM_NAME setting is required")
+            raise ValueError(
+                "Either CLOUDFLARE_ACCESS_AUD or CLOUDFLARE_ACCESS_TEAM_NAME setting is required"
+            )
 
         # If team_name is provided, use it to construct the certs URL
         if self.team_name:
@@ -64,8 +66,10 @@ class CloudflareAccessMiddleware:
             self.certs_url = None
 
         # Optional settings
-        self.exempt_paths = getattr(settings, 'CLOUDFLARE_ACCESS_EXEMPT_PATHS', [])
-        self.cache_timeout = getattr(settings, 'CLOUDFLARE_ACCESS_CACHE_TIMEOUT', 3600)  # 1 hour
+        self.exempt_paths = getattr(settings, "CLOUDFLARE_ACCESS_EXEMPT_PATHS", [])
+        self.cache_timeout = getattr(
+            settings, "CLOUDFLARE_ACCESS_CACHE_TIMEOUT", 3600
+        )  # 1 hour
 
     def __call__(self, request):
         # Always try to authenticate with Cloudflare Access if JWT is present
@@ -76,31 +80,28 @@ class CloudflareAccessMiddleware:
                 # Set the user on the request (this overrides any logged-out state)
                 request.user = user
                 # Clear any logout-related session data
-                if hasattr(request, 'session'):
+                if hasattr(request, "session"):
                     # User was logged out but CF Access is still valid, re-authenticate
                     try:
                         login(request, user)
                         logger.info("Logged in user %s", user)
                     except Exception as e:
-                        logger.warning(f"Failed to re-login user after logout: {str(e)}")
-            else:
-                # Check if path is exempt from authentication
-                if not self._is_exempt_path(request.path):
-                    # Authentication failed and path is not exempt, return 401
-                    return JsonResponse(
-                        {'error': 'Cloudflare Access authentication required'},
-                        status=401
-                    )
+                        logger.warning(
+                            f"Failed to re-login user after logout: {str(e)}"
+                        )
+            # Check if path is exempt from authentication
+            elif not self._is_exempt_path(request.path):
+                # Authentication failed and path is not exempt, return 401
+                return JsonResponse(
+                    {"error": "Cloudflare Access authentication required"}, status=401
+                )
                 # Path is exempt, continue with anonymous user
 
         except Exception as e:
             logger.error(f"Cloudflare Access authentication error: {repr(e)}")
             # Only return 500 for non-exempt paths
             if not self._is_exempt_path(request.path):
-                return JsonResponse(
-                    {'error': 'Authentication error'},
-                    status=500
-                )
+                return JsonResponse({"error": "Authentication error"}, status=500)
 
         return self.get_response(request)
 
@@ -158,31 +159,35 @@ class CloudflareAccessMiddleware:
 
             # Validate AUD if configured
             if self.aud:
-                token_aud = decoded_token.get('aud')
+                token_aud = decoded_token.get("aud")
                 if isinstance(token_aud, list):
                     if self.aud not in token_aud:
-                        logger.warning(f"JWT audience mismatch. Expected: {self.aud}, Got: {token_aud}")
+                        logger.warning(
+                            f"JWT audience mismatch. Expected: {self.aud}, Got: {token_aud}"
+                        )
                         return None
                 elif token_aud != self.aud:
-                    logger.warning(f"JWT audience mismatch. Expected: {self.aud}, Got: {token_aud}")
+                    logger.warning(
+                        f"JWT audience mismatch. Expected: {self.aud}, Got: {token_aud}"
+                    )
                     return None
 
             # Validate AUD if not configured but we have a team name
             if not self.aud and self.team_name:
-                token_aud = decoded_token.get('aud')
+                token_aud = decoded_token.get("aud")
                 if not token_aud:
                     logger.warning("No audience found in JWT token")
                     return None
 
             # Extract user information from JWT claims
-            email = decoded_token.get('email')
-            name = decoded_token.get('name', '')
+            email = decoded_token.get("email")
+            name = decoded_token.get("name", "")
 
             # Try to get name from custom claims if not in standard claims
             if not name:
-                custom_claims = decoded_token.get('custom', {})
-                first_name = custom_claims.get('firstName', '')
-                last_name = custom_claims.get('lastName', '')
+                custom_claims = decoded_token.get("custom", {})
+                first_name = custom_claims.get("firstName", "")
+                last_name = custom_claims.get("lastName", "")
                 if first_name or last_name:
                     name = f"{first_name} {last_name}".strip()
 
@@ -201,17 +206,17 @@ class CloudflareAccessMiddleware:
     def _extract_jwt_token(self, request):
         """Extract JWT token from CF-Access-Jwt-Assertion header or cf_authorization cookie."""
         # Try header first (most common)
-        jwt_token = request.META.get('HTTP_CF_ACCESS_JWT_ASSERTION')
+        jwt_token = request.META.get("HTTP_CF_ACCESS_JWT_ASSERTION")
         if jwt_token:
             return jwt_token
 
         # Try cookie
-        jwt_token = request.COOKIES.get('CF_Authorization')
+        jwt_token = request.COOKIES.get("CF_Authorization")
         if jwt_token:
             return jwt_token
 
         # Try alternative cookie name
-        jwt_token = request.COOKIES.get('cf_authorization')
+        jwt_token = request.COOKIES.get("cf_authorization")
         if jwt_token:
             return jwt_token
 
@@ -221,24 +226,28 @@ class CloudflareAccessMiddleware:
         """Extract team name from JWT token without validation (for bootstrapping)."""
         try:
             # Split JWT into parts
-            parts = jwt_token.split('.')
+            parts = jwt_token.split(".")
             if len(parts) != 3:
                 return None
 
             # Decode payload (add padding if needed)
             payload_part = parts[1]
-            payload_part += '=' * (4 - len(payload_part) % 4)
+            payload_part += "=" * (4 - len(payload_part) % 4)
             payload_bytes = base64.urlsafe_b64decode(payload_part)
-            payload = json.loads(payload_bytes.decode('utf-8'))
+            payload = json.loads(payload_bytes.decode("utf-8"))
 
             # Extract issuer (iss) claim - format: https://teamname.cloudflareaccess.com
-            issuer = payload.get('iss')
+            issuer = payload.get("iss")
             if not issuer:
                 return None
 
             # Extract team name from issuer URL
-            if issuer.startswith('https://') and issuer.endswith('.cloudflareaccess.com'):
-                team_name = issuer.replace('https://', '').replace('.cloudflareaccess.com', '')
+            if issuer.startswith("https://") and issuer.endswith(
+                ".cloudflareaccess.com"
+            ):
+                team_name = issuer.replace("https://", "").replace(
+                    ".cloudflareaccess.com", ""
+                )
                 return team_name
 
             return None
@@ -249,7 +258,9 @@ class CloudflareAccessMiddleware:
     def _get_cloudflare_public_keys(self):
         """Retrieve Cloudflare public keys, with caching."""
         # Use team_name for cache key, or extract from team_domain if available
-        cache_key_team = self.team_name or (self.team_domain.split('.')[0] if self.team_domain else 'unknown')
+        cache_key_team = self.team_name or (
+            self.team_domain.split(".")[0] if self.team_domain else "unknown"
+        )
         cache_key = f"cloudflare_access_keys_{cache_key_team}"
         cached_keys = cache.get(cache_key)
 
@@ -267,9 +278,11 @@ class CloudflareAccessMiddleware:
             try:
                 with urllib.request.urlopen(self.certs_url) as response:
                     if response.status == 200:
-                        data = json.loads(response.read().decode('utf-8'))
+                        data = json.loads(response.read().decode("utf-8"))
                     else:
-                        logger.error(f"Failed to fetch Cloudflare keys: HTTP {response.status}")
+                        logger.error(
+                            f"Failed to fetch Cloudflare keys: HTTP {response.status}"
+                        )
                         return None
             except urllib.error.URLError as e:
                 logger.error(f"Network error fetching Cloudflare keys: {str(e)}")
@@ -278,19 +291,21 @@ class CloudflareAccessMiddleware:
                 logger.error(f"Unexpected error fetching Cloudflare keys: {str(e)}")
                 return None
 
-        keys = data.get('keys', [])
+        keys = data.get("keys", [])
 
         # Process keys for JWT validation
         processed_keys = []
         for key_info in keys:
-            if key_info.get('kty') == 'RSA':
+            if key_info.get("kty") == "RSA":
                 # Extract RSA components
                 try:
                     processed_key = self._process_rsa_key(key_info)
                     if processed_key:
                         processed_keys.append(processed_key)
                 except Exception as e:
-                    logger.warning(f"Failed to process key {key_info.get('kid')}: {str(e)}")
+                    logger.warning(
+                        f"Failed to process key {key_info.get('kid')}: {str(e)}"
+                    )
                     continue
 
         # Cache the keys
@@ -301,9 +316,9 @@ class CloudflareAccessMiddleware:
         """Process RSA key from JWK format to usable format."""
         try:
             # Extract RSA components from JWK
-            n = key_info.get('n')  # modulus
-            e = key_info.get('e')  # exponent
-            kid = key_info.get('kid')
+            n = key_info.get("n")  # modulus
+            e = key_info.get("e")  # exponent
+            kid = key_info.get("kid")
 
             if not n or not e:
                 return None
@@ -313,9 +328,9 @@ class CloudflareAccessMiddleware:
             e_bytes = self._base64url_decode(e)
 
             return {
-                'kid': kid,
-                'n': int.from_bytes(n_bytes, 'big'),
-                'e': int.from_bytes(e_bytes, 'big')
+                "kid": kid,
+                "n": int.from_bytes(n_bytes, "big"),
+                "e": int.from_bytes(e_bytes, "big"),
             }
         except Exception as e:
             logger.warning(f"Failed to process RSA key: {str(e)}")
@@ -324,14 +339,14 @@ class CloudflareAccessMiddleware:
     def _base64url_decode(self, data):
         """Decode base64url encoded data."""
         # Add padding if needed
-        data += '=' * (4 - len(data) % 4)
+        data += "=" * (4 - len(data) % 4)
         return base64.urlsafe_b64decode(data)
 
     def _decode_and_verify_jwt(self, jwt_token, key_data):
         """Decode and verify JWT token using RSA key."""
         try:
             # Split JWT into parts
-            parts = jwt_token.split('.')
+            parts = jwt_token.split(".")
             if len(parts) != 3:
                 raise ValueError("Invalid JWT format")
 
@@ -339,32 +354,32 @@ class CloudflareAccessMiddleware:
 
             # Decode header
             header_bytes = self._base64url_decode(header_part)
-            header = json.loads(header_bytes.decode('utf-8'))
+            header = json.loads(header_bytes.decode("utf-8"))
 
             # Check if this key matches the kid in the header
-            if header.get('kid') != key_data.get('kid'):
+            if header.get("kid") != key_data.get("kid"):
                 raise ValueError("Key ID mismatch")
 
             # Check algorithm
-            if header.get('alg') != 'RS256':
+            if header.get("alg") != "RS256":
                 raise ValueError("Unsupported algorithm")
 
             # Decode payload
             payload_bytes = self._base64url_decode(payload_part)
-            payload = json.loads(payload_bytes.decode('utf-8'))
+            payload = json.loads(payload_bytes.decode("utf-8"))
 
             # Check expiration
-            exp = payload.get('exp')
+            exp = payload.get("exp")
             if exp and exp < time.time():
                 raise ValueError("Token expired")
 
             # Check not before
-            nbf = payload.get('nbf')
+            nbf = payload.get("nbf")
             if nbf and nbf > time.time():
                 raise ValueError("Token not yet valid")
 
             # Verify signature
-            message = f"{header_part}.{payload_part}".encode('utf-8')
+            message = f"{header_part}.{payload_part}".encode()
             signature = self._base64url_decode(signature_part)
 
             if not self._verify_rsa_signature(message, signature, key_data):
@@ -386,15 +401,15 @@ class CloudflareAccessMiddleware:
 
             # Create PKCS#1 v1.5 padding for SHA-256
             # DigestInfo for SHA-256: 30 31 30 0d 06 09 60 86 48 01 65 03 04 02 01 05 00 04 20
-            digest_info = bytes.fromhex('3031300d060960864801650304020105000420')
+            digest_info = bytes.fromhex("3031300d060960864801650304020105000420")
             padded_hash = digest_info + message_hash
 
             # RSA signature verification
-            n = key_data['n']
-            e = key_data['e']
+            n = key_data["n"]
+            e = key_data["e"]
 
             # Convert signature to integer
-            sig_int = int.from_bytes(signature, 'big')
+            sig_int = int.from_bytes(signature, "big")
 
             # RSA verification: sig^e mod n
             decrypted_int = pow(sig_int, e, n)
@@ -404,20 +419,26 @@ class CloudflareAccessMiddleware:
             key_length = (n.bit_length() + 7) // 8
 
             # Ensure we have the right number of bytes
-            decrypted_bytes = decrypted_int.to_bytes(key_length, 'big')
+            decrypted_bytes = decrypted_int.to_bytes(key_length, "big")
 
             # Check minimum length
             if len(decrypted_bytes) < len(padded_hash) + 11:
-                logger.debug(f"Decrypted bytes too short: {len(decrypted_bytes)} < {len(padded_hash) + 11}")
+                logger.debug(
+                    f"Decrypted bytes too short: {len(decrypted_bytes)} < {len(padded_hash) + 11}"
+                )
                 return False
 
             # PKCS#1 v1.5 padding format: 0x00 0x01 [0xFF padding] 0x00 [DigestInfo + Hash]
             if len(decrypted_bytes) == 0 or decrypted_bytes[0] != 0x00:
-                logger.debug(f"Invalid padding: first byte is {decrypted_bytes[0]:02x}, expected 0x00")
+                logger.debug(
+                    f"Invalid padding: first byte is {decrypted_bytes[0]:02x}, expected 0x00"
+                )
                 return False
 
             if len(decrypted_bytes) < 2 or decrypted_bytes[1] != 0x01:
-                logger.debug(f"Invalid padding: second byte is {decrypted_bytes[1]:02x}, expected 0x01")
+                logger.debug(
+                    f"Invalid padding: second byte is {decrypted_bytes[1]:02x}, expected 0x01"
+                )
                 return False
 
             # Find the 0x00 separator
@@ -427,7 +448,9 @@ class CloudflareAccessMiddleware:
                     separator_idx = i
                     break
                 elif decrypted_bytes[i] != 0xFF:
-                    logger.debug(f"Invalid padding byte at position {i}: {decrypted_bytes[i]:02x}, expected 0xFF")
+                    logger.debug(
+                        f"Invalid padding byte at position {i}: {decrypted_bytes[i]:02x}, expected 0xFF"
+                    )
                     return False
 
             if separator_idx == -1:
@@ -440,10 +463,12 @@ class CloudflareAccessMiddleware:
                 return False
 
             # Extract and compare the hash
-            extracted_hash = decrypted_bytes[separator_idx + 1:]
+            extracted_hash = decrypted_bytes[separator_idx + 1 :]
 
             if len(extracted_hash) != len(padded_hash):
-                logger.debug(f"Hash length mismatch: {len(extracted_hash)} != {len(padded_hash)}")
+                logger.debug(
+                    f"Hash length mismatch: {len(extracted_hash)} != {len(padded_hash)}"
+                )
                 return False
 
             result = extracted_hash == padded_hash
@@ -467,23 +492,23 @@ class CloudflareAccessMiddleware:
             # Update name if it has changed
             if name and user.get_full_name() != name:
                 # Split name into first and last name
-                name_parts = name.split(' ', 1)
+                name_parts = name.split(" ", 1)
                 user.first_name = name_parts[0]
-                user.last_name = name_parts[1] if len(name_parts) > 1 else ''
+                user.last_name = name_parts[1] if len(name_parts) > 1 else ""
                 user.save()
 
             return user
 
         except User.DoesNotExist:
             # Create new user
-            name_parts = name.split(' ', 1) if name else ['', '']
+            name_parts = name.split(" ", 1) if name else ["", ""]
 
             user = User.objects.create_user(
                 username=email,  # Use email as username
                 email=email,
                 first_name=name_parts[0],
-                last_name=name_parts[1] if len(name_parts) > 1 else '',
-                is_active=True
+                last_name=name_parts[1] if len(name_parts) > 1 else "",
+                is_active=True,
             )
 
             logger.info(f"Created new user from Cloudflare Access: {email}")

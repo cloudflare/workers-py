@@ -8,6 +8,7 @@ from urllib.parse import unquote
 import js
 
 from workers import Context, Request
+from workers.utils import _to_js_headers
 
 ASGI = {"spec_version": "2.0", "version": "3.0"}
 NULL_BODY_STATUSES = frozenset({101, 103, 204, 205, 304})
@@ -26,6 +27,13 @@ def run_in_background(coro: Awaitable[Any]) -> None:
             logger.error("Unhandled exception in background task", exc_info=exc)
 
     fut.add_done_callback(_on_done)
+
+
+async def close_stream_quietly(writer):
+    try:
+        await writer.close()
+    except Exception:
+        logger.debug("Closing the response stream failed", exc_info=True)
 
 
 @contextmanager
@@ -172,7 +180,7 @@ async def process_request(
     # TODO(later): remove this parameter after unvendoring Python SDK from workerd
     ctx: Context | None,
 ) -> js.Response:
-    from js import Object, Response, TransformStream
+    from js import Response, TransformStream
     from pyodide.ffi import create_proxy
 
     status = None
@@ -182,6 +190,7 @@ async def process_request(
 
     # Streaming state — initialized lazily on first body chunk with more_body=True.
     writer = None
+    writer_closed = False
 
     receive_queue = Queue()
     if req.body:
@@ -208,10 +217,13 @@ async def process_request(
         nonlocal status
         nonlocal headers
         nonlocal writer
+        nonlocal writer_closed
 
         if got["type"] == "http.response.start":
             status = got["status"]
             # Like above, we need to convert byte-pairs into string explicitly.
+            # A response header name may repeat (multiple Set-Cookie), so this
+            # must stay a sequence of pairs, not a name-keyed mapping.
             headers = [(k.decode(), v.decode()) for k, v in got.get("headers", [])]
 
         elif got["type"] == "http.response.body":
@@ -224,6 +236,7 @@ async def process_request(
                     await writer.write(jsbytes.slice())
                 if not more_body:
                     await writer.close()
+                    writer_closed = True
                     finished_response.set()
             elif more_body:
                 # First body chunk with more data coming — switch to streaming.
@@ -233,7 +246,7 @@ async def process_request(
                 readable = transform_stream.readable
                 writer = transform_stream.writable.getWriter()
                 resp = Response.new(
-                    readable, headers=Object.fromEntries(headers), status=status
+                    readable, headers=_to_js_headers(headers), status=status
                 )
                 result.set_result(resp)
                 with acquire_js_buffer(body) as jsbytes:
@@ -242,7 +255,7 @@ async def process_request(
                 # 101/103/204/205/304 must not carry a body per the Fetch spec.
                 # https://fetch.spec.whatwg.org/#null-body-status
                 resp = Response.new(
-                    None, headers=Object.fromEntries(headers), status=status
+                    None, headers=_to_js_headers(headers), status=status
                 )
                 result.set_result(resp)
                 finished_response.set()
@@ -252,7 +265,7 @@ async def process_request(
                 buf = px.getBuffer()
                 px.destroy()
                 resp = Response.new(
-                    buf.data, headers=Object.fromEntries(headers), status=status
+                    buf.data, headers=_to_js_headers(headers), status=status
                 )
                 result.set_result(resp)
                 finished_response.set()
@@ -275,6 +288,15 @@ async def process_request(
                 # Response already sent — exception can't be propagated to the
                 # client, so log it to avoid silently swallowing errors.
                 logger.exception("Exception in ASGI application after response started")
+                finished_response.set()
+                if writer is not None and not writer_closed:
+                    # End the body so a client reading it sees the stream stop
+                    # instead of waiting forever for chunks that will never
+                    # come. Deliberately not awaited: close() settles only once
+                    # the queued chunks reach a consumer, so a response body
+                    # that nobody reads would block this task, which the
+                    # runtime is waiting on through wait_until.
+                    run_in_background(close_stream_quietly(writer))
 
     # Create task to run the application in the background
     app_task = create_proxy(create_task(run_app()))
@@ -294,6 +316,9 @@ async def process_websocket(app: Any, req: "Request | js.Request") -> js.Respons
 
     client, server = WebSocketPair.new().object_values()
     server.accept()
+    # Binary frames otherwise arrive as Blob (observed under wrangler dev),
+    # which cannot be read synchronously in the message callback.
+    server.binaryType = "arraybuffer"
     queue = Queue()
 
     def onopen(evt):
@@ -312,7 +337,14 @@ async def process_websocket(app: Any, req: "Request | js.Request") -> js.Respons
         queue.put_nowait(msg)
 
     def onmessage(evt):
-        msg = {"type": "websocket.receive", "text": evt.data}
+        data = evt.data
+        if isinstance(data, str):
+            msg = {"type": "websocket.receive", "text": data}
+        else:
+            # Binary frames arrive as an ArrayBuffer; the ASGI spec requires
+            # them under "bytes" (frameworks like Starlette dispatch on which
+            # key is present, so labeling them "text" breaks receive_bytes()).
+            msg = {"type": "websocket.receive", "bytes": data.to_bytes()}
         queue.put_nowait(msg)
 
     server.onopen = onopen
@@ -323,12 +355,12 @@ async def process_websocket(app: Any, req: "Request | js.Request") -> js.Respons
         if got["type"] == "websocket.send":
             b = got.get("bytes", None)
             s = got.get("text", None)
-            if b:
+            if b is not None:
                 with acquire_js_buffer(b) as jsbytes:
                     # Unlike the `Response` constructor,  server.send seems to
                     # eagerly copy the source buffer
                     server.send(jsbytes)
-            if s:
+            if s is not None:
                 server.send(s)
 
         else:

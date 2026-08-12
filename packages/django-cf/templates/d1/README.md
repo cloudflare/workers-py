@@ -2,7 +2,7 @@
 
 This template provides a starting point for running a Django application on Cloudflare Workers, utilizing Cloudflare D1 for serverless SQL database.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/G4brym/django-cf/tree/main/templates/d1)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/workers-py/tree/main/packages/django-cf/templates/d1)
 
 ## Overview
 
@@ -37,15 +37,15 @@ template-root/
 
 1.  **Install Dependencies:**
     Ensure you have Node.js, npm, and Python installed. Then:
-    
+
     ```bash
     # Install Node.js dependencies
     npm install
-    
+
     # Install Python dependencies
     uv sync
     ```
-    
+
     If you don't have `uv` installed, install it first:
     ```bash
     pip install uv
@@ -142,4 +142,4 @@ Check the JSON response in your browser to see the status of the command.
     *   Protect your Cloudflare credentials and API tokens.
 
 ---
-*For more details on `django-cf` features and configurations, refer to the main [django-cf GitHub repository](https://github.com/G4brym/django-cf).*
+*For more details on `django-cf` features and configurations, refer to the main [django-cf GitHub repository](https://github.com/cloudflare/workers-py).*

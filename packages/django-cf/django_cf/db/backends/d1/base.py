@@ -1,6 +1,11 @@
 from django.core.exceptions import ImproperlyConfigured
 
-from ...base_engine import CFDatabaseWrapper, is_read_only_query, CFResult, replace_date_trunc_in_sql
+from ...base_engine import (
+    CFDatabaseWrapper,
+    CFResult,
+    is_read_only_query,
+    replace_date_trunc_in_sql,
+)
 
 
 class DatabaseWrapper(CFDatabaseWrapper):
@@ -29,38 +34,37 @@ class DatabaseWrapper(CFDatabaseWrapper):
 
         try:
             from pyodide.ffi import run_sync
+
             self.run_sync = run_sync
         except ImportError as e:
             print(e)
             raise Exception("Code not running inside a worker!")
-
 
     def process_query(self, query, params=None):
         # Replace django_date_trunc and django_datetime_trunc with SQLite equivalents
         query = replace_date_trunc_in_sql(query)
 
         if params is None:
-            query = query.replace('%s', '?')
+            query = query.replace("%s", "?")
         else:
             new_params = []
             for param in params:
                 if param is None:
-                    query = query.replace('%s', 'null', 1)
+                    query = query.replace("%s", "null", 1)
                 else:
                     new_params.append(param)
-                    query = query.replace('%s', '?', 1)
+                    query = query.replace("%s", "?", 1)
 
             params = new_params
 
-
         if self.cursor()._defer_foreign_keys:
-            return f'''
+            return f"""
             PRAGMA defer_foreign_keys = on
 
             {query}
 
             PRAGMA defer_foreign_keys = off
-            '''
+            """
 
         return query, params
 
@@ -68,24 +72,33 @@ class DatabaseWrapper(CFDatabaseWrapper):
         proc_query, params = self.process_query(query, params)
 
         from workers import env
+
         db = getattr(env, self.binding)
 
         if params:
-            stmt = db.prepare(proc_query).bind(*params);
+            stmt = db.prepare(proc_query).bind(*params)
         else:
-            stmt = db.prepare(proc_query);
+            stmt = db.prepare(proc_query)
 
         read_only = is_read_only_query(proc_query)
         try:
             if read_only:
-                response = self.run_sync(stmt.raw()).to_py()
+                response = self.run_sync(stmt.raw())
                 result = CFResult.from_object(query, params, response, len(response), 0)
             else:
                 response = self.run_sync(stmt.all())
-                result = CFResult.from_object(query, params, response.results.to_py(), response.meta.rows_read, response.meta.rows_written,
-                                            response.meta.last_row_id)
+                meta = response["meta"]
+                result = CFResult.from_object(
+                    query,
+                    params,
+                    response["results"],
+                    meta["rows_read"],
+                    meta["rows_written"],
+                    meta["last_row_id"],
+                )
         except Exception:
             from js import Error
+
             Error.stackTraceLimit = 1e10
             raise Error(Error.new().stack)
 

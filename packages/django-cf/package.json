@@ -2,21 +2,17 @@
   "name": "django-cf",
   "version": "0.2.10",
   "description": "`django-cf` is a Python package that seamlessly integrates your Django applications with various Cloudflare services. Utilize the power of Cloudflare's global network for your Django projects.",
-  "homepage": "https://github.com/G4brym/django-cf",
+  "homepage": "https://github.com/cloudflare/workers-py",
   "bugs": {
-    "url": "https://github.com/G4brym/django-cf/issues"
+    "url": "https://github.com/cloudflare/workers-py/issues"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/G4brym/django-cf.git"
+    "url": "git+https://github.com/cloudflare/workers-py.git"
   },
   "license": "MIT",
   "scripts": {
-    "setup-durable-objects": "cd templates/durable-objects && npm run dependencies && rm -rf python_modules/django_cf && cp -r ../../django_cf python_modules/django_cf",
-    "setup-d1": "cd templates/d1 && npm run dependencies && rm -rf python_modules/django_cf && cp -r ../../django_cf python_modules/django_cf",
-    "setup-test-servers": "cd tests/servers/r2 && npm run dependencies && rm -rf python_modules/django_cf && cp -r ../../../django_cf python_modules/django_cf",
-    "setup-test": "pip install -e .[dev] && npm run setup-durable-objects && npm run setup-d1 && npm run setup-test-servers",
-    "test": "pytest",
+    "test": "uv run pytest",
     "upgrade-templates": "cd templates/durable-objects && uv add django-cf --upgrade && cd ../d1 && uv add django-cf --upgrade",
     "build": "rm -rf dist/ && python3 -m build",
     "publish": "python3 -m twine upload dist/*"

@@ -8,6 +8,7 @@ A monorepo containing Python libraries and tools for Cloudflare Workers.
 |---------|-------------|
 | [workers-py](./packages/cli/) | A set of libraries and tools for Python Workers |
 | [workers-runtime-sdk](./packages/runtime-sdk/) | Python SDK for Cloudflare Workers |
+| [django-cf](./packages/django-cf/) | Django integration for Cloudflare D1, Durable Objects, R2 and Access |
 
 ## Development
 
@@ -43,6 +44,7 @@ This project uses [Conventional Commits](https://www.conventionalcommits.org/) w
 
 - `feat(cli): add new feature` - Feature for workers-py
 - `fix(runtime-sdk): fix bug` - Bug fix for workers-runtime-sdk
+- `feat(django-cf): add new feature` - Feature for django-cf
 
 Tags:
 - `feat`: New feature (triggers minor version bump)

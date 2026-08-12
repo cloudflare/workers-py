@@ -110,3 +110,25 @@ jobs:
       working-directory: packages/runtime-sdk
       run: |
         uv run --frozen pytest -v --color=yes -m hyperdrive tests
+
+  django-test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python-version: ['3.14']
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Run django-cf tests
+      working-directory: packages/django-cf
+      run: |
+        uv run --frozen pytest -v --color=yes tests

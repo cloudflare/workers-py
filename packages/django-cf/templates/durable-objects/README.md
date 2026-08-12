@@ -2,7 +2,7 @@
 
 This template provides a starting point for running a Django application on Cloudflare Workers, utilizing Cloudflare Durable Objects for stateful data persistence.
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/G4brym/django-cf/tree/main/templates/durable-objects)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/cloudflare/workers-py/tree/main/packages/django-cf/templates/durable-objects)
 
 ## Overview
 
@@ -10,7 +10,7 @@ This template is pre-configured to:
 - Use `django-cf` to bridge Django with Cloudflare's environment.
 - Employ Durable Objects as the primary data store through the `django_cf.db.backends.do` database engine.
 - Include a basic Django project structure within the `src/` directory.
-- Provide example worker entrypoint (`src/worker.py`) and Durable Object class.
+- Provide example worker entrypoint (`src/index.py`) and Durable Object class.
 
 ## Project Structure
 
@@ -18,7 +18,7 @@ This template is pre-configured to:
 template-root/
  |-> src/
  |    |-> manage.py             # Django management script
- |    |-> worker.py             # Cloudflare Worker entrypoint & Durable Object class
+ |    |-> index.py              # Cloudflare Worker entrypoint & Durable Object class
  |    |-> app/                  # Your Django project (rename as needed)
  |    |    |-> settings.py       # Django settings, configured for DO
  |    |    |-> urls.py           # Django URLs, includes management endpoints
@@ -38,15 +38,15 @@ template-root/
 
 1.  **Install Dependencies:**
     Ensure you have Node.js, npm, and Python installed. Then:
-    
+
     ```bash
     # Install Node.js dependencies
     npm install
-    
+
     # Install Python dependencies
     uv sync
     ```
-    
+
     If you don't have `uv` installed, install it first:
     ```bash
     pip install uv
@@ -71,27 +71,28 @@ template-root/
     }
     ```
 
-4.  **Worker Entrypoint (`src/worker.py`):**
-    This file contains your Durable Object class (`DjangoDO`) and the main `on_fetch` handler.
+4.  **Worker Entrypoint (`src/index.py`):**
+    This file contains your Durable Object class (`DjangoDO`) and the worker entrypoint that routes requests to it.
     ```python
+    from app.wsgi import application
+    from workers import DurableObject, WorkerEntrypoint
+
     from django_cf import DjangoCFDurableObject
-    from workers import DurableObject # Standard Cloudflare DurableObject base
 
     class DjangoDO(DjangoCFDurableObject, DurableObject):
         def get_app(self):
             # Your Django project's WSGI application (ensure 'app' matches your project name)
-            from app.wsgi import application
             return application
         # You can add custom methods to your Durable Object here
 
-    # Main fetch handler for the worker
-    async def on_fetch(request, env):
-        # This example routes all requests to a single DO instance (singleton).
-        # For multi-tenant apps, derive 'name' from the request (e.g., user ID, path segment).
-        # The DO_STORAGE binding name here must match what's in wrangler.jsonc
-        do_id = env.DO_STORAGE.idFromName("singleton_instance")
-        stub = env.DO_STORAGE.get(do_id)
-        return await stub.fetch(request) # Forward the request to the Durable Object
+    class Default(WorkerEntrypoint):
+        async def fetch(self, request):
+            # This example routes all requests to a single DO instance (singleton).
+            # For multi-tenant apps, derive the name from the request (e.g. user ID, path segment).
+            # The DO_STORAGE binding name here must match what's in wrangler.jsonc
+            do_id = self.env.DO_STORAGE.idFromName("singleton_instance")
+            stub = self.env.DO_STORAGE.get(do_id)
+            return await stub.fetch(request) # Forward the request to the Durable Object
     ```
 
 5.  **Run Development Server:**

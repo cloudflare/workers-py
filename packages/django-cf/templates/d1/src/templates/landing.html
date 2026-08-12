@@ -16,32 +16,32 @@
                 transform: translateY(0);
             }
         }
-        
+
         @keyframes spin {
             to { transform: rotate(360deg); }
         }
-        
+
         .animate-fade-in-up {
             animation: fadeInUp 0.6s ease forwards;
         }
-        
+
         .animate-spin-custom {
             animation: spin 1s linear infinite;
         }
-        
+
         .gradient-text {
             background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
         }
-        
+
         .glass-effect {
             background: rgba(255, 255, 255, 0.08);
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.1);
         }
-        
+
         .status-message {
             position: fixed;
             top: 20px;
@@ -50,7 +50,7 @@
             z-index: 50;
             animation: slideDown 0.3s ease;
         }
-        
+
         @keyframes slideDown {
             from {
                 opacity: 0;
@@ -207,7 +207,7 @@
             <div class="flex flex-col sm:flex-row items-center justify-between gap-6">
                 <p class="text-slate-400">Built with ❤️ for serverless Django</p>
                 <div class="flex gap-6">
-                    <a href="https://github.com/G4brym/django-cf" target="_blank" class="text-emerald-400 hover:text-emerald-300 transition-colors">GitHub</a>
+                    <a href="https://github.com/cloudflare/workers-py" target="_blank" class="text-emerald-400 hover:text-emerald-300 transition-colors">GitHub</a>
                     <a href="https://developers.cloudflare.com/d1/" target="_blank" class="text-emerald-400 hover:text-emerald-300 transition-colors">D1 Docs</a>
                     <a href="https://docs.djangoproject.com/" target="_blank" class="text-emerald-400 hover:text-emerald-300 transition-colors">Django Docs</a>
                 </div>
@@ -220,14 +220,14 @@
             const container = document.getElementById('statusContainer');
             const bgColor = type === 'success' ? 'bg-emerald-500/20 border-emerald-500/50' : 'bg-red-500/20 border-red-500/50';
             const textColor = type === 'success' ? 'text-emerald-300' : 'text-red-300';
-            
+
             const statusEl = document.createElement('div');
             statusEl.className = `status-message glass-effect rounded-lg px-6 py-3 ${bgColor} ${textColor} font-semibold`;
             statusEl.textContent = message;
-            
+
             container.innerHTML = '';
             container.appendChild(statusEl);
-            
+
             setTimeout(() => {
                 statusEl.remove();
             }, 4000);
@@ -238,16 +238,16 @@
             const text = document.getElementById('migrationsText');
             const spinner = document.getElementById('migrationsSpinner');
             const status = document.getElementById('migrationStatus');
-            
+
             btn.disabled = true;
             text.classList.add('hidden');
             spinner.classList.remove('hidden');
             status.textContent = 'Loading...';
-            
+
             try {
                 const response = await fetch('/__run_migrations__/');
                 const data = await response.json();
-                
+
                 if (data.status === 'success') {
                     showStatus('✓ Migrations completed successfully!', 'success');
                     status.textContent = '✓ Done';
@@ -273,16 +273,16 @@
             const text = document.getElementById('adminText');
             const spinner = document.getElementById('adminSpinner');
             const status = document.getElementById('adminStatus');
-            
+
             btn.disabled = true;
             text.classList.add('hidden');
             spinner.classList.remove('hidden');
             status.textContent = 'Loading...';
-            
+
             try {
                 const response = await fetch('/__create_admin__/');
                 const data = await response.json();
-                
+
                 if (data.status === 'success' || data.status === 'info') {
                     showStatus('✓ Admin user ready! Use admin / password', 'success');
                     status.textContent = '✓ Done';
