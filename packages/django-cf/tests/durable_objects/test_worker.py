@@ -1,7 +1,5 @@
 import requests
 
-from ..utils import durable_objects_web_server  # noqa: F401
-
 
 def test_migrations(durable_objects_web_server):
     """Run migrations."""
