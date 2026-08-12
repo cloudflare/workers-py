@@ -1,0 +1,25 @@
+.github/workflows/release.yml
+  s_b1e35fe783f8b0::t_bf4d9920c83fc4 153-203,206-207
+packages/django-cf/CHANGELOG.md
+  s_b1e35fe783f8b0::t_b3eda6ab360c2b 1,3,5,7-10
+packages/django-cf/package.json
+  s_b1e35fe783f8b0::t_ccec65cb4bece9 17
+packages/django-cf/pyproject.toml
+  s_b1e35fe783f8b0::t_7f31f2665b6810 113-198
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "a76631b4473d8ecd9e365185c1ca8b1b19afaaea",
+  "prompts": {},
+  "sessions": {
+    "s_b1e35fe783f8b0": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_00b42a676ffegMlIAa6fYuO5rQ",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    }
+  }
+}
