@@ -234,14 +234,16 @@ class TestR2StorageListdirEdgeCases:
 class TestR2StorageTimeMethodsFallback:
     def test_get_accessed_time_returns_modified_time(self):
         storage = make_live_r2_storage(location=unique_name("r2-accessed-time"))
-        expected = datetime(2026, 1, 1, 12, 0, 0)
-        storage.get_modified_time = lambda name: expected
+        name = unique_name("accessed") + ".txt"
+        save_bytes(storage, name, b"content")
+        expected = storage.get_modified_time(name)
 
-        assert storage.get_accessed_time("file.txt") == expected
+        assert storage.get_accessed_time(name) == expected
 
     def test_get_created_time_returns_modified_time(self):
         storage = make_live_r2_storage(location=unique_name("r2-created-time"))
-        expected = datetime(2026, 1, 1, 12, 0, 0)
-        storage.get_modified_time = lambda name: expected
+        name = unique_name("created") + ".txt"
+        save_bytes(storage, name, b"content")
+        expected = storage.get_modified_time(name)
 
-        assert storage.get_created_time("file.txt") == expected
+        assert storage.get_created_time(name) == expected
