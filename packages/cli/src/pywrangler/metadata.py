@@ -10,7 +10,9 @@ class PythonCompatVersion(NamedTuple):
 
 
 PYTHON_COMPAT_VERSIONS = [
-    PythonCompatVersion("3.14", "python_workers_20260610", None, experimental=True),
+    PythonCompatVersion(
+        "3.14", "python_workers_20260610", datetime.strptime("2026-08-25", "%Y-%m-%d")
+    ),
     PythonCompatVersion(
         "3.13", "python_workers_20250116", datetime.strptime("2025-09-29", "%Y-%m-%d")
     ),
