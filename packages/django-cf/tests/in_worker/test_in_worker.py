@@ -32,9 +32,9 @@ def compat_config(request: pytest.FixtureRequest) -> CompatConfig:
 register_in_worker_suites(globals(), IN_WORKER_SRC_DIR)
 
 
-def test_wsgi_header_transformation(in_worker_server: str) -> None:
+def test_django_wsgi_header_transformation(in_worker_server: str) -> None:
     response = requests.get(
-        f"{in_worker_server}/wsgi/headers",
+        f"{in_worker_server}/django/headers/",
         headers={
             "cf-access-jwt-assertion": "jwt-token",
             "x-custom-header": "custom-value",
@@ -50,9 +50,9 @@ def test_wsgi_header_transformation(in_worker_server: str) -> None:
     assert payload["content_type"] == "text/plain"
 
 
-def test_wsgi_reads_request_body(in_worker_server: str) -> None:
+def test_django_wsgi_reads_post_request_body(in_worker_server: str) -> None:
     response = requests.post(
-        f"{in_worker_server}/wsgi/body",
+        f"{in_worker_server}/django/body/",
         headers={"content-type": "text/plain"},
         data=b"request-body",
         timeout=10,
@@ -60,3 +60,59 @@ def test_wsgi_reads_request_body(in_worker_server: str) -> None:
 
     assert response.status_code == 200
     assert response.text == "request-body"
+
+
+def test_django_wsgi_preserves_binary_response(in_worker_server: str) -> None:
+    response = requests.get(f"{in_worker_server}/django/binary/", timeout=10)
+
+    assert response.status_code == 200
+    assert response.headers["content-type"] == "application/octet-stream"
+    assert response.content == bytes(range(256))
+
+
+def test_django_wsgi_streams_response(in_worker_server: str) -> None:
+    response = requests.get(
+        f"{in_worker_server}/django/stream/", stream=True, timeout=10
+    )
+
+    assert response.status_code == 200
+    assert "content-length" not in response.headers
+    assert response.content == b"".join(bytes([value]) * 1024 for value in range(5))
+
+
+def test_django_wsgi_preserves_multiple_cookies(in_worker_server: str) -> None:
+    response = requests.get(f"{in_worker_server}/django/cookies/", timeout=10)
+
+    assert response.status_code == 200
+    assert len(response.raw.headers.getlist("set-cookie")) == 2
+    assert response.cookies["first"] == "1"
+    assert response.cookies["second"] == "2"
+
+
+def test_django_wsgi_builds_request_metadata(in_worker_server: str) -> None:
+    response = requests.get(
+        f"{in_worker_server}/django/meta/%E6%9D%B1%E4%BA%AC/",
+        params=[("value", "first"), ("value", "second")],
+        timeout=10,
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "path": "/django/meta/東京/",
+        "segment": "東京",
+        "values": ["first", "second"],
+        "has_env": True,
+        "has_bucket": True,
+    }
+
+
+def test_django_wsgi_reads_delete_request_body(in_worker_server: str) -> None:
+    response = requests.delete(
+        f"{in_worker_server}/django/body/",
+        data=b"\x00\xffrequest-body",
+        timeout=10,
+    )
+
+    assert response.status_code == 200
+    assert response.headers["x-request-method"] == "DELETE"
+    assert response.content == b"\x00\xffrequest-body"
