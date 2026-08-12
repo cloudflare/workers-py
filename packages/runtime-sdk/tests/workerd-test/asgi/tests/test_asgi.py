@@ -9,6 +9,13 @@ from worker import STREAMING_CHUNK_SIZE, STREAMING_NUM_CHUNKS, example_hdr
 
 import asgi
 from workers import Request, env
+from workers import asgi as workers_asgi
+
+
+def test_legacy_asgi_module_is_canonical_module():
+    assert asgi is workers_asgi
+    assert asgi.__getattr__ is workers_asgi.__getattr__
+    assert asgi._to_js_headers is workers_asgi._to_js_headers
 
 
 def test_request_to_scope_matches_js_and_py():
