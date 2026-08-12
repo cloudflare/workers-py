@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.6.13 (2026-08-12)
+
+### Bug Fixes
+
+- **runtime-sdk**: Preserve repeated response headers (multiple `Set-Cookie`)
+  ([#167](https://github.com/cloudflare/workers-py/pull/167),
+  [`f68bf6d`](https://github.com/cloudflare/workers-py/commit/f68bf6d622c896b6c61fe3c615d43d6e9b05d19b))
+
+
 ## v1.6.12 (2026-08-11)
 
 ### Bug Fixes
