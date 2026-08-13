@@ -50,8 +50,10 @@ class TestCFResult:
         result = CFResult(data)
 
         row = result.fetchone()
-        assert row == (3, "c")
-        assert len(result.data) == 2
+        assert row == (1, "a")
+        assert result.data == data
+        assert result.fetchall() == [(2, "b"), (3, "c")]
+        assert result.fetchone() is None
 
     def test_fetchone_empty(self):
         from django_cf.db.base_engine import CFResult
@@ -66,8 +68,9 @@ class TestCFResult:
         data = [(1, "a"), (2, "b"), (3, "c")]
         result = CFResult(data)
 
-        assert result.fetchall() == [(3, "c"), (2, "b"), (1, "a")]
-        assert len(result.data) == 0
+        assert result.fetchall() == [(1, "a"), (2, "b"), (3, "c")]
+        assert result.data == data
+        assert result.fetchall() == []
 
     def test_fetchall_empty(self):
         from django_cf.db.base_engine import CFResult
@@ -80,8 +83,8 @@ class TestCFResult:
         data = [(1, "a"), (2, "b"), (3, "c")]
         result = CFResult(data)
 
-        assert result.fetchmany() == [(3, "c")]
-        assert len(result.data) == 2
+        assert result.fetchmany() == [(1, "a")]
+        assert result.data == data
 
     def test_fetchmany_specific_size(self):
         from django_cf.db.base_engine import CFResult
@@ -90,8 +93,24 @@ class TestCFResult:
         result = CFResult(data)
 
         rows = result.fetchmany(2)
-        assert len(rows) == 2
-        assert len(result.data) == 1
+        assert rows == [(1, "a"), (2, "b")]
+        assert result.data == data
+        assert result.fetchmany(2) == [(3, "c")]
+        assert result.fetchmany(2) == []
+
+    def test_fetchmany_non_positive_size_does_not_advance(self):
+        from django_cf.db.base_engine import CFResult
+
+        data = [(1, "a"), (2, "b"), (3, "c")]
+        result = CFResult(data)
+
+        assert result.fetchmany(0) == []
+        assert result.fetchone() == (1, "a")
+
+        result = CFResult(data)
+
+        assert result.fetchmany(-1) == []
+        assert result.fetchone() == (1, "a")
 
     def test_fetchmany_more_than_available(self):
         from django_cf.db.base_engine import CFResult
@@ -100,8 +119,20 @@ class TestCFResult:
         result = CFResult(data)
 
         rows = result.fetchmany(5)
-        assert len(rows) == 2
-        assert len(result.data) == 0
+        assert rows == [(1, "a"), (2, "b")]
+        assert result.data == data
+        assert result.fetchone() is None
+
+    def test_fetchone_then_fetchall_returns_remaining_rows(self):
+        from django_cf.db.base_engine import CFResult
+
+        data = [(1, "a"), (2, "b"), (3, "c")]
+        result = CFResult(data)
+
+        assert result.fetchone() == (1, "a")
+        assert result.fetchall() == [(2, "b"), (3, "c")]
+        assert result.data == data
+        assert result.fetchone() is None
 
     def test_from_object_with_list_rows(self):
         from django_cf.db.base_engine import CFResult

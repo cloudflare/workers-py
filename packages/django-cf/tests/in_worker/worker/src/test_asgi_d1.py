@@ -58,12 +58,13 @@ async def update_view(request):
 
 
 async def iterate_view(request):
-    del request
     for value in ["charlie", "alpha", "bravo"]:
         await AsgiD1Record.objects.using("d1").acreate(value=value)
 
+    order_field = "-value" if request.GET.get("direction") == "desc" else "value"
+
     values = []
-    queryset = AsgiD1Record.objects.using("d1").order_by("value")
+    queryset = AsgiD1Record.objects.using("d1").order_by(order_field)
     async for record in queryset:
         values.append(record.value)
 
@@ -148,9 +149,18 @@ async def test_asgi_d1_orm_update_returns_affected_rows_and_persists_value():
 
 
 @pytest.mark.asyncio
-async def test_asgi_d1_orm_async_iteration_returns_all_rows():
+async def test_asgi_d1_orm_async_iteration_returns_all_rows_ascending():
     response, payload = await _run_d1_request("/asgi/d1/iterate/")
 
     assert response.status == 200
     assert payload is not None
-    assert sorted(payload["values"]) == ["alpha", "bravo", "charlie"]
+    assert payload["values"] == ["alpha", "bravo", "charlie"]
+
+
+@pytest.mark.asyncio
+async def test_asgi_d1_orm_async_iteration_returns_all_rows_descending():
+    response, payload = await _run_d1_request("/asgi/d1/iterate/?direction=desc")
+
+    assert response.status == 200
+    assert payload is not None
+    assert payload["values"] == ["charlie", "bravo", "alpha"]
