@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.16.4 (2026-08-13)
+
+### Bug Fixes
+
+- Bump minimum uv version
+  ([`8ffe0ea`](https://github.com/cloudflare/workers-py/commit/8ffe0ea098c7cf5f7143a27478d32087b126a082))
+
+
 ## v1.16.3 (2026-08-13)
 
 ### Bug Fixes
