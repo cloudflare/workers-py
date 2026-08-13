@@ -150,10 +150,61 @@ jobs:
           path: packages/cli/dist
           if-no-files-found: error
 
+  release-django-cf:
+    runs-on: ubuntu-latest
+    needs: release-cli
+    # django-cf depends on neither of the other packages, but every PSR job pushes
+    # a version bump to main, so the jobs are serialized to avoid racing on push.
+    if: always() && (needs.release-cli.result == 'success')
+    concurrency:
+      group: ${{ github.workflow }}-release-django-cf-${{ github.ref_name }}
+      cancel-in-progress: false
+
+    outputs:
+      released: ${{ steps.release.outputs.released }}
+      tag: ${{ steps.release.outputs.tag }}
+
+    permissions:
+      contents: write
+
+    steps:
+      # Checkout latest ref (may include the preceding jobs' version commits)
+      - name: Setup | Checkout Repository on Release Branch
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.DEVPROD_PAT }}
+          ref: main
+          fetch-depth: 0
+
+      - name: Action | Semantic Version Release
+        id: release
+        uses: python-semantic-release/python-semantic-release@v10.5.3
+        with:
+          github_token: ${{ secrets.DEVPROD_PAT }}
+          git_committer_name: "Workers DevProd"
+          git_committer_email: "workers-devprod@cloudflare.com"
+          directory: packages/django-cf
+
+      - name: Publish | Upload to GitHub Release Assets
+        uses: python-semantic-release/publish-action@v10.5.3
+        if: steps.release.outputs.released == 'true'
+        with:
+          github_token: ${{ secrets.DEVPROD_PAT }}
+          tag: ${{ steps.release.outputs.tag }}
+          directory: packages/django-cf
+
+      - name: Upload | Distribution Artifacts
+        uses: actions/upload-artifact@v4
+        if: steps.release.outputs.released == 'true'
+        with:
+          name: distribution-artifacts-django-cf
+          path: packages/django-cf/dist
+          if-no-files-found: error
+
   deploy:
     runs-on: ubuntu-latest
-    needs: [release-runtime-sdk, release-cli]
-    if: always() && (needs.release-runtime-sdk.outputs.released == 'true' || needs.release-cli.outputs.released == 'true')
+    needs: [release-runtime-sdk, release-cli, release-django-cf]
+    if: always() && (needs.release-runtime-sdk.outputs.released == 'true' || needs.release-cli.outputs.released == 'true' || needs.release-django-cf.outputs.released == 'true')
 
     permissions:
       contents: read

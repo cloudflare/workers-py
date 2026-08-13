@@ -14,8 +14,7 @@
   "scripts": {
     "test": "uv run pytest",
     "upgrade-templates": "cd templates/durable-objects && uv add django-cf --upgrade && cd ../d1 && uv add django-cf --upgrade",
-    "build": "rm -rf dist/ && python3 -m build",
-    "publish": "python3 -m twine upload dist/*"
+    "build": "rm -rf dist/ && uv build"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^0.6.0",
