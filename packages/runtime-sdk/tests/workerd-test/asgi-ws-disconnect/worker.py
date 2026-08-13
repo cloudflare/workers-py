@@ -101,16 +101,49 @@ class WSEmptyFrameApp:
             await send({"type": "websocket.send", "text": "done"})
 
 
+class WSAppCloseApp:
+    """Accepts, then closes from the app side with a custom code."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            await _drain_lifespan(receive, send)
+            return
+        message = await receive()
+        assert message["type"] == "websocket.connect"
+        await send({"type": "websocket.accept"})
+        await send({"type": "websocket.close", "code": 4001, "reason": "done"})
+
+
+class WSCrashApp:
+    """Accepts, then raises: the server must close the transport (1011)."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            await _drain_lifespan(receive, send)
+            return
+        message = await receive()
+        assert message["type"] == "websocket.connect"
+        await send({"type": "websocket.accept"})
+        raise RuntimeError("websocket app crashed")
+
+
 ws_app = WSWatchApp()
 echo_app = WSEchoApp()
 empty_frame_app = WSEmptyFrameApp()
+app_close_app = WSAppCloseApp()
+crash_app = WSCrashApp()
 
 
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
         if (request.headers.get("upgrade") or "").lower() == "websocket":
             path = urlsplit(request.url).path
-            app = {"/ws-echo": echo_app, "/ws-empty": empty_frame_app}.get(path, ws_app)
+            app = {
+                "/ws-echo": echo_app,
+                "/ws-empty": empty_frame_app,
+                "/ws-app-close": app_close_app,
+                "/ws-crash": crash_app,
+            }.get(path, ws_app)
             return await asgi.websocket(app, request)
         import json
 
