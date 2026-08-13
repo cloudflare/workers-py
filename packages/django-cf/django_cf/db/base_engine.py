@@ -201,6 +201,7 @@ class CFResult:
 
     def __init__(self, data):
         self.data = data
+        self._position = 0
 
     def __iter__(self):
         return iter(self.data)
@@ -212,29 +213,23 @@ class CFResult:
         self.rowcount = value
 
     def fetchone(self):
-        if len(self.data) > 0:
-            return self.data.pop()
+        if self._position < len(self.data):
+            row = self.data[self._position]
+            self._position += 1
+            return row
         return None
 
     def fetchall(self):
-        ret = []
-        while True:
-            row = self.fetchone()
-            if row is None:
-                break
-            ret.append(row)
+        ret = self.data[self._position :]
+        self._position = len(self.data)
         return ret
 
     def fetchmany(self, size=1):
-        ret = []
-        while size > 0:
-            row = self.fetchone()
-            if row is None:
-                break
-            ret.append(row)
-            if size is not None:
-                size -= 1
-
+        if size <= 0:
+            return []
+        end = min(self._position + size, len(self.data))
+        ret = self.data[self._position : end]
+        self._position = end
         return ret
 
     @staticmethod
