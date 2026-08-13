@@ -170,6 +170,7 @@ class CFDatabaseFeatures(SQLiteDatabaseFeatures):
     has_native_uuid_field = False
     atomic_transactions = False
     supports_transactions = False
+    uses_savepoints = False  # No savepoint support in Cloudflare D1
     can_release_savepoints = False
     supports_atomic_references_rename = False
     can_clone_databases = False
@@ -515,9 +516,8 @@ class CFDatabaseWrapper(SQLiteDatabaseWrapper):
     def _set_autocommit(self, commit):
         return
 
-    def set_autocommit(
-        self, autocommit, force_begin_transaction_with_broken_autocommit=False
-    ):
+    def _start_transaction_under_autocommit(self):
+        # D1/DO expose no interactive transaction; inherited SQLite BEGIN must not run.
         return
 
     def disable_constraint_checking(self):
