@@ -2,68 +2,22 @@
 
 # pyright: reportMissingImports=false
 
-from types import SimpleNamespace
-
 import pytest
+from django.db import connections
+
+D1_BACKEND = connections["d1"]
+DO_BACKEND = connections["do"]
 
 
-def make_d1_wrapper(defer_foreign_keys=False):
-    from django_cf.db.backends.d1.base import DatabaseWrapper
-
-    wrapper = DatabaseWrapper.__new__(DatabaseWrapper)
-    cursor_state = SimpleNamespace(_defer_foreign_keys=defer_foreign_keys)
-    wrapper.cursor = lambda: cursor_state
-    wrapper.binding = "DB"
-    wrapper.run_sync = lambda value: value
-    return wrapper
-
-
-def make_do_wrapper(defer_foreign_keys=False):
-    from django_cf.db.backends.do.base import DatabaseWrapper
-
-    wrapper = DatabaseWrapper.__new__(DatabaseWrapper)
-    cursor_state = SimpleNamespace(_defer_foreign_keys=defer_foreign_keys)
-    wrapper.cursor = lambda: cursor_state
-    return wrapper
-
-
-class FakeDOArray:
-    def __init__(self, data):
-        self.data = data
-
-    def toArray(self):
-        return self
-
-    def to_py(self):
-        return self.data
-
-
-class FakeDOStatement:
-    def __init__(self, data, *, rows_read=0, rows_written=0):
-        self.data = data
-        self.rowsRead = rows_read
-        self.rowsWritten = rows_written
-
-    def raw(self):
-        return FakeDOArray(self.data)
-
-
-class FakeDOStorage:
-    def __init__(self, statement=None, *, error=None):
-        self.statement = statement
-        self.error = error
-        self.calls = []
-
-    def exec(self, query, *params):
-        if self.error is not None:
-            raise self.error
-        self.calls.append((query, params))
-        return self.statement
+async def get_do_stub(env):
+    namespace = env.DO_STORAGE
+    object_id = namespace.idFromName("django-cf-backend-tests")
+    return namespace.get(object_id)
 
 
 class TestDODatabaseWrapperProcessQuery:
     def test_process_query_no_params(self):
-        wrapper = make_do_wrapper()
+        wrapper = DO_BACKEND
 
         result_query, result_params = wrapper.process_query(
             "SELECT * FROM users WHERE id = %s", None
@@ -73,7 +27,7 @@ class TestDODatabaseWrapperProcessQuery:
         assert result_params is None
 
     def test_process_query_with_params(self):
-        wrapper = make_do_wrapper()
+        wrapper = DO_BACKEND
 
         result_query, result_params = wrapper.process_query(
             "SELECT * FROM users WHERE id = %s AND name = %s", [1, "test"]
@@ -83,7 +37,7 @@ class TestDODatabaseWrapperProcessQuery:
         assert result_params == [1, "test"]
 
     def test_process_query_null_param_replaced_with_literal(self):
-        wrapper = make_do_wrapper()
+        wrapper = DO_BACKEND
 
         result_query, result_params = wrapper.process_query(
             "INSERT INTO users (name, email) VALUES (%s, %s)", ["test", None]
@@ -93,9 +47,14 @@ class TestDODatabaseWrapperProcessQuery:
         assert result_params == ["test"]
 
     def test_process_query_with_defer_foreign_keys(self):
-        result = make_do_wrapper(True).process_query(
-            "INSERT INTO users (name) VALUES (%s)", ["test"]
-        )
+        cursor = DO_BACKEND.cursor()
+        cursor.defer_foreign_keys(True)
+        try:
+            result = DO_BACKEND.process_query(
+                "INSERT INTO users (name) VALUES (%s)", ["test"]
+            )
+        finally:
+            cursor.defer_foreign_keys(False)
 
         assert "PRAGMA defer_foreign_keys = on" in result
         assert "PRAGMA defer_foreign_keys = off" in result
@@ -109,16 +68,16 @@ class TestDODatabaseWrapperConfiguration:
         assert DatabaseWrapper.display_name == "DO"
 
     def test_get_connection_params_returns_empty(self):
-        assert make_do_wrapper().get_connection_params() == {}
+        assert DO_BACKEND.get_connection_params() == {}
 
 
 class TestDOMissingDateTruncBug:
     def test_do_process_query_missing_date_trunc(self):
-        d1_result, _ = make_d1_wrapper().process_query(
+        d1_result, _ = D1_BACKEND.process_query(
             "SELECT django_date_trunc(%s, created_at, %s, %s) FROM orders",
             ["year", "UTC", "UTC"],
         )
-        do_result, _ = make_do_wrapper().process_query(
+        do_result, _ = DO_BACKEND.process_query(
             "SELECT django_date_trunc(%s, created_at, %s, %s) FROM orders",
             ["year", "UTC", "UTC"],
         )
@@ -128,49 +87,34 @@ class TestDOMissingDateTruncBug:
 
 
 class TestDOStorageInitialization:
-    def test_storage_module_exists(self):
-        from django_cf.db.backends.do import storage
+    @pytest.mark.asyncio
+    async def test_storage_module_exists(self, env):
+        stub = await get_do_stub(env)
+        await stub.test_storage_is_configured()
 
-        storage.set_storage(None)
-        assert storage.get_storage() is None
-
-    def test_run_query_uses_configured_storage(self):
-        from django_cf.db.backends.do import storage
-
-        fake_storage = FakeDOStorage(FakeDOStatement([[1, "ok"]], rows_read=1))
-        storage.set_storage(fake_storage)
-
-        result = make_do_wrapper().run_query("SELECT * FROM test WHERE id = %s", [1])
-
-        assert list(result) == [(1, "ok")]
-        assert fake_storage.calls == [("SELECT * FROM test WHERE id = ?", (1,))]
+    @pytest.mark.asyncio
+    async def test_run_query_uses_configured_storage(self, env):
+        stub = await get_do_stub(env)
+        await stub.test_run_query_uses_configured_storage()
 
 
 class TestDOQueryExecution:
-    def test_read_query_uses_raw(self):
-        from django_cf.db.backends.do import storage
-
-        fake_storage = FakeDOStorage(FakeDOStatement([], rows_read=0, rows_written=0))
-        storage.set_storage(fake_storage)
-
-        result = make_do_wrapper().run_query("SELECT * FROM users")
-
-        assert result.fetchall() == []
+    @pytest.mark.asyncio
+    async def test_read_query_uses_raw(self, env):
+        stub = await get_do_stub(env)
+        await stub.test_read_query_uses_raw()
 
 
 class TestDOExceptionHandling:
-    def test_run_query_lets_binding_errors_propagate(self):
-        from django_cf.db.backends.do import storage
-
-        storage.set_storage(FakeDOStorage(error=RuntimeError("storage boom")))
-
-        with pytest.raises(RuntimeError, match="storage boom"):
-            make_do_wrapper().run_query("SELECT * FROM test")
+    @pytest.mark.asyncio
+    async def test_run_query_lets_binding_errors_propagate(self, env):
+        stub = await get_do_stub(env)
+        await stub.test_binding_errors_propagate()
 
 
 class TestDOParamConversion:
     def test_boolean_true_not_converted_in_process_query(self):
-        wrapper = make_do_wrapper()
+        wrapper = DO_BACKEND
 
         result_query, result_params = wrapper.process_query(
             "INSERT INTO test (active) VALUES (%s)", [True]
@@ -180,7 +124,7 @@ class TestDOParamConversion:
         assert result_params == [True]
 
     def test_multiple_none_params_order_preserved(self):
-        wrapper = make_do_wrapper()
+        wrapper = DO_BACKEND
 
         result_query, result_params = wrapper.process_query(
             "INSERT INTO test (a, b, c, d) VALUES (%s, %s, %s, %s)",
@@ -193,8 +137,13 @@ class TestDOParamConversion:
 
 class TestDOPragmaReturnTypeBug:
     def test_pragma_returns_string_not_tuple(self):
-        result = make_do_wrapper(True).process_query(
-            "INSERT INTO users (name) VALUES (%s)", ["test"]
-        )
+        cursor = DO_BACKEND.cursor()
+        cursor.defer_foreign_keys(True)
+        try:
+            result = DO_BACKEND.process_query(
+                "INSERT INTO users (name) VALUES (%s)", ["test"]
+            )
+        finally:
+            cursor.defer_foreign_keys(False)
 
         assert isinstance(result, str)
