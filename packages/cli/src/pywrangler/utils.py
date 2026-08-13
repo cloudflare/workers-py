@@ -238,7 +238,7 @@ def get_pywrangler_config() -> dict:
     return config if isinstance(config, dict) else {}
 
 
-MIN_UV_VERSION = (0, 8, 10)
+MIN_UV_VERSION = (0, 12, 3)
 MIN_WRANGLER_VERSION = (4, 109, 0)
 
 
