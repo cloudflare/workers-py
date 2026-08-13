@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.16.3 (2026-08-13)
+
+### Bug Fixes
+
+- Add default enable date for 3.14 and remove experimental
+  ([`71ec08d`](https://github.com/cloudflare/workers-py/commit/71ec08de9c794cf47ab0183bfd441752a48a14ba))
+
+
 ## v1.16.2 (2026-08-04)
 
 ### Bug Fixes
