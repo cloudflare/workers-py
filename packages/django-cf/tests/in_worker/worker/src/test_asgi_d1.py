@@ -58,7 +58,6 @@ async def update_view(request):
 
 
 async def iterate_view(request):
-    del request
     for value in ["charlie", "alpha", "bravo"]:
         await AsgiD1Record.objects.using("d1").acreate(value=value)
 
