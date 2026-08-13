@@ -2,6 +2,20 @@
 
 <!-- version list -->
 
+## v0.2.11 (2026-08-13)
+
+### Bug Fixes
+
+- Run the django-cf suite in CI ([#187](https://github.com/cloudflare/workers-py/pull/187),
+  [`dc60b66`](https://github.com/cloudflare/workers-py/commit/dc60b661cd55fbd015752cbc9e8a640d209e3791))
+
+### Documentation
+
+- Document django-cf as a monorepo package
+  ([#184](https://github.com/cloudflare/workers-py/pull/184),
+  [`53e2cdc`](https://github.com/cloudflare/workers-py/commit/53e2cdc13908068046a6474610897db7b9cf1516))
+
+
 ## v0.2.10 and earlier
 
 Releases up to and including `0.2.10` were made from
