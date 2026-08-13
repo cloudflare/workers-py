@@ -187,6 +187,7 @@ async def process_request(
     headers = None
     result = Future()
     finished_response = Event()
+    is_head = (req.method.value if isinstance(req, Request) else req.method) == "HEAD"
 
     # Streaming state — initialized lazily on first body chunk with more_body=True.
     writer = None
@@ -227,8 +228,20 @@ async def process_request(
             headers = [(k.decode(), v.decode()) for k, v in got.get("headers", [])]
 
         elif got["type"] == "http.response.body":
-            body = got.get("body", b"")
             more_body = got.get("more_body", False)
+
+            if is_head:
+                # Per HTTP spec, HEAD responses must have an empty body.
+                # Ref: https://uvicorn.dev/server-behavior/#head-requests
+                if not more_body:
+                    resp = Response.new(
+                        None, headers=_to_js_headers(headers), status=status
+                    )
+                    result.set_result(resp)
+                    finished_response.set()
+                return
+
+            body = got.get("body", b"")
 
             if writer is not None:
                 # Already in streaming mode — write chunk to the stream.
