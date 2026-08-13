@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v0.2.12 (2026-08-13)
+
+### Bug Fixes
+
+- Fix order_by not working properly ([#202](https://github.com/cloudflare/workers-py/pull/202),
+  [`3010b06`](https://github.com/cloudflare/workers-py/commit/3010b065ee5b4af930015b92df87a40631e09c70))
+
+
 ## v0.2.11 (2026-08-13)
 
 ### Bug Fixes
