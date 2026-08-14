@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v0.2.14 (2026-08-14)
+
+### Bug Fixes
+
+- Fix incorrect autocommit / transaction behavior
+  ([#203](https://github.com/cloudflare/workers-py/pull/203),
+  [`e927841`](https://github.com/cloudflare/workers-py/commit/e927841ba191fe0ca13480d0fd8f70106ecbd6c8))
+
+
 ## v0.2.13 (2026-08-14)
 
 ### Bug Fixes
