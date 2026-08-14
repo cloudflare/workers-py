@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v0.2.13 (2026-08-14)
+
+### Bug Fixes
+
+- Replace wsgi adapter in django-cf to wsgi in runtime-sdk
+  ([#195](https://github.com/cloudflare/workers-py/pull/195),
+  [`93a4d51`](https://github.com/cloudflare/workers-py/commit/93a4d51141a60734dc9aea927cef2aa0daa56fb0))
+
+
 ## v0.2.12 (2026-08-13)
 
 ### Bug Fixes
