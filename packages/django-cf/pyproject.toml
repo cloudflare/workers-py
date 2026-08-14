@@ -10,6 +10,7 @@ authors = [
 ]
 dependencies = [
   'sqlparse',
+  'workers-runtime-sdk>=1.6.0',
 ]
 description = "django-cf is a package that integrates Django with Cloudflare products"
 readme = "README.md"
