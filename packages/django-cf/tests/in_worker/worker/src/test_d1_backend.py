@@ -2,10 +2,58 @@
 
 # pyright: reportMissingImports=false
 
+import asyncio
+from contextlib import contextmanager
+
 import pytest
-from django.db import connections
+from django.db import connections, models
 
 D1_BACKEND = connections["d1"]
+D1_PARENT_TABLE = "_django_cf_d1_cursor_parents"
+D1_CHILD_TABLE = "_django_cf_d1_cursor_children"
+
+
+class D1CursorParent(models.Model):
+    name = models.CharField(max_length=64)
+
+    class Meta:
+        app_label = "django_cf_in_worker"
+        db_table = D1_PARENT_TABLE
+        managed = False
+
+
+class D1CursorChild(models.Model):
+    parent = models.ForeignKey(D1CursorParent, on_delete=models.CASCADE)
+    value = models.CharField(max_length=64)
+
+    class Meta:
+        app_label = "django_cf_in_worker"
+        db_table = D1_CHILD_TABLE
+        managed = False
+
+
+def _drop_cursor_tables():
+    D1_BACKEND.run_query(f"DROP TABLE IF EXISTS {D1_CHILD_TABLE}")
+    D1_BACKEND.run_query(f"DROP TABLE IF EXISTS {D1_PARENT_TABLE}")
+
+
+@contextmanager
+def _cursor_tables():
+    _drop_cursor_tables()
+    try:
+        D1_BACKEND.run_query(
+            f"CREATE TABLE {D1_PARENT_TABLE} (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL)"
+        )
+        D1_BACKEND.run_query(
+            f"CREATE TABLE {D1_CHILD_TABLE} ("
+            "id INTEGER PRIMARY KEY AUTOINCREMENT, "
+            "parent_id INTEGER NOT NULL REFERENCES "
+            f"{D1_PARENT_TABLE}(id), "
+            "value TEXT NOT NULL)"
+        )
+        yield
+    finally:
+        _drop_cursor_tables()
 
 
 class TestD1DatabaseWrapperProcessQuery:
@@ -159,6 +207,41 @@ class TestD1RunQuery:
         assert result.rowcount == 1
         assert result.lastrowid == 1
         wrapper.run_query(f"DROP TABLE {table}")
+
+    @pytest.mark.asyncio
+    async def test_concurrent_cursors_on_one_wrapper_keep_independent_results(self):
+        wrapper = D1_BACKEND
+
+        async def execute(value):
+            cursor = wrapper.cursor()
+            cursor.execute("SELECT %s", [value])
+            return cursor
+
+        alpha_cursor, beta_cursor = await asyncio.gather(
+            execute("alpha"), execute("beta")
+        )
+
+        assert alpha_cursor.fetchone() == ("alpha",)
+        assert beta_cursor.fetchone() == ("beta",)
+
+    def test_iterator_chunk_size_one_survives_nested_foreign_key_queries(self):
+        """Make sure nested child-parent queryset returns a proper result"""
+        with _cursor_tables():
+            first_parent = D1CursorParent.objects.using("d1").create(name="alpha")
+            second_parent = D1CursorParent.objects.using("d1").create(name="beta")
+            D1CursorChild.objects.using("d1").create(
+                parent_id=first_parent.pk, value="one"
+            )
+            D1CursorChild.objects.using("d1").create(
+                parent_id=second_parent.pk, value="two"
+            )
+
+            seen = []
+            queryset = D1CursorChild.objects.using("d1").order_by("id")
+            for child in queryset.iterator(chunk_size=1):
+                seen.append((child.value, child.parent.name))
+
+            assert sorted(seen) == [("one", "alpha"), ("two", "beta")]
 
 
 class TestD1ParameterHandling:
