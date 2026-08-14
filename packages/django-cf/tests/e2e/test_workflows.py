@@ -4,7 +4,6 @@ These tests verify complete user workflows through the HTTP endpoints.
 They require running Cloudflare Workers via wrangler.
 """
 
-import pytest
 import requests
 
 
@@ -161,16 +160,8 @@ class TestR2StorageWorkflow:
         assert "file1.txt" in result["files"]
         assert "file2.txt" in result["files"]
 
-    @pytest.mark.xfail(
-        reason="Framework limitation: django_cf/__init__.py:58 calls resp.content.decode('utf-8') "
-        "which fails for binary content. See handle_wsgi function."
-    )
     def test_binary_file_workflow(self, r2_web_server):
-        """Test binary file upload and download.
-
-        NOTE: This test documents a known framework limitation where binary
-        responses fail because handle_wsgi() tries to decode content as UTF-8.
-        """
+        """Test binary file upload and download."""
         base_url = r2_web_server.base_url
         test_path = "binary_test/image.bin"
 
@@ -184,7 +175,7 @@ class TestR2StorageWorkflow:
         response = requests.post(upload_url, files=files, data=data, timeout=10)
         assert response.status_code == 200
 
-        # Download and verify - this fails due to UTF-8 decode in handle_wsgi
+        # Download and verify
         download_url = f"{base_url}/__r2_download__/"
         response = requests.get(download_url, params={"path": test_path}, timeout=10)
         assert response.status_code == 200

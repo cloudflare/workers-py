@@ -2,6 +2,7 @@
 
 import asyncio
 import contextlib
+import functools
 import importlib.util
 import io
 import os
@@ -11,7 +12,8 @@ from urllib.parse import urlparse
 import django
 import django.conf
 import pytest
-from django.http import HttpResponse, JsonResponse
+from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
+from django.urls import path
 from pyodide.webloop import WebLoop
 from worker_durable_object import TestDurableObject  # noqa: F401
 from workers import Response, WorkerEntrypoint
@@ -69,25 +71,73 @@ if not django.conf.settings.configured:
 
 django.setup()
 
-from django_cf import handle_wsgi  # noqa: E402
-
-urlpatterns = []
+from django_cf import DjangoCF  # noqa: E402
 
 
-def _wsgi_header_echo_app(environ, start_response):
-    payload = {
-        "cf_access": environ.get("HTTP_CF_ACCESS_JWT_ASSERTION"),
-        "custom": environ.get("HTTP_X_CUSTOM_HEADER"),
-        "content_type": environ.get("CONTENT_TYPE"),
-        "content_length": environ.get("CONTENT_LENGTH"),
-    }
-    return JsonResponse(payload)
+@functools.cache
+def _django_wsgi_app():
+    from django.core.wsgi import get_wsgi_application
+
+    return get_wsgi_application()
 
 
-def _wsgi_body_echo_app(environ, start_response):
-    length = int(environ.get("CONTENT_LENGTH") or 0)
-    body = environ["wsgi.input"].read(length)
-    return HttpResponse(body, content_type="application/octet-stream")
+def _django_binary_view(request):
+    return HttpResponse(bytes(range(256)), content_type="application/octet-stream")
+
+
+def _django_streaming_view(request):
+    def chunks():
+        for value in range(5):
+            yield bytes([value]) * 1024
+
+    return StreamingHttpResponse(chunks(), content_type="application/octet-stream")
+
+
+def _django_cookies_view(request):
+    response = HttpResponse(b"cookies", content_type="text/plain")
+    response.set_cookie("first", "1")
+    response.set_cookie("second", "2")
+    return response
+
+
+def _django_meta_view(request, segment):
+    env = request.META.get("workers.env")
+    return JsonResponse(
+        {
+            "path": request.path_info,
+            "segment": segment,
+            "values": request.GET.getlist("value"),
+            "has_env": env is not None,
+            "has_bucket": hasattr(env, "BUCKET"),
+        }
+    )
+
+
+def _django_body_view(request):
+    response = HttpResponse(request.body, content_type="application/octet-stream")
+    response["X-Request-Method"] = request.method
+    return response
+
+
+def _django_headers_view(request):
+    return JsonResponse(
+        {
+            "cf_access": request.META.get("HTTP_CF_ACCESS_JWT_ASSERTION"),
+            "custom": request.META.get("HTTP_X_CUSTOM_HEADER"),
+            "content_type": request.META.get("CONTENT_TYPE"),
+            "content_length": request.META.get("CONTENT_LENGTH"),
+        }
+    )
+
+
+urlpatterns = [
+    path("django/binary/", _django_binary_view),
+    path("django/stream/", _django_streaming_view),
+    path("django/cookies/", _django_cookies_view),
+    path("django/meta/<str:segment>/", _django_meta_view),
+    path("django/body/", _django_body_view),
+    path("django/headers/", _django_headers_view),
+]
 
 
 class ResultCollector:
@@ -154,7 +204,10 @@ class EnvPlugin:
         return self._env
 
 
-class Default(WorkerEntrypoint):
+class Default(DjangoCF, WorkerEntrypoint):
+    def get_app(self):
+        return _django_wsgi_app()
+
     async def fetch(self, request):
         path = urlparse(request.url).path
 
@@ -163,10 +216,8 @@ class Default(WorkerEntrypoint):
             return self._run_suite(suite_name)
         if path == "/health":
             return Response.json({"ok": True})
-        if path == "/wsgi/headers":
-            return await handle_wsgi(request, _wsgi_header_echo_app)
-        if path == "/wsgi/body":
-            return await handle_wsgi(request, _wsgi_body_echo_app)
+        if path.startswith("/django/"):
+            return await super().fetch(request)
         return Response.json({"error": "not found"}, status=404)
 
     def _run_suite(self, suite_name):

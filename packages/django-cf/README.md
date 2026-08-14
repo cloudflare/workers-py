@@ -67,7 +67,7 @@ Use Cloudflare D1, a serverless SQL database, as your Django application's datab
     from app.wsgi import application
 
     class Default(DjangoCF, WorkerEntrypoint):
-        async def get_app(self):
+        def get_app(self):
             return application
     ```
 
