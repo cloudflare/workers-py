@@ -4,9 +4,11 @@ from pathlib import Path
 
 import pytest
 from fastapi import Depends, FastAPI, File, Request, UploadFile
+from fastapi.exceptions import HTTPException
 from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from fastapi.responses import Response as FastAPIResponse
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 from pyodide.webloop import WebLoop
 from starlette.background import BackgroundTask
 
@@ -125,6 +127,88 @@ async def upload_multiple(files: list[UploadFile] = File(...)):  # noqa: B008
         data = await f.read()
         result.append({"filename": f.filename, "size": len(data)})
     return result
+
+
+# --------------------------------------------------------------------------- #
+# Error handling routes
+# --------------------------------------------------------------------------- #
+
+
+class AppError(Exception):
+    """Custom application error for testing exception handlers."""
+
+    def __init__(self, code: str, detail: str):
+        self.code = code
+        self.detail = detail
+
+
+@app.exception_handler(AppError)
+async def app_error_handler(request: Request, exc: AppError):
+    return JSONResponse(
+        status_code=418,
+        content={"error_code": exc.code, "detail": exc.detail},
+    )
+
+
+class ItemModel(BaseModel):
+    name: str
+    price: float
+    quantity: int
+
+
+@app.get("/errors/not-found")
+async def error_not_found():
+    """Raise HTTPException with 404."""
+    raise HTTPException(status_code=404, detail="Item not found")
+
+
+@app.get("/errors/dict-detail")
+async def error_dict_detail():
+    """Raise HTTPException with a dict detail (FastAPI extension)."""
+    raise HTTPException(
+        status_code=403,
+        detail={"msg": "Access denied", "reason": "insufficient_scope"},
+    )
+
+
+@app.get("/errors/with-headers")
+async def error_with_headers():
+    """Raise HTTPException with custom response headers."""
+    raise HTTPException(
+        status_code=401,
+        detail="Invalid token",
+        headers={"WWW-Authenticate": "Bearer", "X-Error-Code": "TOKEN_EXPIRED"},
+    )
+
+
+@app.post("/errors/validate-body")
+async def error_validate_body(item: ItemModel):
+    """Accept a Pydantic model; invalid input triggers 422."""
+    return {"name": item.name, "price": item.price}
+
+
+@app.get("/errors/validate-query")
+async def error_validate_query(count: int):
+    """Require an integer query param; non-integer triggers 422."""
+    return {"count": count}
+
+
+@app.get("/errors/validate-path/{item_id}")
+async def error_validate_path(item_id: int):
+    """Require an integer path param; non-integer triggers 422."""
+    return {"item_id": item_id}
+
+
+@app.get("/errors/custom-exception")
+async def error_custom_exception():
+    """Raise a custom exception handled by a registered handler."""
+    raise AppError(code="TEAPOT", detail="I'm a teapot")
+
+
+@app.get("/errors/unhandled")
+async def error_unhandled():
+    """Raise an unhandled ValueError to trigger a 500."""
+    raise ValueError("something went wrong internally")
 
 
 @app.get("/native-file")
