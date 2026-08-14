@@ -462,7 +462,10 @@ class TestCFDatabaseFeatures:
     def test_savepoints_disabled(self):
         from django_cf.db.base_engine import CFDatabaseFeatures
 
-        assert CFDatabaseFeatures(MagicMock()).can_release_savepoints is False
+        features = CFDatabaseFeatures(MagicMock())
+
+        assert features.uses_savepoints is False
+        assert features.can_release_savepoints is False
 
     def test_constraint_checks_disabled(self):
         from django_cf.db.base_engine import CFDatabaseFeatures
@@ -507,6 +510,13 @@ class TestCFDatabaseWrapper:
         with patch.object(CFDatabaseWrapper, "__init__", lambda self, *args: None):
             wrapper = CFDatabaseWrapper.__new__(CFDatabaseWrapper)
             assert wrapper._savepoint_allowed() is False
+
+    def test_start_transaction_under_autocommit_is_noop(self):
+        from django_cf.db.base_engine import CFDatabaseWrapper
+
+        with patch.object(CFDatabaseWrapper, "__init__", lambda self, *args: None):
+            wrapper = CFDatabaseWrapper.__new__(CFDatabaseWrapper)
+            assert wrapper._start_transaction_under_autocommit() is None
 
     def test_is_usable_always_true(self):
         from django_cf.db.base_engine import CFDatabaseWrapper
