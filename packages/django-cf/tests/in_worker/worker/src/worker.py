@@ -5,6 +5,7 @@ import contextlib
 import functools
 import importlib.util
 import io
+import os
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -13,9 +14,21 @@ import django.conf
 import pytest
 from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.urls import path
+from pyodide.webloop import WebLoop
+from worker_durable_object import TestDurableObject  # noqa: F401
 from workers import Response, WorkerEntrypoint
 
 BASE_DIR = Path(__file__).parent
+os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")
+
+
+async def _noop(*args):
+    pass
+
+
+# pytest-asyncio relies on these methods, which older Pyodide WebLoops omit.
+WebLoop.shutdown_asyncgens = _noop
+WebLoop.shutdown_default_executor = _noop
 
 if not django.conf.settings.configured:
     django.conf.settings.configure(
@@ -36,7 +49,14 @@ if not django.conf.settings.configured:
             "default": {
                 "ENGINE": "django.db.backends.sqlite3",
                 "NAME": ":memory:",
-            }
+            },
+            "d1": {
+                "ENGINE": "django_cf.db.backends.d1",
+                "CLOUDFLARE_BINDING": "DB",
+            },
+            "do": {
+                "ENGINE": "django_cf.db.backends.do",
+            },
         },
         CACHES={
             "default": {

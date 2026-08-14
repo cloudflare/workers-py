@@ -2,6 +2,22 @@
 
 <!-- version list -->
 
+## v1.16.4 (2026-08-13)
+
+### Bug Fixes
+
+- Bump minimum uv version
+  ([`8ffe0ea`](https://github.com/cloudflare/workers-py/commit/8ffe0ea098c7cf5f7143a27478d32087b126a082))
+
+
+## v1.16.3 (2026-08-13)
+
+### Bug Fixes
+
+- Add default enable date for 3.14 and remove experimental
+  ([`71ec08d`](https://github.com/cloudflare/workers-py/commit/71ec08de9c794cf47ab0183bfd441752a48a14ba))
+
+
 ## v1.16.2 (2026-08-04)
 
 ### Bug Fixes
