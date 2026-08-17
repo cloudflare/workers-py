@@ -1,9 +1,20 @@
 import asyncio
+import enum
 import importlib.util
 from pathlib import Path
 
 import pytest
-from fastapi import Cookie, Depends, FastAPI, File, Header, Request, UploadFile
+from fastapi import (
+    APIRouter,
+    Cookie,
+    Depends,
+    FastAPI,
+    File,
+    Header,
+    Query,
+    Request,
+    UploadFile,
+)
 from fastapi.exceptions import HTTPException
 from fastapi.responses import (
     FileResponse,
@@ -305,6 +316,102 @@ async def response_custom_headers():
 async def response_no_content():
     """Return 204 No Content (null-body status)."""
     return FastAPIResponse(status_code=204)
+
+
+# --------------------------------------------------------------------------- #
+# Routing routes
+# --------------------------------------------------------------------------- #
+
+
+class Colour(str, enum.Enum):
+    RED = "red"
+    GREEN = "green"
+    BLUE = "blue"
+
+
+@app.get("/routing/path-int/{item_id}")
+async def routing_path_int(item_id: int):
+    """Path parameter coerced to int."""
+    return {"item_id": item_id, "type": type(item_id).__name__}
+
+
+@app.get("/routing/path-float/{value}")
+async def routing_path_float(value: float):
+    """Path parameter coerced to float."""
+    return {"value": value, "type": type(value).__name__}
+
+
+@app.get("/routing/path-enum/{colour}")
+async def routing_path_enum(colour: Colour):
+    """Path parameter validated against a str Enum."""
+    return {"colour": colour.value}
+
+
+@app.get("/routing/path-rest/{file_path:path}")
+async def routing_path_rest(file_path: str):
+    """Path parameter that captures the rest of the path including slashes."""
+    return {"file_path": file_path}
+
+
+@app.get("/routing/query")
+async def routing_query(
+    q: str | None = None,
+    skip: int = 0,
+    limit: int = 10,
+):
+    """Optional and default query parameters."""
+    return {"q": q, "skip": skip, "limit": limit}
+
+
+@app.get("/routing/query-required")
+async def routing_query_required(name: str):
+    """A required query parameter (no default)."""
+    return {"name": name}
+
+
+@app.get("/routing/query-list")
+async def routing_query_list(tags: list[str] = Query(default=[])):  # noqa: B008
+    """A multi-value query parameter (?tags=a&tags=b)."""
+    return {"tags": tags}
+
+
+@app.get("/routing/query-validation")
+async def routing_query_validation(
+    q: str = Query(min_length=3, max_length=50),  # noqa: B008
+):
+    """A query parameter with min/max length validation."""
+    return {"q": q}
+
+
+@app.put("/routing/put-item/{item_id}")
+async def routing_put(item_id: int, item: ItemModel):
+    """PUT method with path param and JSON body."""
+    return {"item_id": item_id, "name": item.name, "price": item.price}
+
+
+@app.delete("/routing/delete-item/{item_id}")
+async def routing_delete(item_id: int):
+    """DELETE method."""
+    return {"deleted": item_id}
+
+
+@app.patch("/routing/patch-item/{item_id}")
+async def routing_patch(item_id: int):
+    """PATCH method."""
+    return {"patched": item_id}
+
+
+# -- APIRouter with prefix ---------------------------------------------------
+v1_router = APIRouter(prefix="/routing/v1")
+
+
+@v1_router.get("/info")
+async def v1_info():
+    """Route registered via an APIRouter with prefix."""
+    return {"version": 1, "status": "ok"}
+
+
+app.include_router(v1_router)
 
 
 @app.get("/native-file")
