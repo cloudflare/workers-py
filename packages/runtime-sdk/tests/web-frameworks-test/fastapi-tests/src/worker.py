@@ -3,9 +3,16 @@ import importlib.util
 from pathlib import Path
 
 import pytest
-from fastapi import Depends, FastAPI, File, Request, UploadFile
+from fastapi import Cookie, Depends, FastAPI, File, Header, Request, UploadFile
 from fastapi.exceptions import HTTPException
-from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
+from fastapi.responses import (
+    FileResponse,
+    HTMLResponse,
+    JSONResponse,
+    PlainTextResponse,
+    RedirectResponse,
+    StreamingResponse,
+)
 from fastapi.responses import Response as FastAPIResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
@@ -209,6 +216,95 @@ async def error_custom_exception():
 async def error_unhandled():
     """Raise an unhandled ValueError to trigger a 500."""
     raise ValueError("something went wrong internally")
+
+
+# --------------------------------------------------------------------------- #
+# Response types and request object routes
+# --------------------------------------------------------------------------- #
+
+
+@app.get("/responses/json-201", status_code=201)
+async def response_json_201():
+    """Return JSON with a custom 201 status code."""
+    return {"created": True, "id": 42}
+
+
+@app.get("/responses/html")
+async def response_html():
+    """Return an HTMLResponse."""
+    return HTMLResponse("<h1>Hello Workers</h1>")
+
+
+@app.get("/responses/plain-text")
+async def response_plain_text():
+    """Return a PlainTextResponse."""
+    return PlainTextResponse("just plain text")
+
+
+@app.get("/responses/redirect")
+async def response_redirect():
+    """Return a RedirectResponse to /api/hello."""
+    return RedirectResponse("/api/hello")
+
+
+async def _async_chunks():
+    """An async generator yielding text chunks."""
+    for i in range(5):
+        yield f"async-chunk-{i}\n"
+
+
+@app.get("/responses/async-stream")
+async def response_async_stream():
+    """StreamingResponse backed by an async generator."""
+    return StreamingResponse(_async_chunks(), media_type="text/plain")
+
+
+@app.get("/responses/set-cookie")
+async def response_set_cookie():
+    """Return a response that sets a cookie."""
+    resp = JSONResponse({"cookie": "set"})
+    resp.set_cookie(key="session_id", value="abc123", httponly=True, secure=True)
+    return resp
+
+
+@app.get("/responses/read-cookie")
+async def response_read_cookie(session_id: str | None = Cookie(default=None)):  # noqa: B008
+    """Read a cookie from the request."""
+    return {"session_id": session_id}
+
+
+@app.get("/responses/read-header")
+async def response_read_header(
+    x_custom_token: str | None = Header(default=None),  # noqa: B008
+):
+    """Read a custom header from the request."""
+    return {"x_custom_token": x_custom_token}
+
+
+@app.get("/responses/request-url")
+async def response_request_url(request: Request):
+    """Return URL components from the request object."""
+    return {
+        "path": request.url.path,
+        "query": str(request.url.query),
+        "method": request.method,
+    }
+
+
+@app.get("/responses/custom-headers")
+async def response_custom_headers():
+    """Return a response with custom headers."""
+    return FastAPIResponse(
+        content="ok",
+        media_type="text/plain",
+        headers={"X-Request-Id": "req-12345", "X-RateLimit-Remaining": "99"},
+    )
+
+
+@app.get("/responses/no-content", status_code=204)
+async def response_no_content():
+    """Return 204 No Content (null-body status)."""
+    return FastAPIResponse(status_code=204)
 
 
 @app.get("/native-file")
