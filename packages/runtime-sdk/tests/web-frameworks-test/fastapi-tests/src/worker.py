@@ -1,6 +1,7 @@
 import asyncio
 import enum
 import importlib.util
+from contextlib import asynccontextmanager
 from pathlib import Path
 
 import pytest
@@ -43,7 +44,22 @@ WebLoop.shutdown_default_executor = _noop
 
 STATIC_DIR = Path(__file__).parent / "static"
 
-app = FastAPI()
+
+class PlatformResource:
+    def __init__(self):
+        self.closed = False
+
+
+@asynccontextmanager
+async def _platform_lifespan(_app):
+    resource = PlatformResource()
+    try:
+        yield {"platform_resource": resource}
+    finally:
+        resource.closed = True
+
+
+app = FastAPI(lifespan=_platform_lifespan)
 
 # --------------------------------------------------------------------------- #
 # Shared mutable state used to verify side-effects (e.g. background tasks).
@@ -412,6 +428,12 @@ async def v1_info():
 
 
 app.include_router(v1_router)
+
+
+@app.get("/platform/lifespan-state")
+async def platform_lifespan_state(request: Request):
+    resource = request.state.platform_resource
+    return {"available": True, "closed": resource.closed}
 
 
 @app.get("/native-file")
