@@ -457,7 +457,7 @@ def create_worker_pyproject_with_local_dep(
 
 @pytest.mark.skipif(
     sys.platform == "win32",
-    reason="FIXME uv cannot build from source inside pyodide venv on Windows",
+    reason="FIXME Pyodide WASM interpreter cannot run setuptools build backends on Windows",
 )
 def test_sync_allow_build_local_dependency(test_dir):
     """End-to-end test for --allow-build with a local source dependency.
@@ -510,7 +510,7 @@ def test_sync_allow_build_local_dependency(test_dir):
 
 @pytest.mark.skipif(
     sys.platform == "win32",
-    reason="FIXME: uv cannot build from source inside pyodide venv on Windows",
+    reason="FIXME Pyodide WASM interpreter cannot run setuptools build backends on Windows",
 )
 def test_sync_allow_build_via_pyproject_config(test_dir):
     """End-to-end test for the [tool.pywrangler] allow-build config fallback.
@@ -815,7 +815,14 @@ def test_sync_recreates_venv_on_python_version_mismatch(test_dir):
     # Second run: Recreate venv with Python 3.14
     create_test_pyproject(test_dir)
     create_test_wrangler_jsonc(test_dir, python_version="3.14")
-    result2 = subprocess.run(sync_cmd, text=True, cwd=test_dir, check=False)
+    # Use --force to ensure pylock.toml is recompiled for the new version
+    result2 = subprocess.run(
+        [*sync_cmd, "--force"],
+        capture_output=True,
+        text=True,
+        cwd=test_dir,
+        check=False,
+    )
 
     assert result2.returncode == 0, (
         f"Second sync failed: {result2.stdout}\n{result2.stderr}"
