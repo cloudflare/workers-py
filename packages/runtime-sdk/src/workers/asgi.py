@@ -49,7 +49,7 @@ def acquire_js_buffer(pybuffer):
         buf.release()
 
 
-def request_to_scope(req, env, ws=False):
+def request_to_scope(req, env, ws=False, state=None):
     from js import URL
 
     # @app.get("/example")
@@ -74,7 +74,7 @@ def request_to_scope(req, env, ws=False):
         ty = "websocket"
     else:
         ty = "http"
-    return {
+    scope = {
         "asgi": ASGI,
         "headers": headers,
         "http_version": "1.1",
@@ -86,6 +86,10 @@ def request_to_scope(req, env, ws=False):
         "type": ty,
         "env": env,
     }
+    if state is not None:
+        # ASGI requires a shallow copy of lifespan state for each request.
+        scope["state"] = dict(state)
+    return scope
 
 
 async def start_application(app):
@@ -94,6 +98,7 @@ async def start_application(app):
     # don't implement it and fall back to serving requests without lifespan.
     # https://asgi.readthedocs.io/en/latest/specs/lifespan.html
     receive_queue = Queue()
+    state = {}
     await receive_queue.put({"type": "lifespan.startup"})
 
     # `startup` resolves True on `lifespan.startup.complete`, False when the app
@@ -141,7 +146,7 @@ async def start_application(app):
             await app(
                 {
                     "asgi": ASGI,
-                    "state": {},
+                    "state": state,
                     "type": "lifespan",
                 },
                 receive,
@@ -168,17 +173,18 @@ async def start_application(app):
     run_in_background(run_lifespan())
     supported = await startup
     if not supported:
-        return no_lifespan_shutdown
-    return shutdown
+        return no_lifespan_shutdown, state
+    return shutdown, state
 
 
-async def process_request(
+async def process_request(  # noqa: PLR0913
     app: Any,
     req: "Request | js.Request",
     env: Any,
     # added for waitUntil, but not used anymore
     # TODO(later): remove this parameter after unvendoring Python SDK from workerd
     ctx: Context | None,
+    state: dict[str, Any] | None = None,
 ) -> js.Response:
     from js import Response, TransformStream
     from pyodide.ffi import create_proxy
@@ -273,7 +279,7 @@ async def process_request(
     # Run the application in the background
     async def run_app():
         try:
-            await app(request_to_scope(req, env), receive, send)
+            await app(request_to_scope(req, env, state=state), receive, send)
 
             # If we get here and no response has been set yet, the app didn't generate a response
             if not result.done():
@@ -380,9 +386,9 @@ async def fetch(
     app: Any, req: "Request | js.Request", env: Any, ctx: Context | None = None
 ) -> js.Response:
     logger.debug("ASGI request: %s %s", req.method, req.url)
-    shutdown = await start_application(app)
+    shutdown, state = await start_application(app)
     try:
-        result = await process_request(app, req, env, ctx)
+        result = await process_request(app, req, env, ctx, state=state)
     except Exception:
         logger.exception("ASGI request failed")
         raise
