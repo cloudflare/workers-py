@@ -57,16 +57,15 @@ def test_get_vendor_package_versions_disables_color():
 
     assert result == ["shapely==2.0.7"]
     command = mock_run.call_args[0][0]
-    assert command[:7] == [
+    assert command[:5] == [
         "uv",
         "pip",
         "freeze",
-        "--python",
-        "pyodide-venv",
         "--color",
         "never",
     ]
-
+    env = mock_run.call_args[1].get("env", {})
+    assert env.get("VIRTUAL_ENV") == str(Path("pyodide-venv"))
 
 class TestInstallRequirements:
     @patch.object(pywrangler_sync, "_install_requirements_to_vendor")
