@@ -25,6 +25,28 @@ from .utils import (
 
 logger = logging.getLogger(__name__)
 
+# Env vars that can cause uv to target the wrong Python environment.
+_UV_CONFLICTING_ENV_VARS = (
+    "VIRTUAL_ENV",
+    "CONDA_PREFIX",
+    "UV_PYTHON",
+    "UV_PROJECT_ENVIRONMENT",
+    "PYTHONHOME",
+)
+
+
+def _env_with_venv(venv_path: Path) -> dict[str, str]:
+    """Build a subprocess env that points VIRTUAL_ENV at *venv_path*.
+
+    Strips env vars that could redirect uv to a different environment,
+    then sets VIRTUAL_ENV explicitly.  This is preferred over ``--python``
+    for pyodide venvs because ``--python <dir>`` on Windows can cause uv
+    to install packages outside the venv's site-packages.
+    """
+    env = {k: v for k, v in os.environ.items() if k not in _UV_CONFLICTING_ENV_VARS}
+    env["VIRTUAL_ENV"] = str(venv_path)
+    return env
+
 
 def get_venv_workers_path() -> Path:
     return get_project_root() / ".venv-workers"
@@ -134,10 +156,32 @@ def create_workers_venv() -> None:
 def create_pyodide_venv() -> None:
     pyodide_venv_path = get_pyodide_venv_path()
     if pyodide_venv_path.is_dir():
-        logger.debug(
-            f"Pyodide virtual environment at {pyodide_venv_path} already exists."
-        )
-        return
+        # Check that the existing pyodide venv matches the wanted Python version.
+        # If a previous sync used a different version the venv must be recreated,
+        # otherwise uv will refuse to install packages compiled for the new version.
+        pyvenv_cfg = pyodide_venv_path / "pyvenv.cfg"
+        if pyvenv_cfg.is_file():
+            wanted = get_python_version()
+            cfg_text = pyvenv_cfg.read_text()
+            for line in cfg_text.splitlines():
+                if line.startswith("version_info"):
+                    if wanted not in line:
+                        logger.warning(
+                            f"Recreating pyodide venv (wanted {wanted}, "
+                            f"found {line.strip()})"
+                        )
+                        shutil.rmtree(pyodide_venv_path)
+                        break
+            else:
+                logger.debug(
+                    f"Pyodide virtual environment at {pyodide_venv_path} already exists."
+                )
+                return
+        else:
+            logger.debug(
+                f"Pyodide virtual environment at {pyodide_venv_path} already exists."
+            )
+            return
 
     check_uv_version()
     logger.debug(f"Creating Pyodide virtual environment at {pyodide_venv_path}...")
@@ -186,13 +230,7 @@ def _install_requirements_to_vendor(
         shutil.rmtree(pyodide_site_packages)
         pyodide_site_packages.mkdir()
 
-    install_cmd = [
-        "uv",
-        "pip",
-        "install",
-        "--python",
-        str(get_pyodide_venv_path()),
-    ]
+    install_cmd = ["uv", "pip", "install"]
     if not allow_build:
         install_cmd.append("--no-build")
     else:
@@ -206,6 +244,7 @@ def _install_requirements_to_vendor(
         install_cmd,
         capture_output=True,
         check=False,
+        env=_env_with_venv(get_pyodide_venv_path()),
     )
 
     if result.returncode != 0:
@@ -252,13 +291,12 @@ def _install_requirements_to_venv(requirements: list[str]) -> str | None:
                 "uv",
                 "pip",
                 "install",
-                "--python",
-                str(venv_workers_path),
                 "-r",
                 requirements_file,
             ],
             check=False,
             capture_output=True,
+            env=_env_with_venv(venv_workers_path),
         )
         if result.returncode != 0:
             return result.stdout.strip()
@@ -278,12 +316,11 @@ def _log_installed_packages(venv_path: Path) -> None:
             "uv",
             "pip",
             "list",
-            "--python",
-            str(venv_path),
             "--format=freeze",
         ],
         capture_output=True,
         check=False,
+        env=_env_with_venv(venv_path),
     )
     if result.returncode == 0 and result.stdout.strip():
         logger.debug("Installed packages:")
@@ -309,8 +346,6 @@ def _get_vendor_package_versions() -> list[str]:
             "uv",
             "pip",
             "freeze",
-            "--python",
-            str(get_pyodide_venv_path()),
             # This output is parsed, and FORCE_COLOR-style env vars make uv
             # colorize even when captured. "\x1b[1mshapely\x1b[0m==2.0.7"
             # still contains "==", so it survives _parse_pip_freeze and then
@@ -322,6 +357,7 @@ def _get_vendor_package_versions() -> list[str]:
             str(get_vendor_modules_path()),
         ],
         capture_output=True,
+        env=_env_with_venv(get_pyodide_venv_path()),
     )
     if result.returncode != 0:
         logger.warning("Failed to get package versions from pyodide venv")
