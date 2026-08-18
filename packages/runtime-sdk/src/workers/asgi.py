@@ -311,7 +311,9 @@ async def process_request(
         app_task.destroy()
 
 
-async def process_websocket(app: Any, req: "Request | js.Request") -> js.Response:
+async def process_websocket(
+    app: Any, req: "Request | js.Request", env: Any = None
+) -> js.Response:
     from js import Response, WebSocketPair
 
     client, server = WebSocketPair.new().object_values()
@@ -352,6 +354,10 @@ async def process_websocket(app: Any, req: "Request | js.Request") -> js.Respons
     server.onmessage = onmessage
 
     async def ws_send(got):
+        if got["type"] == "websocket.accept":
+            # The Workers WebSocketPair is accepted before the upgrade response
+            # is returned, so there is no deferred accept operation here.
+            return
         if got["type"] == "websocket.send":
             b = got.get("bytes", None)
             s = got.get("text", None)
@@ -362,16 +368,23 @@ async def process_websocket(app: Any, req: "Request | js.Request") -> js.Respons
                     server.send(jsbytes)
             if s is not None:
                 server.send(s)
-
-        else:
-            logger.warning(" == Not implemented %s", got["type"])
+            return
+        if got["type"] == "websocket.close":
+            server.close(got.get("code", 1000), got.get("reason", ""))
+            return
+        logger.warning(" == Not implemented %s", got["type"])
 
     async def ws_receive():
         received = await queue.get()
         return received
 
-    env = {}
-    run_in_background(app(request_to_scope(req, env, ws=True), ws_receive, ws_send))
+    run_in_background(
+        app(
+            request_to_scope(req, env if env is not None else {}, ws=True),
+            ws_receive,
+            ws_send,
+        )
+    )
 
     return Response.new(None, status=101, webSocket=client)
 
@@ -390,8 +403,10 @@ async def fetch(
     return result
 
 
-async def websocket(app: Any, req: "Request | js.Request") -> js.Response:
-    return await process_websocket(app, req)
+async def websocket(
+    app: Any, req: "Request | js.Request", env: Any = None
+) -> js.Response:
+    return await process_websocket(app, req, env)
 
 
 def __getattr__(name):
