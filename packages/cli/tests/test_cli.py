@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from textwrap import dedent
 from unittest.mock import Mock, patch
@@ -454,6 +455,10 @@ def create_worker_pyproject_with_local_dep(
     (test_dir / "pyproject.toml").write_text(content)
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="FIXME uv cannot build from source inside pyodide venv on Windows",
+)
 def test_sync_allow_build_local_dependency(test_dir):
     """End-to-end test for --allow-build with a local source dependency.
 
@@ -503,6 +508,10 @@ def test_sync_allow_build_local_dependency(test_dir):
     )
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="FIXME: uv cannot build from source inside pyodide venv on Windows",
+)
 def test_sync_allow_build_via_pyproject_config(test_dir):
     """End-to-end test for the [tool.pywrangler] allow-build config fallback.
 
@@ -727,15 +736,19 @@ def test_proxy_to_wrangler_handles_subprocess_error(mock_subprocess_run):
     # Should exit with 1 (error code)
     assert result.exit_code == 1
 
-    # Verify the error was attempted to be called
-    mock_subprocess_run.assert_called_once_with(
-        ["npx", "--yes", "wrangler", "unknown_command"],
-        check=False,
-        cwd=Path("."),
-        env=None,
-        text=True,
-        encoding="utf-8",
-    )
+    # Verify the error was attempted to be called.
+    mock_subprocess_run.assert_called_once()
+    call_args = mock_subprocess_run.call_args
+    cmd = call_args[0][0]
+    assert cmd[0].lower().startswith("npx")
+    assert cmd[1:] == ["--yes", "wrangler", "unknown_command"]
+    assert call_args[1] == {
+        "check": False,
+        "cwd": Path("."),
+        "env": None,
+        "text": True,
+        "encoding": "utf-8",
+    }
 
 
 def test_sync_command_finds_pyproject_in_parent_directory(test_dir):
