@@ -1,5 +1,6 @@
 import asyncio
 import enum
+import hashlib
 import importlib.util
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -434,6 +435,24 @@ app.include_router(v1_router)
 async def platform_lifespan_state(request: Request):
     resource = request.state.platform_resource
     return {"available": True, "closed": resource.closed}
+
+
+# --------------------------------------------------------------------------- #
+# Pyodide and Workers platform boundary routes
+# --------------------------------------------------------------------------- #
+
+
+@app.post("/platform/upload-spooled")
+async def platform_upload_spooled(file: UploadFile = File(...)):  # noqa: B008
+    first = await file.read()
+    await file.seek(0)
+    second = await file.read()
+    return {
+        "size": len(first),
+        "sha256": hashlib.sha256(first).hexdigest(),
+        "reread_matches": first == second,
+        "rolled_to_disk": bool(getattr(file.file, "_rolled", False)),
+    }
 
 
 @app.get("/native-file")

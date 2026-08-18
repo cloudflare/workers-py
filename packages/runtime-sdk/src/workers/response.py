@@ -1,17 +1,17 @@
 import json
-from contextlib import contextmanager
 from http import HTTPStatus
 from typing import Any, Never
 
 import js
 import pyodide.http
-from pyodide.ffi import JsException, JsProxy, create_proxy
+from pyodide.ffi import JsException, JsProxy
 
 from .blob import Blob
 from .formdata import FormData
 from .types import Body, Headers
 from .utils import (
     RESPONSE_ACCEPTED_TYPES,
+    _get_js_body,
     _get_js_constructor_name,
     _is_js_instance,
     _js_headers_to_http_message,
@@ -19,23 +19,6 @@ from .utils import (
     _to_js_headers,
     _to_python_exception,
 )
-
-
-@contextmanager
-def _get_js_body(body):
-    if isinstance(body, bytes):
-        proxy_bytes = create_proxy(body)
-        proxy_buffer = proxy_bytes.getBuffer()
-        try:
-            yield proxy_buffer.data
-            return
-        finally:
-            proxy_buffer.release()
-            proxy_bytes.destroy()
-    if isinstance(body, FormData):
-        yield body.js_object
-        return
-    yield body
 
 
 class FetchResponse(pyodide.http.FetchResponse):
