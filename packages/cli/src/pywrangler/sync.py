@@ -146,6 +146,26 @@ def create_pyodide_venv() -> None:
     run_command(["uv", "venv", str(pyodide_venv_path), "--python", interp_name])
 
 
+def _find_pyodide_site_packages() -> Path:
+    """Locate the pyodide venv's site-packages directory.
+
+    Discovered directly rather than assumed from an os.name check, since this
+    venv always targets a foreign (non-host) interpreter --
+    cpython-*-emscripten-wasm32-musl -- and there's no single formula that's
+    safe to assume holds for its internal layout on every host OS.
+    """
+    pyodide_venv_path = get_pyodide_venv_path()
+    matches = sorted(
+        pyodide_venv_path.glob("**/site-packages"), key=lambda p: len(p.parts)
+    )
+    if not matches:
+        raise RuntimeError(
+            f"Could not find a site-packages directory under {pyodide_venv_path}. "
+            "Try deleting .venv-workers and running `pywrangler sync` again."
+        )
+    return matches[0]
+
+
 def _install_requirements_to_vendor(
     plan: InstallPlan, allow_build: bool = False
 ) -> str | None:
@@ -177,11 +197,20 @@ def _install_requirements_to_vendor(
 
     # Clear pyodide venv site-packages so stale packages from previous syncs
     # don't carry over into python_modules.
-    pyv = get_python_version()
-    site_packages_path = (
-        f"lib/python{pyv}/site-packages" if os.name != "nt" else "Lib/site-packages"
-    )
-    pyodide_site_packages = get_pyodide_venv_path() / site_packages_path
+    #
+    # This venv always targets cpython-*-emscripten-wasm32-musl (see
+    # get_uv_pyodide_interp_name()), never the host's own interpreter -- unlike
+    # venv_workers_path (create_workers_venv()), which is a real native venv
+    # and does follow the host OS's own site-packages convention. Whether this
+    # *foreign*-target venv's internal layout also follows the host OS's
+    # convention, or the target's, isn't something to assume either way; it's
+    # located directly instead of guessed from os.name, which pointed at the
+    # wrong directory for at least one platform in practice (reported: real
+    # packages installed correctly by `uv`, but never copied into
+    # python_modules, so the deployed Worker fell back to workerd's
+    # always-raising stub "workers" module and failed at deploy time with
+    # ModuleNotFoundError).
+    pyodide_site_packages = _find_pyodide_site_packages()
     if pyodide_site_packages.is_dir():
         shutil.rmtree(pyodide_site_packages)
         pyodide_site_packages.mkdir()

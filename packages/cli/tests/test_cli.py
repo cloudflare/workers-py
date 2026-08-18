@@ -309,6 +309,39 @@ def test_sync_removes_stale_packages(test_dir):
     )
 
 
+def test_find_pyodide_site_packages_discovers_nested_layout(test_dir):
+    """`_find_pyodide_site_packages` must locate site-packages by discovery,
+    not by constructing a path from a guessed OS-conditional convention.
+
+    The pyodide venv always targets a foreign (non-host) interpreter, so its
+    on-disk layout isn't guaranteed to match either the POSIX or the Windows
+    native-venv convention on every host -- this was previously assumed via
+    an `os.name` check, which pointed at a nonexistent directory on at least
+    one real platform (freshly-installed packages were silently never copied
+    into python_modules, producing the reported deploy-time
+    ModuleNotFoundError). Using an unconventional depth here (rather than
+    exactly mirroring either real convention) proves the discovery is
+    layout-agnostic, not just accidentally matching one specific guess.
+    """
+    pyodide_venv_path = pywrangler_sync.get_pyodide_venv_path()
+    real_site_packages = pyodide_venv_path / "unexpected" / "nested" / "site-packages"
+    real_site_packages.mkdir(parents=True)
+    (real_site_packages / "marker.txt").write_text("installed package marker")
+
+    found = pywrangler_sync._find_pyodide_site_packages()
+
+    assert found == real_site_packages
+    assert (found / "marker.txt").exists()
+
+
+def test_find_pyodide_site_packages_raises_when_missing(test_dir):
+    """A clear error, not a silent no-op or a copytree crash on a path that
+    doesn't exist, when the pyodide venv has no site-packages directory at
+    all (e.g. venv creation never completed)."""
+    with pytest.raises(RuntimeError, match="Could not find a site-packages"):
+        pywrangler_sync._find_pyodide_site_packages()
+
+
 def test_sync_lockfile_lifecycle(test_dir):
     """Test that pylock.toml pins versions and --upgrade refreshes them."""
     create_test_wrangler_jsonc(test_dir, "src/worker.py")
