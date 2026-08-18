@@ -6,6 +6,7 @@ import _pyodide_entrypoint_helper
 import js
 from pyodide.ffi import (
     JsException,
+    create_proxy,
     destroy_proxies,
     to_js,
 )
@@ -49,6 +50,25 @@ RESPONSE_ACCEPTED_TYPES = {
 _JS_PASSTHROUGH_TYPES = RESPONSE_ACCEPTED_TYPES | {
     "Headers",
 }
+
+
+@contextmanager
+def _get_js_body(body):
+    from .formdata import FormData
+
+    if isinstance(body, bytes):
+        proxy_bytes = create_proxy(body)
+        proxy_buffer = proxy_bytes.getBuffer()
+        try:
+            yield proxy_buffer.data
+            return
+        finally:
+            proxy_buffer.release()
+            proxy_bytes.destroy()
+    if isinstance(body, FormData):
+        yield body.js_object
+        return
+    yield body
 
 
 def _jsnull_to_none(x):

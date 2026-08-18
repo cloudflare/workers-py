@@ -46,6 +46,23 @@ async def post_json(app, path, data, **kwargs):
     )
 
 
+def build_multipart_bytes(files, boundary="----WebTestBoundary"):
+    """Build a binary-safe multipart body from (name, filename, bytes) tuples."""
+    body = bytearray()
+    for name, filename, content in files:
+        if isinstance(content, str):
+            content = content.encode()
+        body.extend(f"--{boundary}\r\n".encode())
+        body.extend(
+            f'Content-Disposition: form-data; name="{name}"; filename="{filename}"\r\n'.encode()
+        )
+        body.extend(b"Content-Type: application/octet-stream\r\n\r\n")
+        body.extend(content)
+        body.extend(b"\r\n")
+    body.extend(f"--{boundary}--\r\n".encode())
+    return bytes(body), f"multipart/form-data; boundary={boundary}"
+
+
 def build_multipart(files, boundary="----WebTestBoundary"):
     """Build a multipart/form-data body from a list of (name, filename, content) tuples."""
     lines = []

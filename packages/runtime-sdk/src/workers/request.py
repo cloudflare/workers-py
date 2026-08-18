@@ -9,6 +9,7 @@ from .blob import Blob
 from .formdata import FormData
 from .types import FetchKwargs
 from .utils import (
+    _get_js_body,
     _is_js_instance,
     _js_headers_to_http_message,
     _jsnull_to_none,
@@ -36,9 +37,14 @@ class Request:
 
         if "headers" in other_options:
             other_options["headers"] = _to_js_headers(other_options["headers"])
-        self._js_request = js.Request.new(
-            input._js_request if isinstance(input, Request) else input, **other_options
-        )
+        body = other_options.pop("body", None)
+        with _get_js_body(body) as js_body:
+            if body is not None:
+                other_options["body"] = js_body
+            self._js_request = js.Request.new(
+                input._js_request if isinstance(input, Request) else input,
+                **other_options,
+            )
 
     def __repr__(self):
         return (

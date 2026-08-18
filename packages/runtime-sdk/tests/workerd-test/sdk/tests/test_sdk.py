@@ -436,6 +436,11 @@ async def test_request_unit_tests():
     blob = await req_for_blob.blob()
     assert (await blob.text()) == "foobar"
 
+    # Verify that Python bytes are converted without UTF-8 decoding or truncation.
+    binary_body = bytes(range(256))
+    req_for_bytes = Request("http://example.com", body=binary_body, method="POST")
+    assert await req_for_bytes.bytes() == binary_body
+
     # Verify that we can get a FormData back.
     js_form_data = js.FormData.new()
     js_form_data.append("foobar", 123)
