@@ -49,9 +49,6 @@
     "analytics_engine_datasets": [
         { "binding": "ANALYTICS", "dataset": "test-dataset" }
     ],
-    // "localConnectionString" points pywrangler dev at a database on the host.
-    // The databases only exist in the Hyperdrive CI job; when they are absent the
-    // dev server still starts normally and the hyperdrive suites are skipped.
     "hyperdrive": [
         {
             "binding": "HYPERDRIVE_PG",
