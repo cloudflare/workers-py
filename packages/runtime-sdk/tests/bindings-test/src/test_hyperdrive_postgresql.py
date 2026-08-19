@@ -34,7 +34,7 @@ from conftest import unique_table_name
 
 
 @pytest.fixture(autouse=True)
-def skip_if_no_socker_support():
+def skip_if_no_socket_support():
     if sys.version_info.minor < 14:
         pytest.skip("Socket support requires Python 3.14+")
 
