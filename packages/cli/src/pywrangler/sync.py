@@ -1,3 +1,4 @@
+import configparser
 import logging
 import os
 import shutil
@@ -24,6 +25,28 @@ from .utils import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Env vars that can cause uv to target the wrong Python environment.
+_UV_CONFLICTING_ENV_VARS = (
+    "VIRTUAL_ENV",
+    "CONDA_PREFIX",
+    "UV_PYTHON",
+    "UV_PROJECT_ENVIRONMENT",
+    "PYTHONHOME",
+)
+
+
+def _env_with_venv(venv_path: Path) -> dict[str, str]:
+    """Build a subprocess env that points VIRTUAL_ENV at *venv_path*.
+
+    Strips env vars that could redirect uv to a different environment,
+    then sets VIRTUAL_ENV explicitly.  This is preferred over ``--python``
+    for pyodide venvs because ``--python <dir>`` on Windows can cause uv
+    to install packages outside the venv's site-packages.
+    """
+    env = {k: v for k, v in os.environ.items() if k not in _UV_CONFLICTING_ENV_VARS}
+    env["VIRTUAL_ENV"] = str(venv_path)
+    return env
 
 
 def get_venv_workers_path() -> Path:
@@ -66,58 +89,54 @@ def check_requirements_txt() -> None:
         raise click.exceptions.Exit(code=1)
 
 
-def _get_venv_python_version() -> str | None:
+def _ensure_venv_version(venv_path: Path, wanted: str) -> bool:
+    """Check *venv_path* exists and its Python matches *wanted*.
+
+    Returns True if the venv is up-to-date, False if it was removed
+    (or never existed) and must be recreated.
     """
-    Retrieves the Python version from the virtual environment.
+    if not venv_path.is_dir():
+        return False
 
-    Returns:
-        The Python version string or None if it cannot be determined.
-    """
-    venv_workers_path = get_venv_workers_path()
-    venv_python = (
-        venv_workers_path / "Scripts" / "python.exe"
-        if os.name == "nt"
-        else venv_workers_path / "bin" / "python"
+    pyvenv_cfg = venv_path / "pyvenv.cfg"
+    if not pyvenv_cfg.is_file():
+        logger.warning(
+            f"Could not determine python version for {venv_path}, recreating."
+        )
+        shutil.rmtree(venv_path)
+        return False
+
+    cfg = configparser.ConfigParser()
+    # pyvenv.cfg has no section headers; inject one so ConfigParser can parse it.
+    cfg.read_string("[pyvenv]\n" + pyvenv_cfg.read_text())
+    installed = cfg.get("pyvenv", "version_info", fallback=None)
+
+    if installed is None:
+        logger.warning(
+            f"Could not determine python version for {venv_path}, recreating."
+        )
+        shutil.rmtree(venv_path)
+        return False
+
+    if wanted in installed:
+        logger.debug(f"Virtual environment at {venv_path} already exists.")
+        return True
+
+    logger.warning(
+        f"Recreating {venv_path} due to Python version mismatch. "
+        f"Found {installed}, expected {wanted}"
     )
-    if not venv_python.is_file():
-        return None
-
-    result = run_command(
-        [str(venv_python), "--version"], check=False, capture_output=True
-    )
-    if result.returncode != 0:
-        return None
-
-    return result.stdout.strip()
+    shutil.rmtree(venv_path)
+    return False
 
 
 def create_workers_venv() -> None:
-    """
-    Creates a virtual environment at `venv_workers_path` if it doesn't exist.
-    """
     wanted_python_version = get_python_version()
     logger.debug(f"Using python version from wrangler config: {wanted_python_version}")
 
     venv_workers_path = get_venv_workers_path()
-    if venv_workers_path.is_dir():
-        installed_version = _get_venv_python_version()
-        if installed_version:
-            if wanted_python_version in installed_version:
-                logger.debug(
-                    f"Virtual environment at {venv_workers_path} already exists."
-                )
-                return
-
-            logger.warning(
-                f"Recreating virtual environment at {venv_workers_path} due to Python version mismatch. "
-                f"Found {installed_version}, expected {wanted_python_version}"
-            )
-        else:
-            logger.warning(
-                f"Could not determine python version for {venv_workers_path}, recreating."
-            )
-
-        shutil.rmtree(venv_workers_path)
+    if _ensure_venv_version(venv_workers_path, wanted_python_version):
+        return
 
     logger.debug(f"Creating virtual environment at {venv_workers_path}...")
     run_command(
@@ -133,10 +152,8 @@ def create_workers_venv() -> None:
 
 def create_pyodide_venv() -> None:
     pyodide_venv_path = get_pyodide_venv_path()
-    if pyodide_venv_path.is_dir():
-        logger.debug(
-            f"Pyodide virtual environment at {pyodide_venv_path} already exists."
-        )
+    wanted_python_version = get_python_version()
+    if _ensure_venv_version(pyodide_venv_path, wanted_python_version):
         return
 
     check_uv_version()
@@ -186,13 +203,7 @@ def _install_requirements_to_vendor(
         shutil.rmtree(pyodide_site_packages)
         pyodide_site_packages.mkdir()
 
-    install_cmd = [
-        "uv",
-        "pip",
-        "install",
-        "--python",
-        str(get_pyodide_venv_path()),
-    ]
+    install_cmd = ["uv", "pip", "install"]
     if not allow_build:
         install_cmd.append("--no-build")
     else:
@@ -206,6 +217,7 @@ def _install_requirements_to_vendor(
         install_cmd,
         capture_output=True,
         check=False,
+        env=_env_with_venv(get_pyodide_venv_path()),
     )
 
     if result.returncode != 0:
@@ -252,13 +264,12 @@ def _install_requirements_to_venv(requirements: list[str]) -> str | None:
                 "uv",
                 "pip",
                 "install",
-                "--python",
-                str(venv_workers_path),
                 "-r",
                 requirements_file,
             ],
             check=False,
             capture_output=True,
+            env=_env_with_venv(venv_workers_path),
         )
         if result.returncode != 0:
             return result.stdout.strip()
@@ -278,12 +289,11 @@ def _log_installed_packages(venv_path: Path) -> None:
             "uv",
             "pip",
             "list",
-            "--python",
-            str(venv_path),
             "--format=freeze",
         ],
         capture_output=True,
         check=False,
+        env=_env_with_venv(venv_path),
     )
     if result.returncode == 0 and result.stdout.strip():
         logger.debug("Installed packages:")
@@ -309,8 +319,6 @@ def _get_vendor_package_versions() -> list[str]:
             "uv",
             "pip",
             "freeze",
-            "--python",
-            str(get_pyodide_venv_path()),
             # This output is parsed, and FORCE_COLOR-style env vars make uv
             # colorize even when captured. "\x1b[1mshapely\x1b[0m==2.0.7"
             # still contains "==", so it survives _parse_pip_freeze and then
@@ -322,6 +330,7 @@ def _get_vendor_package_versions() -> list[str]:
             str(get_vendor_modules_path()),
         ],
         capture_output=True,
+        env=_env_with_venv(get_pyodide_venv_path()),
     )
     if result.returncode != 0:
         logger.warning("Failed to get package versions from pyodide venv")
