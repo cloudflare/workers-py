@@ -10,14 +10,12 @@ docker run -d --name mysql \
     -e MYSQL_USER=testuser \
     -e MYSQL_PASSWORD=testpass \
     -e MYSQL_DATABASE=testdb \
-    -e MYSQL_ALLOW_EMPTY_PASSWORD=yes \
-    -e MYSQL_AUTHENTICATION_PLUGIN=mysql_native_password \
     -p 3306:3306 \
     --health-cmd="mysqladmin ping -h 127.0.0.1" \
     --health-interval=10s \
     --health-timeout=5s \
     --health-retries=5 \
-    mysql:8.0.45
+    mysql:8.0.45 --authentication-policy=mysql_native_password
 
 Then run the test:
 
