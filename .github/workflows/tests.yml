@@ -79,7 +79,7 @@ jobs:
           --health-retries=5
 
       mysql:
-        image: mysql:8.0
+        image: mysql:8.4
         env:
           MYSQL_ROOT_PASSWORD: rootpass
           MYSQL_USER: testuser
@@ -92,11 +92,6 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
-        # pymysql cannot use MySQL 8's default `caching_sha2_password`: it needs the `cryptography`
-        # package, which is unavailable in Python Workers. The plugin is a *server* setting, so it
-        # can only be set via a mysqld argument -- `options` won't do, as that is passed to
-        # `docker create` ahead of the image name. `command` is appended after it.
-        command: --authentication-policy=mysql_native_password
 
     steps:
     - uses: actions/checkout@v4

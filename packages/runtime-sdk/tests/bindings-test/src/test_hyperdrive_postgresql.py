@@ -22,8 +22,8 @@ Then run the test:
 
 uv run pytest tests/test_bindings.py -m hyperdrive -k postgresql
 
-Note: "POSTGRES_HOST_AUTH_METHOD=md5" is required for PostgreSQL to work with pg8000.
-      since the default `scram-sha-256` is not available in the pg8000 with Python workers (missing openssl)
+Note: "POSTGRES_HOST_AUTH_METHOD=md5" is required for PostgreSQL to work with pg8000, since the
+      default `scram-sha-256` is not available in the pg8000 with Python workers (missing openssl)
 """
 
 import sys
