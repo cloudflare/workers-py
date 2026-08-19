@@ -18,10 +18,18 @@ from conftest import register_in_worker_suites
 BINDINGS_TEST_DIR: Path = Path(__file__).parent / "bindings-test"
 BINDINGS_SRC_DIR: Path = BINDINGS_TEST_DIR / "src"
 
+SUITE_MARKS: dict[str, pytest.MarkDecorator] = {
+    # hyperdrive tests require external databases to be running
+    # so it is skipped by default.
+    # See each test file for details on how to run them.
+    "hyperdrive_postgresql": pytest.mark.hyperdrive,
+    "hyperdrive_mysql": pytest.mark.hyperdrive,
+}
+
 
 @pytest.fixture(scope="module")
 def worker_project_dir() -> Path:
     return BINDINGS_TEST_DIR
 
 
-register_in_worker_suites(globals(), BINDINGS_SRC_DIR)
+register_in_worker_suites(globals(), BINDINGS_SRC_DIR, marks=SUITE_MARKS)

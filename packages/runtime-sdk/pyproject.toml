@@ -64,6 +64,9 @@ lint.per-file-ignores."tests/web-frameworks-test/**" = ["C901", "PLR0911", "PLR0
 
 [tool.pytest.ini_options]
 addopts = ["--ignore=tests/workerd-test", "--ignore=tests/bindings-test", "--ignore=tests/web-frameworks-test"]
+markers = [
+  "hyperdrive: needs MySQL and PostgreSQL on localhost; skipped unless run with -m hyperdrive",
+]
 
 [tool.mypy]
 packages = ["workers_runtime_sdk"]
