@@ -1,0 +1,19 @@
+.github/workflows/tests.yml
+  s_d061cf3cefeb2f::t_8b0e406996d1b4 88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "e5aaa82c518620a90fb254dbf0ac20e57acd124c",
+  "prompts": {},
+  "sessions": {
+    "s_d061cf3cefeb2f": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fe7a7b571ffeyNpciO3ji4GRs1",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    }
+  }
+}
