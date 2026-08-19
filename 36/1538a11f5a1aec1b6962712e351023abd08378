@@ -1,0 +1,19 @@
+packages/runtime-sdk/tests/bindings-test/src/test_hyperdrive_mysql.py
+  s_2fc5c4baa27d01::t_9b72f39773f980 18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "361538a11f5a1aec1b6962712e351023abd08378",
+  "prompts": {},
+  "sessions": {
+    "s_2fc5c4baa27d01": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fe76ef17cffego7wQYojugXULd",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    }
+  }
+}
