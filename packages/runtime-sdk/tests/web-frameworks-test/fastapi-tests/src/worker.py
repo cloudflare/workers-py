@@ -1,6 +1,8 @@
 import asyncio
 import enum
+import hashlib
 import importlib.util
+import json
 from pathlib import Path
 
 import pytest
@@ -29,6 +31,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from pyodide.webloop import WebLoop
 from starlette.background import BackgroundTask
+from starlette.middleware.gzip import GZipMiddleware
 
 import asgi
 from workers import Response, WorkerEntrypoint
@@ -44,6 +47,18 @@ WebLoop.shutdown_default_executor = _noop
 STATIC_DIR = Path(__file__).parent / "static"
 
 app = FastAPI()
+app.add_middleware(GZipMiddleware, minimum_size=1024)
+
+_platform_concurrency_ready = asyncio.Event()
+_platform_concurrency_count = 0
+
+
+def reset_platform_concurrency():
+    global _platform_concurrency_count
+
+    _platform_concurrency_count = 0
+    _platform_concurrency_ready.clear()
+
 
 # --------------------------------------------------------------------------- #
 # Shared mutable state used to verify side-effects (e.g. background tasks).
@@ -412,6 +427,58 @@ async def v1_info():
 
 
 app.include_router(v1_router)
+
+
+# --------------------------------------------------------------------------- #
+# Pyodide and Workers platform boundary routes
+# --------------------------------------------------------------------------- #
+
+
+@app.post("/platform/chunked-json")
+async def platform_chunked_json(request: Request):
+    chunks = [chunk async for chunk in request.stream() if chunk]
+    body = b"".join(chunks)
+    return {
+        "chunk_sizes": [len(chunk) for chunk in chunks],
+        "sha256": hashlib.sha256(body).hexdigest(),
+        "data": json.loads(body),
+    }
+
+
+@app.post("/platform/concurrent-env")
+async def platform_concurrent_env(
+    request: Request,
+    bindings=asgi.env,  # noqa: B008
+):
+    global _platform_concurrency_count
+
+    _platform_concurrency_count += 1
+    if _platform_concurrency_count == 2:
+        _platform_concurrency_ready.set()
+    await asyncio.wait_for(_platform_concurrency_ready.wait(), timeout=5)
+    body = await request.body()
+    return {
+        "binding": bindings["marker"],
+        "header": request.headers["x-request-marker"],
+        "body": body.decode(),
+    }
+
+
+@app.get("/platform/multiple-cookies")
+async def platform_multiple_cookies():
+    response = JSONResponse({"ok": True})
+    response.set_cookie("first", "1")
+    response.set_cookie("second", "two")
+    response.set_cookie("dated", "3", expires="Wed, 21 Oct 2037 07:28:00 GMT")
+    return response
+
+
+@app.get("/platform/gzip-binary")
+async def platform_gzip_binary():
+    return FastAPIResponse(
+        content=(bytes(range(256)) * 32),
+        media_type="application/octet-stream",
+    )
 
 
 @app.get("/native-file")
