@@ -21,8 +21,9 @@ Then run the test:
 
 uv run pytest tests/test_bindings.py -m hyperdrive -k mysql
 
-Note: `MYSQL_AUTHENTICATION_PLUGIN=mysql_native_password` is required for MySQL 8.0+ to work with pymysql.
-      since the default `caching_sha2_password` requires cryptography package which is not available in the Python workers (FIXME)
+Note: `--authentication-policy=mysql_native_password` is required for MySQL 8.0+ to work with pymysql,
+      since the default `caching_sha2_password` requires the cryptography package which is not
+      available in the Python workers 3.14 (FIXME).
 """
 
 import sys

@@ -92,6 +92,11 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=5
+        # pymysql cannot use MySQL 8's default `caching_sha2_password`: it needs the `cryptography`
+        # package, which is unavailable in Python Workers. The plugin is a *server* setting, so it
+        # can only be set via a mysqld argument -- `options` won't do, as that is passed to
+        # `docker create` ahead of the image name. `command` is appended after it.
+        command: --authentication-policy=mysql_native_password
 
     steps:
     - uses: actions/checkout@v4
@@ -100,19 +105,6 @@ jobs:
       uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       with:
         python-version: '3.13'
-
-    # pymysql cannot use MySQL 8's default `caching_sha2_password`: it needs the `cryptography`
-    # package, which is unavailable in Python Workers. `mysql_native_password` has to be selected
-    # with a mysqld server argument, and `services.*.options` is passed to `docker create`, not to
-    # the server -- so switch the user over once the service is healthy instead.
-    - name: Switch MySQL user to mysql_native_password
-      run: |
-        container="$(docker ps -q --filter ancestor=mysql:8.0)"
-        docker exec "$container" mysql -uroot -prootpass -e "
-          ALTER USER 'testuser'@'%' IDENTIFIED WITH mysql_native_password BY 'testpass';
-          FLUSH PRIVILEGES;"
-        docker exec "$container" mysql -uroot -prootpass -e "
-          SELECT user, host, plugin FROM mysql.user WHERE user = 'testuser';"
 
     - name: Run Hyperdrive binding tests
       working-directory: packages/runtime-sdk
