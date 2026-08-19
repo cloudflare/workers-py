@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.16.5 (2026-08-19)
+
+### Bug Fixes
+
+- Fix calculating host python path on windows
+  ([#214](https://github.com/cloudflare/workers-py/pull/214),
+  [`5e62574`](https://github.com/cloudflare/workers-py/commit/5e6257444a65d9404aaa77cd9316524fd3551df4))
+
+
 ## v1.16.4 (2026-08-13)
 
 ### Bug Fixes
