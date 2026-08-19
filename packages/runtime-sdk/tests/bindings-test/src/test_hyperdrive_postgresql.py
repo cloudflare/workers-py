@@ -20,15 +20,23 @@ docker run -d --name postgres \
 
 Then run the test:
 
-uv run pytest tests/bindings-test/src/test_hyperdrive_postgresql.py -m hyperdrive
+uv run pytest tests/test_bindings.py -m hyperdrive -k postgresql
 
 Note: "POSTGRES_HOST_AUTH_METHOD=md5" is required for PostgreSQL to work with pg8000.
       since the default `scram-sha-256` is not available in the pg8000 with Python workers (missing openssl)
 """
 
+import sys
+
 import pg8000
 import pytest
 from conftest import unique_table_name
+
+
+@pytest.fixture(autouse=True)
+def skip_if_no_socker_support():
+    if sys.version_info.minor < 14:
+        pytest.skip("Socket support requires Python 3.14+")
 
 
 def _connect(env):

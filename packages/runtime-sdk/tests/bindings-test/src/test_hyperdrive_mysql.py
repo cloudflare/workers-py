@@ -10,25 +10,34 @@ docker run -d --name mysql \
     -e MYSQL_USER=testuser \
     -e MYSQL_PASSWORD=testpass \
     -e MYSQL_DATABASE=testdb \
+    -e MYSQL_ALLOW_EMPTY_PASSWORD=yes \
+    -e MYSQL_AUTHENTICATION_PLUGIN=mysql_native_password \
     -p 3306:3306 \
     --health-cmd="mysqladmin ping -h 127.0.0.1" \
     --health-interval=10s \
     --health-timeout=5s \
     --health-retries=5 \
-    --default-authentication-plugin=mysql_native_password \
-    mysql:8.0
+    mysql:8.0.45
 
 Then run the test:
 
-uv run pytest tests/bindings-test/src/test_hyperdrive_mysql.py -m hyperdrive
+uv run pytest tests/test_bindings.py -m hyperdrive -k mysql
 
-Note: `--default-authentication-plugin=mysql_native_password` is required for MySQL 8.0+ to work with pymysql.
+Note: `MYSQL_AUTHENTICATION_PLUGIN=mysql_native_password` is required for MySQL 8.0+ to work with pymysql.
       since the default `caching_sha2_password` requires cryptography package which is not available in the Python workers (FIXME)
 """
 
+import sys
+
 import pymysql
 import pytest
-from contest import unique_table_name
+from conftest import unique_table_name
+
+
+@pytest.fixture(autouse=True)
+def skip_if_no_socker_support():
+    if sys.version_info.minor < 14:
+        pytest.skip("Socket support requires Python 3.14+")
 
 
 def _connect(env):
