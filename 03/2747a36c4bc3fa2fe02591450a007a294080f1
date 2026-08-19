@@ -1,0 +1,19 @@
+packages/runtime-sdk/tests/web-frameworks-test/fastapi-tests/src/worker.py
+  s_11612c12ff00f6::t_f0c4f73be642af 3,5,34,50-61,432-483
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "032747a36c4bc3fa2fe02591450a007a294080f1",
+  "prompts": {},
+  "sessions": {
+    "s_11612c12ff00f6": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_00450475cffeTKcADX0uXj73nb",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Dominik Picheta <dominik@cloudflare.com>"
+    }
+  }
+}
