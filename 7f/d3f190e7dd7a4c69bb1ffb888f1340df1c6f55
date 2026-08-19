@@ -1,0 +1,22 @@
+packages/runtime-sdk/tests/web-frameworks-test/fastapi-tests/src/worker.py
+  s_11612c12ff00f6::t_0cc3300ad66bb0 18,29,150-231
+  s_11612c12ff00f6::t_66aee9c3fa6a27 19-26,232-276,278-320
+packages/runtime-sdk/tests/web-frameworks-test/fastapi-tests/src/test_response_types.py
+  s_11612c12ff00f6::t_e97a853b8fff06 1-183
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "7fd3f190e7dd7a4c69bb1ffb888f1340df1c6f55",
+  "prompts": {},
+  "sessions": {
+    "s_11612c12ff00f6": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_00450475cffeTKcADX0uXj73nb",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Dominik Picheta <dominik@cloudflare.com>"
+    }
+  }
+}
