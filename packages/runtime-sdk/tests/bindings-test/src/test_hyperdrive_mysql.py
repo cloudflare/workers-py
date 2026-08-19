@@ -1,10 +1,34 @@
 # pyright: reportMissingImports=false
 
+"""
+This test requires a MySQL server to be running on localhost.
+
+Run mysql with docker:
+
+docker run -d --name mysql \
+    -e MYSQL_ROOT_PASSWORD=rootpass \
+    -e MYSQL_USER=testuser \
+    -e MYSQL_PASSWORD=testpass \
+    -e MYSQL_DATABASE=testdb \
+    -p 3306:3306 \
+    --health-cmd="mysqladmin ping -h 127.0.0.1" \
+    --health-interval=10s \
+    --health-timeout=5s \
+    --health-retries=5 \
+    --default-authentication-plugin=mysql_native_password \
+    mysql:8.0
+
+Then run the test:
+
+uv run pytest tests/bindings-test/src/test_hyperdrive_mysql.py -m hyperdrive
+
+Note: `--default-authentication-plugin=mysql_native_password` is required for MySQL 8.0+ to work with pymysql.
+      since the default `caching_sha2_password` requires cryptography package which is not available in the Python workers (FIXME)
+"""
+
 import pymysql
 import pytest
-from _hyperdrive import requires_sockets, unique_table_name
-
-pytestmark = requires_sockets
+from contest import unique_table_name
 
 
 def _connect(env):
@@ -17,8 +41,6 @@ def _connect(env):
         database=hd.database,
         unix_socket=False,
         # Hyperdrive terminates TLS to the origin, so this hop is plaintext.
-        # pymysql would otherwise upgrade via STARTTLS, which `cloudflare:sockets`
-        # rejects unless the socket was opened with secureTransport="starttls".
         ssl_disabled=True,
     )
 

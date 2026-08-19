@@ -8,10 +8,6 @@ pytest against them and returns per-test results.
 
 To add a new binding: create src/test_<binding>.py in bindings-test/ with pytest tests
 and add any required binding to wrangler.jsonc.
-
-The hyperdrive suites are opt-in: they need a MySQL and a PostgreSQL server on
-localhost, so they are skipped unless you run with ``-m hyperdrive``. See
-.github/workflows/tests.yml for the exact database configuration they expect.
 """
 
 from pathlib import Path
@@ -23,6 +19,9 @@ BINDINGS_TEST_DIR: Path = Path(__file__).parent / "bindings-test"
 BINDINGS_SRC_DIR: Path = BINDINGS_TEST_DIR / "src"
 
 SUITE_MARKS: dict[str, pytest.MarkDecorator] = {
+    # hyperdrive tests require external databases to be running
+    # so it is skipped by default.
+    # See each test file for details on how to run them.
     "hyperdrive_postgresql": pytest.mark.hyperdrive,
     "hyperdrive_mysql": pytest.mark.hyperdrive,
 }

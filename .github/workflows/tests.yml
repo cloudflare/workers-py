@@ -62,10 +62,6 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      # The vendored drivers cannot do modern auth inside Pyodide: its hashlib
-      # has no pbkdf2_hmac (so pg8000 cannot do scram-sha-256) and pymysql needs
-      # the `cryptography` package for caching_sha2_password. Both databases are
-      # therefore pinned to the older auth methods.
       postgres:
         image: postgres:16
         env:

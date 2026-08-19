@@ -1,10 +1,34 @@
 # pyright: reportMissingImports=false
 
+"""
+This test requires a PostgreSQL server to be running on localhost.
+
+Run postgresql with docker:
+
+docker run -d --name postgres \
+    -e POSTGRES_USER=testuser \
+    -e POSTGRES_PASSWORD=testpass \
+    -e POSTGRES_DB=testdb \
+    -e POSTGRES_HOST_AUTH_METHOD=md5 \
+    -e POSTGRES_INITDB_ARGS="--auth-host=md5" \
+    -p 5432:5432 \
+    --health-cmd="pg_isready -U testuser -d testdb" \
+    --health-interval=10s \
+    --health-timeout=5s \
+    --health-retries=5 \
+    postgres:16
+
+Then run the test:
+
+uv run pytest tests/bindings-test/src/test_hyperdrive_postgresql.py -m hyperdrive
+
+Note: "POSTGRES_HOST_AUTH_METHOD=md5" is required for PostgreSQL to work with pg8000.
+      since the default `scram-sha-256` is not available in the pg8000 with Python workers (missing openssl)
+"""
+
 import pg8000
 import pytest
-from _hyperdrive import requires_sockets, unique_table_name
-
-pytestmark = requires_sockets
+from conftest import unique_table_name
 
 
 def _connect(env):
