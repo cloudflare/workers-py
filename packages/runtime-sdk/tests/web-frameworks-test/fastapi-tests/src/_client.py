@@ -1,5 +1,8 @@
 import json as _json
 
+import js
+from pyodide.ffi import create_proxy, to_js
+
 import asgi
 from workers import Request
 
@@ -61,6 +64,35 @@ def build_multipart_bytes(files, boundary="----WebTestBoundary"):
         body.extend(b"\r\n")
     body.extend(f"--{boundary}--\r\n".encode())
     return bytes(body), f"multipart/form-data; boundary={boundary}"
+
+
+async def fetch_chunks(app, path, chunks, env=None, method="POST", headers=None):
+    """Send a request body as a JS ReadableStream with explicit chunk boundaries."""
+    from js import Object
+
+    chunks = list(chunks)
+
+    def start(controller):
+        for chunk in chunks:
+            controller.enqueue(to_js(chunk))
+        controller.close()
+
+    start_proxy = create_proxy(start)
+    try:
+        stream = js.ReadableStream.new(
+            to_js({"start": start_proxy}, dict_converter=Object.fromEntries)
+        )
+        hdrs = dict(headers or {})
+        hdrs.setdefault("Content-Length", str(sum(len(chunk) for chunk in chunks)))
+        request = Request(
+            f"{BASE_URL}{path}",
+            method=method,
+            headers=hdrs,
+            body=stream,
+        )
+        return await asgi.fetch(app, request, env or {})
+    finally:
+        start_proxy.destroy()
 
 
 def build_multipart(files, boundary="----WebTestBoundary"):
