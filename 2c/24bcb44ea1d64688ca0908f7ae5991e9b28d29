@@ -1,0 +1,19 @@
+packages/cli/tests/test_cli.py
+  s_af9bf0ece7e874::t_93657777f85927 88-89,104-110,137
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "2c24bcb44ea1d64688ca0908f7ae5991e9b28d29",
+  "prompts": {},
+  "sessions": {
+    "s_af9bf0ece7e874": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_feb7c1831ffeRRCCvhfWgGAfgM",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    }
+  }
+}
