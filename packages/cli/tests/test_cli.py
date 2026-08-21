@@ -2,6 +2,7 @@ import logging
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from textwrap import dedent
 from unittest.mock import Mock, patch
@@ -84,15 +85,29 @@ def create_test_pyproject(test_dir: Path, dependencies=None):
     return dependencies
 
 
-def create_test_wrangler_jsonc(
-    test_dir: Path, main_path="src/worker.py", python_version="3.12"
-):
-    """Create a test wrangler.jsonc file with the given main path and Python version."""
+def _wrangler_compat_config(python_version: str) -> tuple[str, str]:
+    """Return (compat_flags_str, compat_date) for a given Python version."""
     compat_flags = ["python_workers"]
     if python_version == "3.13":
         compat_flags.append("python_workers_20250116")
+    if python_version == "3.14":
+        compat_flags.append("python_workers_20260610")
 
     compat_flags_str = ", ".join([f'"{flag}"' for flag in compat_flags])
+
+    compat_dates = {
+        "3.12": "2025-09-28",
+        "3.13": "2025-10-01",
+        "3.14": "2026-09-01",
+    }
+    compat_date = compat_dates.get(python_version, "2025-10-01")
+    return compat_flags_str, compat_date
+
+
+def create_test_wrangler_jsonc(
+    test_dir: Path, main_path="src/worker.py", python_version="3.13"
+):
+    compat_flags_str, compat_date = _wrangler_compat_config(python_version)
 
     content = f"""
     /**
@@ -107,7 +122,7 @@ def create_test_wrangler_jsonc(
         "main": "{main_path}",
 
         // Compatibility date
-        "compatibility_date": "2023-10-30",
+        "compatibility_date": "{compat_date}",
 
         // Compatibility flags
         "compatibility_flags": [{compat_flags_str}]
@@ -117,14 +132,16 @@ def create_test_wrangler_jsonc(
 
 
 def create_test_wrangler_toml(
-    test_dir, main_path="dist/worker.js", python_version="3.12"
+    test_dir, main_path="dist/worker.js", python_version="3.13"
 ):
-    """Create a test wrangler.toml file with the given main path and Python version."""
-    compat_flags = ["python_workers"]
-    if python_version == "3.13":
-        compat_flags.append("python_workers_20250116")
+    compat_flags_str, compat_date = _wrangler_compat_config(python_version)
 
-    compat_flags_str = ", ".join([f'"{flag}"' for flag in compat_flags])
+    compat_dates = {
+        "3.12": "2025-09-28",
+        "3.13": "2025-10-01",
+        "3.14": "2026-08-28",
+    }
+    compat_date = compat_dates.get(python_version, "2025-10-01")
 
     content = dedent(f"""
         # Name of the worker
@@ -134,7 +151,7 @@ def create_test_wrangler_toml(
         main = "{main_path}"
 
         # Compatibility date
-        compatibility_date = "2023-10-30"
+        compatibility_date = "{compat_date}"
 
         # Compatibility flags
         compatibility_flags = [{compat_flags_str}]
@@ -213,7 +230,7 @@ def test_sync_command_integration(dependencies, test_dir):  # noqa: C901 (test c
     if os.name == "nt":
         site_packages_path = TEST_VENV_WORKERS / "Lib" / "site-packages"
     else:
-        site_packages_path = TEST_VENV_WORKERS / "lib" / "python3.12" / "site-packages"
+        site_packages_path = TEST_VENV_WORKERS / "lib" / "python3.13" / "site-packages"
     assert site_packages_path.exists(), (
         "site-packages directory does not exist in .venv-workers"
     )
@@ -434,6 +451,10 @@ def create_worker_pyproject_with_local_dep(
     (test_dir / "pyproject.toml").write_text(content)
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="FIXME Pyodide WASM interpreter cannot run setuptools build backends on Windows",
+)
 def test_sync_allow_build_local_dependency(test_dir):
     """End-to-end test for --allow-build with a local source dependency.
 
@@ -483,6 +504,10 @@ def test_sync_allow_build_local_dependency(test_dir):
     )
 
 
+@pytest.mark.skipif(
+    sys.platform == "win32",
+    reason="FIXME Pyodide WASM interpreter cannot run setuptools build backends on Windows",
+)
 def test_sync_allow_build_via_pyproject_config(test_dir):
     """End-to-end test for the [tool.pywrangler] allow-build config fallback.
 
@@ -526,7 +551,7 @@ def test_sync_command_handles_missing_pyproject():
         {
             "name": "test-worker",
             "main": "src/worker.py",
-            "compatibility_date": "2023-10-30",
+            "compatibility_date": "2025-10-01",
             "compatibility_flags": ["python_workers"]
         }
         """)
@@ -707,15 +732,19 @@ def test_proxy_to_wrangler_handles_subprocess_error(mock_subprocess_run):
     # Should exit with 1 (error code)
     assert result.exit_code == 1
 
-    # Verify the error was attempted to be called
-    mock_subprocess_run.assert_called_once_with(
-        ["npx", "--yes", "wrangler", "unknown_command"],
-        check=False,
-        cwd=Path("."),
-        env=None,
-        text=True,
-        encoding="utf-8",
-    )
+    # Verify the error was attempted to be called.
+    mock_subprocess_run.assert_called_once()
+    call_args = mock_subprocess_run.call_args
+    cmd = call_args[0][0]
+    assert cmd[0].lower().startswith("npx")
+    assert cmd[1:] == ["--yes", "wrangler", "unknown_command"]
+    assert call_args[1] == {
+        "check": False,
+        "cwd": Path("."),
+        "env": None,
+        "text": True,
+        "encoding": "utf-8",
+    }
 
 
 def test_sync_command_finds_pyproject_in_parent_directory(test_dir):
@@ -767,9 +796,8 @@ def test_sync_recreates_venv_on_python_version_mismatch(test_dir):
     sync_cmd = ["uv", "run", "pywrangler", "sync"]
     venv_path = test_dir / ".venv-workers"
 
-    # First run: Create venv with Python 3.12 (using basic python_workers flag)
-    print("\nRunning sync to create venv with Python 3.12...")
-    create_test_wrangler_jsonc(test_dir, python_version="3.12")
+    # First run: Create venv with Python 3.13
+    create_test_wrangler_jsonc(test_dir, python_version="3.13")
     result1 = subprocess.run(
         sync_cmd, capture_output=True, text=True, cwd=test_dir, check=False
     )
@@ -780,11 +808,17 @@ def test_sync_recreates_venv_on_python_version_mismatch(test_dir):
     assert venv_path.exists(), "Venv was not created on the first run."
     initial_mtime = venv_path.stat().st_mtime
 
-    # Second run: Recreate venv with Python 3.13 (using python_workers_20250116 flag)
-    print("\nRunning sync to recreate venv with Python 3.13...")
+    # Second run: Recreate venv with Python 3.14
     create_test_pyproject(test_dir)
-    create_test_wrangler_jsonc(test_dir, python_version="3.13")
-    result2 = subprocess.run(sync_cmd, text=True, cwd=test_dir, check=False)
+    create_test_wrangler_jsonc(test_dir, python_version="3.14")
+    # Use --force to ensure pylock.toml is recompiled for the new version
+    result2 = subprocess.run(
+        [*sync_cmd, "--force"],
+        capture_output=True,
+        text=True,
+        cwd=test_dir,
+        check=False,
+    )
 
     assert result2.returncode == 0, (
         f"Second sync failed: {result2.stdout}\n{result2.stderr}"
@@ -795,7 +829,7 @@ def test_sync_recreates_venv_on_python_version_mismatch(test_dir):
     # Check that the venv was actually modified
     assert final_mtime > initial_mtime, "Venv modification time did not change."
 
-    # Verify the python version in the new venv is 3.13.
+    # Verify the python version in the new venv is 3.14.
     python_exe = venv_path / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
     version_result = subprocess.run(
         [python_exe, "--version"],
@@ -804,8 +838,8 @@ def test_sync_recreates_venv_on_python_version_mismatch(test_dir):
         cwd=test_dir,
         check=False,
     )
-    assert "3.13" in version_result.stdout, (
-        f"Python version is not 3.13: {version_result.stdout}"
+    assert "3.14" in version_result.stdout, (
+        f"Python version is not 3.14: {version_result.stdout}"
     )
 
 
@@ -852,7 +886,7 @@ def test_create_pyodide_venv_does_not_put_interpreter_on_path(test_dir, tmp_path
     """`create_pyodide_venv` must not place an interpreter on the user's PATH.
 
     Integration test (exercises real `uv`). As of uv 0.8, `uv python install` links
-    a versioned executable (for the Pyodide build, `pyodide3.12`) into uv's
+    a versioned executable (for the Pyodide build, e.g. `pyodide3.13`) into uv's
     executable directory, which is on PATH. That shadows real CPython for other tools
     on the system, so the venv must be created without it.
 
@@ -863,7 +897,7 @@ def test_create_pyodide_venv_does_not_put_interpreter_on_path(test_dir, tmp_path
     run the wasm interpreter to query it).
     """
     create_test_pyproject(test_dir, dependencies=[])
-    create_test_wrangler_jsonc(test_dir, python_version="3.12")
+    create_test_wrangler_jsonc(test_dir, python_version="3.13")
 
     bin_dir = tmp_path / "uv-bin"
     install_dir = tmp_path / "uv-pythons"
