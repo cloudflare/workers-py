@@ -20,6 +20,15 @@ These are relevant for Pyodide/Workers because:
 
 import pytest
 from _client import fetch, get_json, read_json
+from worker import Default
+
+from workers import WorkerEntrypoint
+
+
+def test_asgi_entrypoint_factory():
+    assert Default.__name__ == "Default"
+    assert issubclass(Default, WorkerEntrypoint)
+
 
 # -- Path parameters ---------------------------------------------------------
 
