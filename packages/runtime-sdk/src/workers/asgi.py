@@ -7,7 +7,7 @@ from urllib.parse import unquote
 
 import js
 
-from workers import Context, Request
+from workers import Context, Request, WorkerEntrypoint
 from workers.utils import _to_js_headers
 
 ASGI = {"spec_version": "2.0", "version": "3.0"}
@@ -413,6 +413,18 @@ async def websocket(
     app: Any, req: "Request | js.Request", env: Any = None
 ) -> js.Response:
     return await process_websocket(app, req, env)
+
+
+def entrypoint(app: Any) -> type[WorkerEntrypoint]:
+    """Create the default Worker entrypoint for an ASGI application."""
+
+    class Default(WorkerEntrypoint):
+        async def fetch(self, request):
+            if (request.headers.get("upgrade") or "").lower() == "websocket":
+                return await websocket(app, request, self.env)
+            return await fetch(app, request, self.env, self.ctx)
+
+    return Default
 
 
 def __getattr__(name):
