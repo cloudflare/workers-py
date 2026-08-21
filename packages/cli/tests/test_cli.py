@@ -136,6 +136,13 @@ def create_test_wrangler_toml(
 ):
     compat_flags_str, compat_date = _wrangler_compat_config(python_version)
 
+    compat_dates = {
+        "3.12": "2025-09-28",
+        "3.13": "2025-10-01",
+        "3.14": "2026-08-28",
+    }
+    compat_date = compat_dates.get(python_version, "2025-10-01")
+
     content = dedent(f"""
         # Name of the worker
         name = "test-worker-toml"
