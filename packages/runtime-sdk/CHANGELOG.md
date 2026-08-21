@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.14 (2026-08-19)
+
+### Bug Fixes
+
+- Fixes fastapi lifespan state not persisting
+  ([`fadd19b`](https://github.com/cloudflare/workers-py/commit/fadd19bcb6ca47518d5e42562879164dd62ab404))
+
+
 ## v1.6.13 (2026-08-12)
 
 ### Bug Fixes
