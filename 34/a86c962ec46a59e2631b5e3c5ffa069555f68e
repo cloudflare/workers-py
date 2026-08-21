@@ -1,0 +1,19 @@
+packages/django-cf/tests/in_worker/worker/src/_django_app.py
+  s_a7dcecebcdf1ab::t_bdb7c5b2e528ae 1-12
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "34a86c962ec46a59e2631b5e3c5ffa069555f68e",
+  "prompts": {},
+  "sessions": {
+    "s_a7dcecebcdf1ab": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fdd3088a1ffeow949ei24gTk9N",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    }
+  }
+}
