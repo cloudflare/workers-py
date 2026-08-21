@@ -208,10 +208,15 @@ def dev_server(
 
 
 @functools.cache
-def get_suite_results(dev_server: str, suite: str) -> SuiteResults | str:
+def get_suite_results(
+    dev_server: str, suite: str, mode: str | None = None
+) -> SuiteResults | str:
+    url = f"{dev_server}/run-tests/{suite}"
+    if mode is not None:
+        url = f"{url}?mode={mode}"
     try:
         resp = requests.get(
-            f"{dev_server}/run-tests/{suite}",
+            url,
             timeout=(SUITE_CONNECT_TIMEOUT, SUITE_READ_TIMEOUT),
         )
     except requests.RequestException as error:
@@ -221,9 +226,9 @@ def get_suite_results(dev_server: str, suite: str) -> SuiteResults | str:
     return resp.json()
 
 
-def _make_test(suite: str, test_name: str) -> Callable:
+def _make_test(suite: str, test_name: str, mode: str | None = None) -> Callable:
     def test_fn(self: Any, dev_server: str) -> None:
-        results = get_suite_results(dev_server, suite)
+        results = get_suite_results(dev_server, suite, mode)
         if isinstance(results, str):
             pytest.fail(results)
             return
@@ -240,12 +245,17 @@ def _make_test(suite: str, test_name: str) -> Callable:
     return test_fn
 
 
-def make_suite_class(suite: str, tests: list[str]) -> type:
+def make_suite_class(suite: str, tests: list[str], mode: str | None = None) -> type:
     """Build a test class with one method per in-worker test of `suite`."""
+    name = (
+        f"Test{suite.upper()}"
+        if mode is None
+        else f"Test{suite.upper()}_{mode.upper()}"
+    )
     return type(
-        f"Test{suite.upper()}",
+        name,
         (),
-        {f"test_{name}": _make_test(suite, name) for name in tests},
+        {f"test_{test}": _make_test(suite, test, mode) for test in tests},
     )
 
 
@@ -276,15 +286,19 @@ def register_in_worker_suites(
     namespace: dict[str, Any],
     src_dir: Path,
     marks: dict[str, pytest.MarkDecorator] | None = None,
+    mode: str | None = None,
 ) -> None:
     """Define a ``TestXxx`` class in `namespace` for every suite found in `src_dir`.
 
     Call with ``globals()`` from a test module so each in-worker test surfaces as
     its own pytest case without manual registration. `marks` applies a marker to
     the class generated for the suite of the same name.
+
+    Pass `mode` to run the same suites again against a different in-worker app;
+    tests that do not apply to a mode report themselves as skipped.
     """
     for suite, test_names in discover_suites(src_dir).items():
-        suite_cls = make_suite_class(suite, test_names)
+        suite_cls = make_suite_class(suite, test_names, mode)
         if marks and suite in marks:
             suite_cls = marks[suite](suite_cls)
         namespace[suite_cls.__name__] = suite_cls
