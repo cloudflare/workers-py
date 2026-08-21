@@ -277,6 +277,68 @@ class CFResult:
         return instance
 
 
+class CFCursor:
+    def __init__(self, database):
+        self.database = database
+        self.lastResult: CFResult | None = None
+
+    @property
+    def _defer_foreign_keys(self):
+        return self.database._defer_foreign_keys
+
+    def defer_foreign_keys(self, state):
+        self.database.defer_foreign_keys(state)
+
+    def fetchone(self):
+        result = self.lastResult
+        return result.fetchone()
+
+    def fetchall(self):
+        result = self.lastResult
+        return result.fetchall()
+
+    def fetchmany(self, size=1):
+        result = self.lastResult
+        return result.fetchmany(size)
+
+    @property
+    def lastrowid(self):
+        result = self.lastResult
+        return result.lastrowid
+
+    @property
+    def rowcount(self):
+        result = self.lastResult
+        return result.rowcount
+
+    def execute(self, query, params=None):
+        from decimal import Decimal
+
+        # Transform django_date_trunc function calls to SQLite equivalents
+        query = replace_date_trunc_in_sql(query)
+
+        if params:
+            newParams = []
+            for v in list(params):
+                if v is True:
+                    v = 1
+                elif v is False:
+                    v = 0
+                elif isinstance(v, Decimal):
+                    v = str(v)
+
+                newParams.append(v)
+
+            params = tuple(newParams)
+
+        self.lastResult = self.database.databaseWrapper.run_query(query, params)
+
+        return self
+
+    def close(self):
+        return
+
+
 class CFDatabase:
     def __init__(self, database_wrapper):
         self.databaseWrapper = database_wrapper
@@ -298,8 +360,6 @@ class CFDatabase:
 
     _defer_foreign_keys = False
 
-    lastResult: CFResult = None
-
     def defer_foreign_keys(self, state):
         self._defer_foreign_keys = state
 
@@ -308,54 +368,13 @@ class CFDatabase:
         return CFDatabase(binding)
 
     def cursor(self):
-        return self
+        return CFCursor(self)
 
     def commit(self):
         return  # No commits allowed
 
     def rollback(self):
         return  # No commits allowed
-
-    def fetchone(self):
-        return self.lastResult.fetchone()
-
-    def fetchall(self):
-        return self.lastResult.fetchall()
-
-    def fetchmany(self, size=1):
-        return self.lastResult.fetchmany(size)
-
-    @property
-    def lastrowid(self):
-        return self.lastResult.lastrowid
-
-    @property
-    def rowcount(self):
-        return self.lastResult.rowcount
-
-    def execute(self, query, params=None) -> None:
-        from decimal import Decimal
-
-        # Transform django_date_trunc function calls to SQLite equivalents
-        query = replace_date_trunc_in_sql(query)
-
-        if params:
-            newParams = []
-            for v in list(params):
-                if v is True:
-                    v = 1
-                elif v is False:
-                    v = 0
-                elif isinstance(v, Decimal):
-                    v = str(v)
-
-                newParams.append(v)
-
-            params = tuple(newParams)
-
-        self.lastResult = self.databaseWrapper.run_query(query, params)
-
-        return self
 
     def close(self):
         return

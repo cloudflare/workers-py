@@ -327,11 +327,18 @@ class TestCFDatabase:
 
         assert db.databaseWrapper == mock_wrapper
 
-    def test_cursor_returns_self(self):
-        from django_cf.db.base_engine import CFDatabase
+    def test_cursor_returns_fresh_cursor_each_call(self):
+        from django_cf.db.base_engine import CFCursor, CFDatabase
 
         db = CFDatabase(MagicMock())
-        assert db.cursor() is db
+        first_cursor = db.cursor()
+        second_cursor = db.cursor()
+
+        assert isinstance(first_cursor, CFCursor)
+        assert isinstance(second_cursor, CFCursor)
+        assert first_cursor is not second_cursor
+        assert first_cursor.database is db
+        assert second_cursor.database is db
 
     def test_commit_does_nothing(self):
         from django_cf.db.base_engine import CFDatabase
@@ -357,14 +364,29 @@ class TestCFDatabase:
         db.defer_foreign_keys(False)
         assert db._defer_foreign_keys is False
 
+    def test_cursor_defer_foreign_keys_proxies_database_state(self):
+        from django_cf.db.base_engine import CFDatabase
+
+        db = CFDatabase(MagicMock())
+        first_cursor = db.cursor()
+        second_cursor = db.cursor()
+
+        first_cursor.defer_foreign_keys(True)
+        assert db._defer_foreign_keys is True
+        assert second_cursor._defer_foreign_keys is True
+
+        second_cursor.defer_foreign_keys(False)
+        assert db._defer_foreign_keys is False
+        assert first_cursor._defer_foreign_keys is False
+
     def test_execute_converts_boolean_true(self):
         from django_cf.db.base_engine import CFDatabase, CFResult
 
         mock_wrapper = MagicMock()
         mock_wrapper.run_query.return_value = CFResult([])
-        db = CFDatabase(mock_wrapper)
+        cursor = CFDatabase(mock_wrapper).cursor()
 
-        db.execute("INSERT INTO test VALUES (%s)", (True,))
+        cursor.execute("INSERT INTO test VALUES (%s)", (True,))
 
         assert mock_wrapper.run_query.call_args[0][1] == (1,)
 
@@ -373,9 +395,9 @@ class TestCFDatabase:
 
         mock_wrapper = MagicMock()
         mock_wrapper.run_query.return_value = CFResult([])
-        db = CFDatabase(mock_wrapper)
+        cursor = CFDatabase(mock_wrapper).cursor()
 
-        db.execute("INSERT INTO test VALUES (%s)", (False,))
+        cursor.execute("INSERT INTO test VALUES (%s)", (False,))
 
         assert mock_wrapper.run_query.call_args[0][1] == (0,)
 
@@ -384,9 +406,9 @@ class TestCFDatabase:
 
         mock_wrapper = MagicMock()
         mock_wrapper.run_query.return_value = CFResult([])
-        db = CFDatabase(mock_wrapper)
+        cursor = CFDatabase(mock_wrapper).cursor()
 
-        db.execute("INSERT INTO test VALUES (%s)", (Decimal("10.5"),))
+        cursor.execute("INSERT INTO test VALUES (%s)", (Decimal("10.5"),))
 
         assert mock_wrapper.run_query.call_args[0][1] == ("10.5",)
 
@@ -395,33 +417,57 @@ class TestCFDatabase:
 
         mock_wrapper = MagicMock()
         mock_wrapper.run_query.return_value = CFResult([])
-        db = CFDatabase(mock_wrapper)
+        cursor = CFDatabase(mock_wrapper).cursor()
 
-        db.execute("SELECT * FROM test")
+        cursor.execute("SELECT * FROM test")
 
         assert mock_wrapper.run_query.call_args[0] == ("SELECT * FROM test", None)
+
+    def test_execute_returns_cursor(self):
+        from django_cf.db.base_engine import CFDatabase, CFResult
+
+        mock_wrapper = MagicMock()
+        mock_wrapper.run_query.return_value = CFResult([])
+        cursor = CFDatabase(mock_wrapper).cursor()
+
+        assert cursor.execute("SELECT * FROM test") is cursor
 
     def test_fetchone_delegates_to_result(self):
         from django_cf.db.base_engine import CFDatabase, CFResult
 
         mock_wrapper = MagicMock()
         mock_wrapper.run_query.return_value = CFResult([(1, "test")])
-        db = CFDatabase(mock_wrapper)
+        cursor = CFDatabase(mock_wrapper).cursor()
 
-        db.execute("SELECT * FROM test")
+        cursor.execute("SELECT * FROM test")
 
-        assert db.fetchone() == (1, "test")
+        assert cursor.fetchone() == (1, "test")
 
     def test_fetchall_delegates_to_result(self):
         from django_cf.db.base_engine import CFDatabase, CFResult
 
         mock_wrapper = MagicMock()
         mock_wrapper.run_query.return_value = CFResult([(1, "a"), (2, "b")])
+        cursor = CFDatabase(mock_wrapper).cursor()
+
+        cursor.execute("SELECT * FROM test")
+
+        assert len(cursor.fetchall()) == 2
+
+    def test_cursors_keep_independent_results(self):
+        from django_cf.db.base_engine import CFDatabase, CFResult
+
+        mock_wrapper = MagicMock()
+        mock_wrapper.run_query.side_effect = [CFResult([(1,), (2,)]), CFResult([(9,)])]
         db = CFDatabase(mock_wrapper)
+        outer_cursor = db.cursor()
+        inner_cursor = db.cursor()
 
-        db.execute("SELECT * FROM test")
+        outer_cursor.execute("SELECT * FROM outer_table")
+        inner_cursor.execute("SELECT * FROM inner_table")
 
-        assert len(db.fetchall()) == 2
+        assert inner_cursor.fetchone() == (9,)
+        assert sorted(outer_cursor.fetchall()) == [(1,), (2,)]
 
     def test_lastrowid_property(self):
         from django_cf.db.base_engine import CFDatabase, CFResult
@@ -430,11 +476,11 @@ class TestCFDatabase:
         mock_result = CFResult([])
         mock_result.set_lastrowid(42)
         mock_wrapper.run_query.return_value = mock_result
-        db = CFDatabase(mock_wrapper)
+        cursor = CFDatabase(mock_wrapper).cursor()
 
-        db.execute("INSERT INTO test VALUES (1)")
+        cursor.execute("INSERT INTO test VALUES (1)")
 
-        assert db.lastrowid == 42
+        assert cursor.lastrowid == 42
 
     def test_rowcount_property(self):
         from django_cf.db.base_engine import CFDatabase, CFResult
@@ -443,11 +489,23 @@ class TestCFDatabase:
         mock_result = CFResult([])
         mock_result.set_rowcount(5)
         mock_wrapper.run_query.return_value = mock_result
-        db = CFDatabase(mock_wrapper)
+        cursor = CFDatabase(mock_wrapper).cursor()
 
-        db.execute('UPDATE test SET name = "new"')
+        cursor.execute('UPDATE test SET name = "new"')
 
-        assert db.rowcount == 5
+        assert cursor.rowcount == 5
+
+    def test_cursor_close_is_noop_and_keeps_result(self):
+        from django_cf.db.base_engine import CFDatabase, CFResult
+
+        mock_wrapper = MagicMock()
+        mock_wrapper.run_query.return_value = CFResult([(1,), (2,)])
+        cursor = CFDatabase(mock_wrapper).cursor()
+
+        cursor.execute("SELECT * FROM test")
+
+        assert cursor.close() is None
+        assert sorted(cursor.fetchall()) == [(1,), (2,)]
 
 
 class TestCFDatabaseFeatures:
