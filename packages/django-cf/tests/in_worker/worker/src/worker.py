@@ -2,7 +2,6 @@
 
 import asyncio
 import contextlib
-import functools
 import importlib.util
 import io
 import os
@@ -12,6 +11,7 @@ from urllib.parse import urlparse
 import django
 import django.conf
 import pytest
+from _django_app import R2_LOCATION, django_wsgi_app
 from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.urls import path
 from pyodide.webloop import WebLoop
@@ -64,6 +64,19 @@ if not django.conf.settings.configured:
             }
         },
         SESSION_ENGINE="django.contrib.sessions.backends.signed_cookies",
+        MEDIA_URL="/media/",
+        STORAGES={
+            "default": {
+                "BACKEND": "django_cf.storage.R2Storage",
+                "OPTIONS": {
+                    "binding": "BUCKET",
+                    "location": R2_LOCATION,
+                },
+            },
+            "staticfiles": {
+                "BACKEND": "django.contrib.staticfiles.storage.StaticFilesStorage",
+            },
+        },
         USE_TZ=True,
         TIME_ZONE="UTC",
         DEFAULT_AUTO_FIELD="django.db.models.AutoField",
@@ -71,14 +84,9 @@ if not django.conf.settings.configured:
 
 django.setup()
 
+from _do_orm_app import urlpatterns as do_orm_urlpatterns  # noqa: E402
+
 from django_cf import DjangoCF  # noqa: E402
-
-
-@functools.cache
-def _django_wsgi_app():
-    from django.core.wsgi import get_wsgi_application
-
-    return get_wsgi_application()
 
 
 def _django_binary_view(request):
@@ -137,6 +145,7 @@ urlpatterns = [
     path("django/meta/<str:segment>/", _django_meta_view),
     path("django/body/", _django_body_view),
     path("django/headers/", _django_headers_view),
+    *do_orm_urlpatterns,
 ]
 
 
@@ -206,7 +215,7 @@ class EnvPlugin:
 
 class Default(DjangoCF, WorkerEntrypoint):
     def get_app(self):
-        return _django_wsgi_app()
+        return django_wsgi_app()
 
     async def fetch(self, request):
         path = urlparse(request.url).path
