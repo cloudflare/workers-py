@@ -10,6 +10,10 @@ const unitTests :Workerd.Config = (
         ],
         bindings = [
           ( name = "SELF", service = "python-wsgi" ),
+          (
+            name = "color",
+            json = "%COLOR"
+          ),
         ],
         compatibilityDate = "%COMPAT_DATE",
         compatibilityFlags = ["python_workers"],

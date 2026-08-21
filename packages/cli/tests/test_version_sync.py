@@ -57,15 +57,15 @@ def test_get_vendor_package_versions_disables_color():
 
     assert result == ["shapely==2.0.7"]
     command = mock_run.call_args[0][0]
-    assert command[:7] == [
+    assert command[:5] == [
         "uv",
         "pip",
         "freeze",
-        "--python",
-        "pyodide-venv",
         "--color",
         "never",
     ]
+    env = mock_run.call_args[1].get("env", {})
+    assert env.get("VIRTUAL_ENV") == str(Path("pyodide-venv"))
 
 
 class TestInstallRequirements:
@@ -407,3 +407,80 @@ class TestSyncNeededWithLockfile:
         os.utime(lockfile, (future, future))
 
         assert pywrangler_sync.is_sync_needed() is True
+
+
+class TestEnsureVenvVersion:
+    def test_returns_false_when_dir_missing(self, tmp_path):
+        venv = tmp_path / "nonexistent"
+        assert pywrangler_sync._ensure_venv_version(venv, "3.13") is False
+
+    def test_returns_true_when_version_matches(self, tmp_path):
+        venv = tmp_path / "venv"
+        venv.mkdir()
+        (venv / "pyvenv.cfg").write_text("home = /some/path\nversion_info = 3.13.2\n")
+        assert pywrangler_sync._ensure_venv_version(venv, "3.13") is True
+        assert venv.is_dir()
+
+    def test_removes_and_returns_false_on_mismatch(self, tmp_path):
+        venv = tmp_path / "venv"
+        venv.mkdir()
+        (venv / "pyvenv.cfg").write_text("home = /some/path\nversion_info = 3.12.7\n")
+        assert pywrangler_sync._ensure_venv_version(venv, "3.13") is False
+        assert not venv.exists()
+
+    def test_removes_when_pyvenv_cfg_missing(self, tmp_path):
+        venv = tmp_path / "venv"
+        venv.mkdir()
+        assert pywrangler_sync._ensure_venv_version(venv, "3.13") is False
+        assert not venv.exists()
+
+    def test_removes_when_version_info_line_missing(self, tmp_path):
+        venv = tmp_path / "venv"
+        venv.mkdir()
+        (venv / "pyvenv.cfg").write_text("home = /some/path\n")
+        assert pywrangler_sync._ensure_venv_version(venv, "3.13") is False
+        assert not venv.exists()
+
+
+class TestCreatePyodideVenv:
+    @patch.object(pywrangler_sync, "run_command")
+    @patch.object(pywrangler_sync, "check_uv_version")
+    @patch.object(
+        pywrangler_sync,
+        "get_uv_pyodide_interp_name",
+        return_value="cpython-3.14.2-emscripten-wasm32-musl",
+    )
+    @patch.object(pywrangler_sync, "get_python_version", return_value="3.14")
+    def test_recreates_on_version_mismatch(
+        self, mock_version, mock_interp, mock_check, mock_run, tmp_path
+    ):
+        venv = tmp_path / ".venv-workers" / "pyodide-venv"
+        venv.mkdir(parents=True)
+        (venv / "pyvenv.cfg").write_text("home = /some/path\nversion_info = 3.13.2\n")
+        (venv / "lib").mkdir()
+
+        with patch.object(pywrangler_sync, "get_pyodide_venv_path", return_value=venv):
+            pywrangler_sync.create_pyodide_venv()
+
+        assert not (venv / "lib").exists()
+        mock_run.assert_called_once()
+        cmd = mock_run.call_args[0][0]
+        assert cmd == [
+            "uv",
+            "venv",
+            str(venv),
+            "--python",
+            "cpython-3.14.2-emscripten-wasm32-musl",
+        ]
+
+    @patch.object(pywrangler_sync, "run_command")
+    @patch.object(pywrangler_sync, "get_python_version", return_value="3.13")
+    def test_skips_when_version_matches(self, mock_version, mock_run, tmp_path):
+        venv = tmp_path / ".venv-workers" / "pyodide-venv"
+        venv.mkdir(parents=True)
+        (venv / "pyvenv.cfg").write_text("home = /some/path\nversion_info = 3.13.2\n")
+
+        with patch.object(pywrangler_sync, "get_pyodide_venv_path", return_value=venv):
+            pywrangler_sync.create_pyodide_venv()
+
+        mock_run.assert_not_called()

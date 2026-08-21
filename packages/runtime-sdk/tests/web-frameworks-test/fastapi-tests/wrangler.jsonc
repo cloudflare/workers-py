@@ -3,6 +3,16 @@
     "main": "src/worker.py",
     "compatibility_date": "%COMPAT_DATE",
     "compatibility_flags": ["python_workers"],
+    // Only `**/*.txt` and `**/*.html` are bundled as Text by default, so the
+    // other `src/static/` fixtures would never reach the Pyodide filesystem for
+    // StaticFiles to read. `fallthrough` keeps the default Text rule as well.
+    "rules": [
+        {
+            "type": "Text",
+            "globs": ["static/*.css", "static/*.json"],
+            "fallthrough": true
+        }
+    ],
     "assets": {
         "directory": "./public/",
         "binding": "ASSETS",

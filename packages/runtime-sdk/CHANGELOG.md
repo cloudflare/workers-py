@@ -2,6 +2,58 @@
 
 <!-- version list -->
 
+## v1.6.14 (2026-08-19)
+
+### Bug Fixes
+
+- Fixes fastapi lifespan state not persisting
+  ([`fadd19b`](https://github.com/cloudflare/workers-py/commit/fadd19bcb6ca47518d5e42562879164dd62ab404))
+
+
+## v1.6.13 (2026-08-12)
+
+### Bug Fixes
+
+- **runtime-sdk**: Preserve repeated response headers (multiple `Set-Cookie`)
+  ([#167](https://github.com/cloudflare/workers-py/pull/167),
+  [`f68bf6d`](https://github.com/cloudflare/workers-py/commit/f68bf6d622c896b6c61fe3c615d43d6e9b05d19b))
+
+
+## v1.6.12 (2026-08-11)
+
+### Bug Fixes
+
+- **runtime-sdk**: Send empty WebSocket frames instead of dropping them
+  ([#165](https://github.com/cloudflare/workers-py/pull/165),
+  [`a4128ce`](https://github.com/cloudflare/workers-py/commit/a4128cee402aa6f28f01e3e2268241d05d9fd393))
+
+
+## v1.6.11 (2026-08-10)
+
+### Bug Fixes
+
+- Implements tests for FastAPI StaticFiles and anyio thread patch
+  ([`a30f53e`](https://github.com/cloudflare/workers-py/commit/a30f53e95edcf42fc93e5e2dc84251121881418b))
+
+
+## v1.6.10 (2026-08-10)
+
+### Bug Fixes
+
+- **runtime-sdk**: Terminate the response stream when the app fails mid-stream
+  ([#168](https://github.com/cloudflare/workers-py/pull/168),
+  [`fd4dde9`](https://github.com/cloudflare/workers-py/commit/fd4dde98fcc39f405a7cf320a6db49a83426f46b))
+
+
+## v1.6.9 (2026-08-10)
+
+### Bug Fixes
+
+- **runtime-sdk**: Deliver binary WebSocket frames as ASGI `bytes`
+  ([#164](https://github.com/cloudflare/workers-py/pull/164),
+  [`44ca368`](https://github.com/cloudflare/workers-py/commit/44ca36818367af23ffd0c76f5d2dc7588219b340))
+
+
 ## v1.6.8 (2026-08-05)
 
 ### Bug Fixes

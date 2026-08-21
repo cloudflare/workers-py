@@ -9,6 +9,13 @@ from worker import STREAMING_CHUNK_SIZE, STREAMING_NUM_CHUNKS, example_hdr
 
 import asgi
 from workers import Request, env
+from workers import asgi as workers_asgi
+
+
+def test_legacy_asgi_module_is_canonical_module():
+    assert asgi is workers_asgi
+    assert asgi.__getattr__ is workers_asgi.__getattr__
+    assert asgi._to_js_headers is workers_asgi._to_js_headers
 
 
 def test_request_to_scope_matches_js_and_py():
@@ -399,3 +406,25 @@ async def test_scope_path_is_percent_decoded():
 async def test_scope_exposes_raw_path():
     scope = await _scope("/scope/hello%20world")
     assert scope["raw_path"] == "/scope/hello%20world"
+
+
+@pytest.mark.asyncio
+async def test_late_stream_failure_terminates_response():
+    # An app that raises after the streaming response started must terminate
+    # the stream (truncated EOF) instead of leaving the client hanging; a
+    # regression here surfaces as a timeout or workerd's hung-request
+    # cancellation instead of a clean read.
+    response = await asyncio.wait_for(
+        env.SELF.fetch("http://example.com/stream-late-failure"), timeout=5
+    )
+    body = await asyncio.wait_for(response.text(), timeout=5)
+    assert body == "chunk-1"
+
+
+@pytest.mark.asyncio
+async def test_multiple_set_cookie_headers_survive():
+    response = await env.SELF.fetch("http://example.com/multi-cookie")
+    assert response.headers.get_all("set-cookie") == [
+        "first=1; Path=/",
+        "second=2; Path=/",
+    ]

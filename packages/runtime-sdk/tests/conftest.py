@@ -24,6 +24,22 @@ DEV_POLL_INTERVAL: float = 0.5
 SUITE_CONNECT_TIMEOUT: int = 10
 SUITE_READ_TIMEOUT: int = 300
 
+OPT_IN_MARKERS: tuple[str, ...] = ("hyperdrive",)
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    """Skip opt-in suites unless the run explicitly asks for them via ``-m``."""
+    markexpr: str = config.getoption("markexpr")
+    for marker in OPT_IN_MARKERS:
+        if marker in markexpr:
+            continue
+        skip = pytest.mark.skip(reason=f"needs local services; run with -m {marker}")
+        for item in items:
+            if marker in item.keywords:
+                item.add_marker(skip)
+
 
 @dataclass(frozen=True)
 class CompatConfig:
@@ -267,15 +283,22 @@ def discover_suites(src_dir: Path) -> dict[str, list[str]]:
 
 
 def register_in_worker_suites(
-    namespace: dict[str, Any], src_dir: Path, mode: str | None = None
+    namespace: dict[str, Any],
+    src_dir: Path,
+    marks: dict[str, pytest.MarkDecorator] | None = None,
+    mode: str | None = None,
 ) -> None:
     """Define a ``TestXxx`` class in `namespace` for every suite found in `src_dir`.
 
     Call with ``globals()`` from a test module so each in-worker test surfaces as
-    its own pytest case without manual registration. Pass `mode` to run the same
-    suites again against a different in-worker app; tests that do not apply to a
-    mode report themselves as skipped.
+    its own pytest case without manual registration. `marks` applies a marker to
+    the class generated for the suite of the same name.
+
+    Pass `mode` to run the same suites again against a different in-worker app;
+    tests that do not apply to a mode report themselves as skipped.
     """
     for suite, test_names in discover_suites(src_dir).items():
         suite_cls = make_suite_class(suite, test_names, mode)
+        if marks and suite in marks:
+            suite_cls = marks[suite](suite_cls)
         namespace[suite_cls.__name__] = suite_cls

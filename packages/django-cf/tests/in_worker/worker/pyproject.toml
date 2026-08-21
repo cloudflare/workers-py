@@ -1,0 +1,10 @@
+[project]
+name = "django-cf-host-only-tests"
+version = "0.0.0"
+requires-python = ">=3.12"
+dependencies = [
+    "django<6.1",
+    "pytest",
+    "pytest-asyncio<1.2.0",
+    "sqlparse",
+]

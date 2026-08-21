@@ -52,6 +52,7 @@ class Default(WorkerEntrypoint):
 
 
 @pytest.mark.skipif(sys.version_info < (3, 13), reason="We create Python 3.13+ syntax")
+@pytest.mark.skipif(sys.platform == "win32", reason="Requires npx/wrangler toolchain")
 def test_types(tmp_path):
     """Test that types are correctly revealed in a worker."""
     config_path = tmp_path / "wrangler.toml"
