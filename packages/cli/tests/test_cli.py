@@ -85,10 +85,8 @@ def create_test_pyproject(test_dir: Path, dependencies=None):
     return dependencies
 
 
-def create_test_wrangler_jsonc(
-    test_dir: Path, main_path="src/worker.py", python_version="3.13"
-):
-    """Create a test wrangler.jsonc file with the given main path and Python version."""
+def _wrangler_compat_config(python_version: str) -> tuple[str, str]:
+    """Return (compat_flags_str, compat_date) for a given Python version."""
     compat_flags = ["python_workers"]
     if python_version == "3.13":
         compat_flags.append("python_workers_20250116")
@@ -97,14 +95,19 @@ def create_test_wrangler_jsonc(
 
     compat_flags_str = ", ".join([f'"{flag}"' for flag in compat_flags])
 
-    # Use a compat date that matches the requested python version without
-    # accidentally upgrading it via the date-based fallback in the detector.
     compat_dates = {
         "3.12": "2025-09-28",
         "3.13": "2025-10-01",
         "3.14": "2026-09-01",
     }
     compat_date = compat_dates.get(python_version, "2025-10-01")
+    return compat_flags_str, compat_date
+
+
+def create_test_wrangler_jsonc(
+    test_dir: Path, main_path="src/worker.py", python_version="3.13"
+):
+    compat_flags_str, compat_date = _wrangler_compat_config(python_version)
 
     content = f"""
     /**
@@ -131,21 +134,7 @@ def create_test_wrangler_jsonc(
 def create_test_wrangler_toml(
     test_dir, main_path="dist/worker.js", python_version="3.13"
 ):
-    """Create a test wrangler.toml file with the given main path and Python version."""
-    compat_flags = ["python_workers"]
-    if python_version == "3.13":
-        compat_flags.append("python_workers_20250116")
-    if python_version == "3.14":
-        compat_flags.append("python_workers_20260610")
-
-    compat_flags_str = ", ".join([f'"{flag}"' for flag in compat_flags])
-
-    compat_dates = {
-        "3.12": "2025-09-28",
-        "3.13": "2025-10-01",
-        "3.14": "2026-08-28",
-    }
-    compat_date = compat_dates.get(python_version, "2025-10-01")
+    compat_flags_str, compat_date = _wrangler_compat_config(python_version)
 
     content = dedent(f"""
         # Name of the worker
