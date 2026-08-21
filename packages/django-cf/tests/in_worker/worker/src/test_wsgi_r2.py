@@ -1,41 +1,40 @@
-"""ASGI R2 tests executed inside workerd.
+"""WSGI R2 tests executed inside workerd.
 
-The view goes through the configured ``STORAGES["default"]`` backend and a model
-``FileField`` instead of instantiating ``R2Storage`` directly. ``test_wsgi_r2``
-drives the same lifecycle through the WSGI adapter.
+Requests are driven through ``django_cf.handle_wsgi`` and the shared cached WSGI
+app, so the same ``STORAGES["default"]`` / ``FileField`` lifecycle that
+``test_asgi_r2`` covers is also exercised over the WSGI adapter.
 """
 
 # pyright: reportMissingImports=false
 
 import pytest
-from _asgi_client import get_json
 from _django_app import R2_LOCATION
 from _r2_document_app import (
     R2_CONTENT,
     R2_UPLOAD_TO,
-    async_document_view,
     create_r2_table,
     drop_r2_table,
+    sync_document_view,
 )
-from django.core.handlers.asgi import ASGIHandler
+from _wsgi_client import get_json
 from django.test import override_settings
 from django.urls import path
 
-urlpatterns = [path("asgi/r2/document/", async_document_view)]
+urlpatterns = [path("wsgi/r2/document/", sync_document_view)]
 
 
 async def _run_r2_request(path_name):
     create_r2_table()
     try:
         with override_settings(ROOT_URLCONF=__name__):
-            return await get_json(ASGIHandler(), path_name)
+            return await get_json(path_name)
     finally:
         drop_r2_table()
 
 
 @pytest.mark.asyncio
-async def test_asgi_r2_filefield_save_read_and_delete():
-    response, payload = await _run_r2_request("/asgi/r2/document/")
+async def test_wsgi_r2_filefield_save_read_and_delete():
+    response, payload = await _run_r2_request("/wsgi/r2/document/")
 
     assert response.status == 200
     assert payload is not None

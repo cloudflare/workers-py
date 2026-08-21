@@ -1,5 +1,6 @@
 # pyright: reportMissingImports=false
 
+from _django_app import django_wsgi_app
 from django.db import connections
 from workers import DurableObject
 
@@ -8,9 +9,24 @@ from django_cf.db.backends.do.storage import get_storage
 
 
 class TestDurableObject(DjangoCFDurableObject, DurableObject):
+    def get_app(self):
+        return django_wsgi_app()
+
     @property
     def database(self):
         return connections["do"]
+
+    async def create_orm_table(self):
+        from _do_orm_app import CREATE_DO_TABLE_SQL, DROP_DO_TABLE_SQL
+
+        sql = self.ctx.storage.sql
+        sql.exec(DROP_DO_TABLE_SQL)
+        sql.exec(CREATE_DO_TABLE_SQL)
+
+    async def drop_orm_table(self):
+        from _do_orm_app import DROP_DO_TABLE_SQL
+
+        self.ctx.storage.sql.exec(DROP_DO_TABLE_SQL)
 
     async def test_storage_is_configured(self):
         assert get_storage() is not None
