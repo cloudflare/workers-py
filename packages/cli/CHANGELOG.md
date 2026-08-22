@@ -2,6 +2,17 @@
 
 <!-- version list -->
 
+## v1.16.7 (2026-08-22)
+
+### Bug Fixes
+
+- Mark 314 experimental again ([#223](https://github.com/cloudflare/workers-py/pull/223),
+  [`9fab1ff`](https://github.com/cloudflare/workers-py/commit/9fab1ff63973d4d4af2b0165eb62d5206793ba3b))
+
+- Remove enable date from Python 3.14 ([#223](https://github.com/cloudflare/workers-py/pull/223),
+  [`9fab1ff`](https://github.com/cloudflare/workers-py/commit/9fab1ff63973d4d4af2b0165eb62d5206793ba3b))
+
+
 ## v1.16.6 (2026-08-21)
 
 ### Bug Fixes
