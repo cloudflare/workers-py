@@ -159,3 +159,11 @@ async def test_environment_reaches_websocket_scope():
         ws.send("env")
         event = await asyncio.wait_for(message, TIMEOUT_S)
         assert event.data == "worker-environment"
+
+
+@pytest.mark.asyncio
+async def test_app_crash_closes_the_transport():
+    async with _ws_session("/ws-crash") as ws:
+        close = _listen(ws, "close")
+        evt = await asyncio.wait_for(close, TIMEOUT_S)
+        assert evt.code == 1011

@@ -133,11 +133,25 @@ class WSEnvApp:
         await send({"type": "websocket.send", "text": scope["env"]["marker"]})
 
 
+class WSCrashApp:
+    """Accepts, then raises: the server must close the transport (1011)."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            await _drain_lifespan(receive, send)
+            return
+        message = await receive()
+        assert message["type"] == "websocket.connect"
+        await send({"type": "websocket.accept"})
+        raise RuntimeError("websocket app crashed")
+
+
 ws_app = WSWatchApp()
 echo_app = WSEchoApp()
 empty_frame_app = WSEmptyFrameApp()
 close_app = WSCloseApp()
 env_app = WSEnvApp()
+crash_app = WSCrashApp()
 
 
 class Default(WorkerEntrypoint):
@@ -152,6 +166,7 @@ class Default(WorkerEntrypoint):
                 "/ws-close": close_app,
                 "/ws-echo": echo_app,
                 "/ws-empty": empty_frame_app,
+                "/ws-crash": crash_app,
             }.get(path, ws_app)
             return await asgi.websocket(app, request)
         import json
