@@ -290,26 +290,21 @@ class CFCursor:
         self.database.defer_foreign_keys(state)
 
     def fetchone(self):
-        result = self.lastResult
-        return result.fetchone()
+        return self.lastResult.fetchone()
 
     def fetchall(self):
-        result = self.lastResult
-        return result.fetchall()
+        return self.lastResult.fetchall()
 
     def fetchmany(self, size=1):
-        result = self.lastResult
-        return result.fetchmany(size)
+        return self.lastResult.fetchmany(size)
 
     @property
     def lastrowid(self):
-        result = self.lastResult
-        return result.lastrowid
+        return self.lastResult.lastrowid
 
     @property
     def rowcount(self):
-        result = self.lastResult
-        return result.rowcount
+        return self.lastResult.rowcount
 
     def execute(self, query, params=None):
         from decimal import Decimal
