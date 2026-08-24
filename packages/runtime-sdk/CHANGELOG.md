@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.7.0 (2026-08-24)
+
+### Bug Fixes
+
+- Fixes Request body being released too early
+  ([`84a20ac`](https://github.com/cloudflare/workers-py/commit/84a20acbfa28ea82fb69b2c279a56d9e25fd9639))
+
+### Features
+
+- Asgi.entrypoint syntax sugar for nicer asgi apps
+  ([`5399270`](https://github.com/cloudflare/workers-py/commit/539927085a79e2d88a287cc70ccfa433ec257e1d))
+
+
 ## v1.6.15 (2026-08-21)
 
 ### Bug Fixes
