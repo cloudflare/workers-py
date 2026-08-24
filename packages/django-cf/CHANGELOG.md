@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v0.2.15 (2026-08-24)
+
+### Bug Fixes
+
+- Return a fresh new cursor for every cursor call
+  ([#205](https://github.com/cloudflare/workers-py/pull/205),
+  [`2bd02cc`](https://github.com/cloudflare/workers-py/commit/2bd02ccb4911f3dd0d9e93da778c263003ea5be4))
+
+
 ## v0.2.14 (2026-08-14)
 
 ### Bug Fixes
