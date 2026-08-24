@@ -140,3 +140,22 @@ async def test_empty_frames_reach_the_client():
         assert messages[0] == ""
         assert messages[1].to_bytes() == b""
         assert messages[2] == "done"
+
+
+@pytest.mark.asyncio
+async def test_application_close_reaches_client_with_code_and_reason():
+    async with _ws_session("/ws-close") as ws:
+        closed = _listen(ws, "close")
+        ws.send("close")
+        event = await asyncio.wait_for(closed, TIMEOUT_S)
+        assert event.code == 4001
+        assert event.reason == "application-close"
+
+
+@pytest.mark.asyncio
+async def test_environment_reaches_websocket_scope():
+    async with _ws_session("/ws-env") as ws:
+        message = _listen(ws, "message")
+        ws.send("env")
+        event = await asyncio.wait_for(message, TIMEOUT_S)
+        assert event.data == "worker-environment"
