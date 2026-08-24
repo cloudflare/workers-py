@@ -101,16 +101,58 @@ class WSEmptyFrameApp:
             await send({"type": "websocket.send", "text": "done"})
 
 
+class WSCloseApp:
+    """Closes the connection with an application-provided code and reason."""
+
+    async def __call__(self, scope, receive, send):
+        message = await receive()
+        assert message["type"] == "websocket.connect"
+        await send({"type": "websocket.accept"})
+        message = await receive()
+        if message["type"] == "websocket.disconnect":
+            return
+        await send(
+            {
+                "type": "websocket.close",
+                "code": 4001,
+                "reason": "application-close",
+            }
+        )
+
+
+class WSEnvApp:
+    """Sends a value supplied through the ASGI WebSocket scope environment."""
+
+    async def __call__(self, scope, receive, send):
+        message = await receive()
+        assert message["type"] == "websocket.connect"
+        await send({"type": "websocket.accept"})
+        message = await receive()
+        if message["type"] == "websocket.disconnect":
+            return
+        await send({"type": "websocket.send", "text": scope["env"]["marker"]})
+
+
 ws_app = WSWatchApp()
 echo_app = WSEchoApp()
 empty_frame_app = WSEmptyFrameApp()
+close_app = WSCloseApp()
+env_app = WSEnvApp()
 
 
 class Default(WorkerEntrypoint):
     async def fetch(self, request):
         if (request.headers.get("upgrade") or "").lower() == "websocket":
             path = urlsplit(request.url).path
-            app = {"/ws-echo": echo_app, "/ws-empty": empty_frame_app}.get(path, ws_app)
+            if path == "/ws-env":
+                return await asgi.websocket(
+                    env_app, request, {"marker": "worker-environment"}
+                )
+            app = {
+                "/ws-close": close_app,
+                "/ws-echo": echo_app,
+                "/ws-empty": empty_frame_app,
+            }.get(path, ws_app)
             return await asgi.websocket(app, request)
         import json
 

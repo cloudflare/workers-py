@@ -747,6 +747,7 @@ def test_proxy_to_wrangler_handles_subprocess_error(mock_subprocess_run):
     }
 
 
+@pytest.mark.xfail(reason="re-enable when 3.14 gets enable date")
 def test_sync_command_finds_pyproject_in_parent_directory(test_dir):
     """Test that the sync command can find pyproject.toml in a parent directory."""
     # Create pyproject.toml in the test directory (parent)

@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.6.15 (2026-08-21)
+
+### Bug Fixes
+
+- Handle ASGI WebSocket close events and environment propagation
+  ([`47cc488`](https://github.com/cloudflare/workers-py/commit/47cc488e2bad1c9f3030a16d73301b80fca90f5c))
+
+
 ## v1.6.14 (2026-08-19)
 
 ### Bug Fixes
