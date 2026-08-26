@@ -186,7 +186,7 @@ async def process_request(  # noqa: PLR0913
     # TODO(later): remove this parameter after unvendoring Python SDK from workerd
     ctx: Context | None,
     state: dict[str, Any] | None = None,
-) -> js.Response:
+) -> tuple[js.Response, Future[None]]:
     from js import Response, TransformStream
     from pyodide.ffi import create_proxy
 
@@ -305,17 +305,22 @@ async def process_request(  # noqa: PLR0913
                     # runtime is waiting on through wait_until.
                     run_in_background(close_stream_quietly(writer))
 
-    # Create task to run the application in the background
-    app_task = create_proxy(create_task(run_app()))
-
-    from workers import wait_until
-
-    wait_until(app_task)
+    request_task = create_task(run_app())
 
     try:
-        return await result
-    finally:
-        app_task.destroy()
+        response = await result
+    except Exception:
+        # The request task handles application exceptions and should be allowed
+        # to finish before its error is propagated to fetch().
+        await request_task
+        raise
+
+    # Buffered responses do not depend on a consumer, so request cleanup can
+    # finish before returning. Streaming responses must run alongside the
+    # consumer because writes can be subject to backpressure.
+    if writer is None:
+        await request_task
+    return response, request_task
 
 
 async def process_websocket(
@@ -427,11 +432,25 @@ async def fetch(
     logger.debug("ASGI request: %s %s", req.method, req.url)
     shutdown, state = await start_application(app)
     try:
-        result = await process_request(app, req, env, ctx, state=state)
+        result, request_task = await process_request(app, req, env, ctx, state=state)
     except Exception:
         logger.exception("ASGI request failed")
+        await shutdown()
         raise
-    await shutdown()
+
+    if request_task.done():
+        await shutdown()
+    else:
+        from workers import wait_until  # noqa: PLC0415
+
+        async def finalize_request():
+            try:
+                await request_task
+            finally:
+                await shutdown()
+
+        wait_until(run_in_background(finalize_request()))
+
     return result
 
 

@@ -53,13 +53,25 @@ class PlatformResource:
         self.closed = False
 
 
+_platform_events: list[str] = []
+_platform_shutdown_complete = asyncio.Event()
+
+
+def reset_platform_events():
+    _platform_events.clear()
+    _platform_shutdown_complete.clear()
+
+
 @asynccontextmanager
 async def _platform_lifespan(_app):
     resource = PlatformResource()
+    _platform_events.append("lifespan-startup")
     try:
         yield {"platform_resource": resource}
     finally:
         resource.closed = True
+        _platform_events.append("lifespan-shutdown")
+        _platform_shutdown_complete.set()
 
 
 app = FastAPI(lifespan=_platform_lifespan)
@@ -521,6 +533,44 @@ async def platform_gzip_binary():
     return FastAPIResponse(
         content=(bytes(range(256)) * 32),
         media_type="application/octet-stream",
+    )
+
+
+def _stream_resource():
+    resource = PlatformResource()
+    _platform_events.append("dependency-open")
+    try:
+        yield resource
+    finally:
+        resource.closed = True
+        _platform_events.append("dependency-close")
+
+
+async def _platform_background_task():
+    await asyncio.sleep(0)
+    _platform_events.append("background-task")
+
+
+@app.get("/platform/lifecycle-stream")
+async def platform_lifecycle_stream(
+    request: Request,
+    resource: PlatformResource = Depends(_stream_resource),  # noqa: B008
+):
+    lifespan_resource = request.state.platform_resource
+    _platform_events.append("handler")
+
+    async def chunks():
+        for index in range(3):
+            assert not resource.closed
+            assert not lifespan_resource.closed
+            _platform_events.append(f"chunk-{index}")
+            yield f"chunk-{index}\n"
+            await asyncio.sleep(0)
+
+    return StreamingResponse(
+        chunks(),
+        media_type="text/plain",
+        background=BackgroundTask(_platform_background_task),
     )
 
 
