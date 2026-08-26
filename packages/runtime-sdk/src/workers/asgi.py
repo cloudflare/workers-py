@@ -16,7 +16,7 @@ logger = logging.getLogger("asgi")
 background_tasks = set()
 
 
-def run_in_background(coro: Awaitable[Any]) -> None:
+def run_in_background(coro: Awaitable[Any]) -> Future:
     fut = ensure_future(coro)
     background_tasks.add(fut)
 
@@ -27,6 +27,7 @@ def run_in_background(coro: Awaitable[Any]) -> None:
             logger.error("Unhandled exception in background task", exc_info=exc)
 
     fut.add_done_callback(_on_done)
+    return fut
 
 
 async def close_stream_quietly(writer):
@@ -359,7 +360,10 @@ async def process_websocket(
     server.onclose = onclose
     server.onmessage = onmessage
 
+    app_closed = False
+
     async def ws_send(got):
+        nonlocal app_closed
         if got["type"] == "websocket.accept":
             # The Workers WebSocketPair is accepted before the upgrade response
             # is returned, so there is no deferred accept operation here.
@@ -376,6 +380,7 @@ async def process_websocket(
                 server.send(s)
             return
         if got["type"] == "websocket.close":
+            app_closed = True
             server.close(got.get("code", 1000), got.get("reason", ""))
             return
         logger.warning(" == Not implemented %s", got["type"])
@@ -384,13 +389,34 @@ async def process_websocket(
         received = await queue.get()
         return received
 
-    run_in_background(
+    from pyodide.ffi import create_proxy
+
+    from workers import wait_until
+
+    task = run_in_background(
         app(
             request_to_scope(req, env if env is not None else {}, ws=True),
             ws_receive,
             ws_send,
         )
     )
+    # wait_until is JS's waitUntil, so the task crosses the boundary as a proxy,
+    # destroyed once it settles rather than left to leak.
+    task_proxy = create_proxy(task)
+
+    def _close_transport(finished):
+        if not app_closed:
+            # The app ended without closing, so a half-open connection would
+            # leave the client hanging instead of reconnecting.
+            failed = not finished.cancelled() and finished.exception() is not None
+            try:
+                server.close(1011 if failed else 1000, "")
+            except Exception:
+                pass  # the peer may already have closed the socket
+        task_proxy.destroy()
+
+    task.add_done_callback(_close_transport)
+    wait_until(task_proxy)
 
     return Response.new(None, status=101, webSocket=client)
 
