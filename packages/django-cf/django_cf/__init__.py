@@ -4,7 +4,7 @@ from workers import wsgi
 
 
 async def handle_wsgi(request, app, env=None):
-    os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "false")
+    os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "1")
 
     return await wsgi.fetch(app, request, env)
 
