@@ -1,4 +1,5 @@
-from collections.abc import Iterator, Sequence
+import http.client
+from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from typing import Any
 
@@ -201,22 +202,19 @@ def _to_js_headers(headers):
         raise TypeError("Received unexpected type for headers argument")
 
 
+class HTTPMessageMapping(http.client.HTTPMessage, Mapping):
+    pass
+
+
 def _js_headers_to_http_message(
     js_headers: dict[str, str],
 ):
-    # `http.client` is imported here because it costs a lot of CPU time when imported at the
-    # top-level. At least it does when we do so in our validator tests, doesn't seem to cause
-    # trouble in production. So as a workaround we do the import here.
-    #
-    # TODO(later): when dedicated snapshots are default we can move this import to the top-level.
-    import http.client
-
     # Newer Pyodide versions already expose headers as an http.client.HTTPMessage,
     # in which case there is nothing to convert.
-    if isinstance(js_headers, http.client.HTTPMessage):
+    if isinstance(js_headers, HTTPMessageMapping):
         return js_headers
 
-    result = http.client.HTTPMessage()
+    result = HTTPMessageMapping()
     if not get_compat_flag("python_request_headers_preserve_commas"):
         for key, val in js_headers:
             result[key] = val.strip()
