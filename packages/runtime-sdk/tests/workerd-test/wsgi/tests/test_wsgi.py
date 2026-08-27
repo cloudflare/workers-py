@@ -62,9 +62,10 @@ async def test_cookies():
     assert "b=2" in cookies
 
 
+@pytest.mark.parametrize("endpoint", ("stream", "stream-stack-switch"))
 @pytest.mark.asyncio
-async def test_streaming():
-    response = await env.SELF.fetch("http://example.com/stream")
+async def test_streaming(endpoint):
+    response = await env.SELF.fetch("http://example.com/" + endpoint)
     assert response.status == 200
     assert response.headers.get("content-type") == "application/octet-stream"
 
