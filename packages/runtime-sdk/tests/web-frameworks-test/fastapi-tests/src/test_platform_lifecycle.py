@@ -3,12 +3,15 @@
 import asyncio
 
 import pytest
-from _client import fetch, get_json
+from _client import fetch, get_json, read_json
 from worker import (
+    Default,
     _platform_events,
     _platform_shutdown_complete,
     reset_platform_events,
 )
+
+from workers import Request
 
 
 @pytest.mark.asyncio
@@ -17,6 +20,26 @@ async def test_lifespan_state_reaches_request(fastapi_app):
     resp, data = await get_json(fastapi_app, "/platform/lifespan-state")
     assert resp.status == 200
     assert data == {"available": True, "closed": False}
+
+
+@pytest.mark.asyncio
+async def test_generated_entrypoint_persists_mutable_lifespan_state():
+    """Mutable lifespan resources are shared by generated-entrypoint requests."""
+    entrypoint = object.__new__(Default)
+    entrypoint.env = {}
+    entrypoint.ctx = None
+
+    first = await entrypoint.fetch(
+        Request("http://testserver/platform/lifespan-mutation")
+    )
+    second = await entrypoint.fetch(
+        Request("http://testserver/platform/lifespan-mutation")
+    )
+    first_data = await read_json(first)
+    second_data = await read_json(second)
+
+    assert first_data == {"requests": 1, "closed": False}
+    assert second_data == {"requests": 2, "closed": False}
 
 
 @pytest.mark.asyncio

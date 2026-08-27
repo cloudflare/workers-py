@@ -1,8 +1,8 @@
 import logging
-from asyncio import Event, Future, Queue, create_task, ensure_future
+from asyncio import Event, Future, Queue, create_task, ensure_future, shield
 from collections.abc import Awaitable
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, ClassVar
 from urllib.parse import unquote
 
 import js
@@ -323,8 +323,11 @@ async def process_request(  # noqa: PLR0913
     return response, request_task
 
 
-async def process_websocket(
-    app: Any, req: "Request | js.Request", env: Any = None
+async def websocket(
+    app: Any,
+    req: "Request | js.Request",
+    env: Any = None,
+    state: dict[str, Any] | None = None,
 ) -> js.Response:
     from js import Response, WebSocketPair
 
@@ -400,7 +403,7 @@ async def process_websocket(
 
     task = run_in_background(
         app(
-            request_to_scope(req, env if env is not None else {}, ws=True),
+            request_to_scope(req, env if env is not None else {}, ws=True, state=state),
             ws_receive,
             ws_send,
         )
@@ -427,19 +430,30 @@ async def process_websocket(
 
 
 async def fetch(
-    app: Any, req: "Request | js.Request", env: Any, ctx: Context | None = None
+    app: Any,
+    req: "Request | js.Request",
+    env: Any,
+    ctx: Context | None = None,
+    state: dict[str, Any] | None = None,
 ) -> js.Response:
+    if (req.headers.get("upgrade") or "").lower() == "websocket":
+        return await websocket(app, req, env, state=state)
+
     logger.debug("ASGI request: %s %s", req.method, req.url)
-    shutdown, state = await start_application(app)
+    shutdown = None
+    if state is None:
+        shutdown, state = await start_application(app)
     try:
         result, request_task = await process_request(app, req, env, ctx, state=state)
     except Exception:
         logger.exception("ASGI request failed")
-        await shutdown()
+        if shutdown is not None:
+            await shutdown()
         raise
 
     if request_task.done():
-        await shutdown()
+        if shutdown is not None:
+            await shutdown()
     else:
         from workers import wait_until  # noqa: PLC0415
 
@@ -447,27 +461,39 @@ async def fetch(
             try:
                 await request_task
             finally:
-                await shutdown()
+                if shutdown is not None:
+                    await shutdown()
 
         wait_until(run_in_background(finalize_request()))
 
     return result
 
 
-async def websocket(
-    app: Any, req: "Request | js.Request", env: Any = None
-) -> js.Response:
-    return await process_websocket(app, req, env)
+class AsgiWorkerEntrypoint(WorkerEntrypoint):
+    """Worker entrypoint for an ASGI application."""
+
+    app: Any
+    # WorkerEntrypoint instances are invocation-scoped, so this must live on the
+    # concrete class to preserve lifespan state across requests in the isolate.
+    _start_future: ClassVar[Future[Any] | None] = None
+
+    async def lifespan_state(self):
+        start_future = self._start_future
+        if start_future is None:
+            start_future = create_task(start_application(self.app))
+            type(self)._start_future = start_future
+        return (await shield(start_future))[1]
+
+    async def fetch(self, request):
+        state = await self.lifespan_state()
+        return await fetch(self.app, request, self.env, state=state)
 
 
-def entrypoint(app: Any) -> type[WorkerEntrypoint]:
+def entrypoint(app_: Any) -> type[AsgiWorkerEntrypoint]:
     """Create the default Worker entrypoint for an ASGI application."""
 
-    class Default(WorkerEntrypoint):
-        async def fetch(self, request):
-            if (request.headers.get("upgrade") or "").lower() == "websocket":
-                return await websocket(app, request, self.env)
-            return await fetch(app, request, self.env, self.ctx)
+    class Default(AsgiWorkerEntrypoint):
+        app = app_
 
     return Default
 
