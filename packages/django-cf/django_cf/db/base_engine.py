@@ -12,6 +12,7 @@ from django.db import (
     OperationalError,
     ProgrammingError,
 )
+from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.backends.sqlite3.base import DatabaseWrapper as SQLiteDatabaseWrapper
 from django.db.backends.sqlite3.client import DatabaseClient as SQLiteDatabaseClient
 from django.db.backends.sqlite3.creation import (
@@ -42,6 +43,7 @@ from django.db.models.functions import (
     TruncYear,
 )
 from django.db.models.sql.compiler import SQLCompiler
+from django.utils import asyncio as _django_asyncio
 
 
 def replace_date_trunc_in_sql(sql):
@@ -479,6 +481,35 @@ class CFSQLCompiler(SQLCompiler):
         return sql, params
 
 
+def _async_unsafe_probe():
+    pass
+
+
+# Capture async_unsafe function so we don't accidentally unwrap something else
+_ASYNC_UNSAFE_WRAPPER_CODE = _django_asyncio.async_unsafe(_async_unsafe_probe).__code__
+
+
+def _unwrap_async_unsafe(method):
+    """
+    Unwrap Django's async_unsafe decorator to get the original method.
+
+    This is needed because Django does not allow calling database operations
+    from within an async context, but Python workers always run in an async context.
+
+    All the database backends that django-cf provides are async-safe so we need
+    to unwrap the async_unsafe decorator to allow calling database operations
+    from within an async context.
+    """
+    method_code = getattr(method, "__code__", None)
+    is_async_unsafe = method_code is _ASYNC_UNSAFE_WRAPPER_CODE
+    wrapped = getattr(method, "__wrapped__", None)
+
+    if is_async_unsafe:
+        return wrapped
+
+    return method
+
+
 class CFDatabaseWrapper(SQLiteDatabaseWrapper):
     # this is defined in the class extending this one
     # vendor = "cloudflare_d1"
@@ -495,6 +526,16 @@ class CFDatabaseWrapper(SQLiteDatabaseWrapper):
     ops_class = CFDatabaseOperations
 
     transaction_modes = frozenset([])
+
+    connect = _unwrap_async_unsafe(BaseDatabaseWrapper.connect)
+    ensure_connection = _unwrap_async_unsafe(BaseDatabaseWrapper.ensure_connection)
+    cursor = _unwrap_async_unsafe(BaseDatabaseWrapper.cursor)
+    commit = _unwrap_async_unsafe(BaseDatabaseWrapper.commit)
+    rollback = _unwrap_async_unsafe(BaseDatabaseWrapper.rollback)
+    savepoint = _unwrap_async_unsafe(BaseDatabaseWrapper.savepoint)
+    savepoint_rollback = _unwrap_async_unsafe(BaseDatabaseWrapper.savepoint_rollback)
+    savepoint_commit = _unwrap_async_unsafe(BaseDatabaseWrapper.savepoint_commit)
+    clean_savepoints = _unwrap_async_unsafe(BaseDatabaseWrapper.clean_savepoints)
 
     def get_compiler(self, default_using=None, using=None, **kwargs):
         if using is None:
