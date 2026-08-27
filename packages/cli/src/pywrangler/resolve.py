@@ -23,7 +23,10 @@ class InstallPlan:
 
     def __init__(self, lockfile: Path) -> None:
         self.lockfile = lockfile
-        self.requirements: list[tuple[str, str]] = []
+        # name, version pairs if they have a version. It's possible that a
+        # local/github package doesn't have a version, this is okay.
+        # This is really only used for logging and tests.
+        self.requirements: list[tuple[str, str | None]] = []
         # Names of packages sourced from a local path. They need refreshing when
         # rebuilt.
         self.local_packages: list[str] = []
@@ -33,16 +36,13 @@ class InstallPlan:
 
         for pkg in data.get("packages", []):
             name = pkg.get("name")
-            if name and any(
-                self._is_local_source(pkg, key) for key in self._LOCAL_SOURCE_KEYS
-            ):
-                self.local_packages.append(name)
-
-            version = pkg.get("version")
-            if not name or not version:
+            if not name:
                 logger.warning("Skipping malformed lockfile entry: %s", pkg)
                 continue
-            self.requirements.append((name, version))
+            if any(self._is_local_source(pkg, key) for key in self._LOCAL_SOURCE_KEYS):
+                self.local_packages.append(name)
+
+            self.requirements.append((name, pkg.get("version")))
 
     @staticmethod
     def _is_local_source(pkg: dict, key: str) -> bool:
@@ -51,9 +51,6 @@ class InstallPlan:
             return False
         # A local reference has a `path`
         return "path" in source
-
-    def to_requirement_strings(self) -> list[str]:
-        return [f"{name}=={version}" for name, version in self.requirements]
 
 
 def parse_requirements() -> list[str]:
@@ -64,13 +61,18 @@ def parse_requirements() -> list[str]:
 
 
 def _compile_lockfile(
-    requirements: list[str],
+    supplemental_requirements: list[str],
     lockfile_path: Path,
     *,
     upgrade: bool = False,
     allow_build: bool = False,
 ) -> None:
     """Run ``uv pip compile`` targeting Pyodide.
+
+    The project's ``pyproject.toml`` is the primary input so that uv will
+    correctly apply ``[tool.uv.sources]`` and similar settings.
+    ``supplemental_requirements`` are supplied through a temporary requirements
+    file.
 
     Writes the compiled output to *lockfile_path*. When *lockfile_path* already
     exists, ``uv pip compile`` uses it as a constraint source so pinned versions
@@ -81,11 +83,13 @@ def _compile_lockfile(
     to permit building source distributions / local directory sources. This is
     useful for testing against local checkouts of pure Python packages.
     """
-    with temp_requirements_file(requirements) as req_in_path:
+    project_root = get_project_root()
+    with temp_requirements_file(supplemental_requirements) as req_in_path:
         cmd = [
             "uv",
             "pip",
             "compile",
+            str(project_root / "pyproject.toml"),
             req_in_path,
             "--python",
             get_uv_pyodide_interp_name(),
@@ -102,7 +106,7 @@ def _compile_lockfile(
         if upgrade:
             cmd.append("--upgrade")
 
-        run_command(cmd, cwd=get_project_root(), capture_output=True)
+        run_command(cmd, cwd=project_root, capture_output=True)
 
 
 def resolve_requirements(
@@ -117,13 +121,15 @@ def resolve_requirements(
     """
     lockfile = get_lockfile_path()
 
-    deps = parse_requirements()
-    deps.append(MANAGED_SDK_PACKAGE)
-
-    _compile_lockfile(deps, lockfile, upgrade=upgrade, allow_build=allow_build)
+    _compile_lockfile(
+        [MANAGED_SDK_PACKAGE], lockfile, upgrade=upgrade, allow_build=allow_build
+    )
     plan = InstallPlan(lockfile)
 
     logger.info("Resolved %d requirements from %s.", len(plan.requirements), lockfile)
     for name, version in plan.requirements:
-        logger.debug("  - %s==%s", name, version)
+        if version:
+            logger.debug("  - %s==%s", name, version)
+        else:
+            logger.debug("  - %s", name)
     return plan
