@@ -91,7 +91,7 @@ def _wrangler_compat_config(python_version: str) -> tuple[str, str]:
     if python_version == "3.13":
         compat_flags.append("python_workers_20250116")
     if python_version == "3.14":
-        compat_flags.append("python_workers_20260610")
+        compat_flags.append("python_workers_314")
 
     compat_flags_str = ", ".join([f'"{flag}"' for flag in compat_flags])
 
