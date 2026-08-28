@@ -18,6 +18,7 @@ import requests
 TEST_DIR: Path = Path(__file__).parent
 WORKERS_PY: Path = TEST_DIR.parent.parent / "cli"
 WORKERS_RUNTIME_SDK: Path = TEST_DIR.parent / "src"
+TESTLIB: Path = TEST_DIR.parent.parent / "testlib"
 
 DEV_STARTUP_TIMEOUT: int = 120
 DEV_POLL_INTERVAL: float = 0.5
@@ -129,6 +130,11 @@ def wait_for_ready(
     pytest.fail(f"pywrangler dev did not become ready within {DEV_STARTUP_TIMEOUT}s")
 
 
+@pytest.fixture(scope="session", autouse=True)
+def build_testlib():
+    subprocess.run(["uv", "build"], cwd=TESTLIB, check=True)
+
+
 @pytest.fixture(
     scope="module",
     params=COMPAT_CONFIGS,
@@ -159,6 +165,7 @@ def dev_server(
     tmp_path = tmp_path_factory.mktemp(f"{worker_project_dir.name}_dev")
     target = tmp_path / worker_project_dir.name
     shutil.copytree(worker_project_dir, target, ignore=shutil.ignore_patterns(".venv"))
+    shutil.copytree(TESTLIB, tmp_path / "testlib")
     env = os.environ | {"_PYODIDE_EXTRA_MOUNTS": str(tmp_path)}
 
     wrangler_jsonc = target / "wrangler.jsonc"

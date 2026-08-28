@@ -26,6 +26,7 @@ TEST_DIR: Path = Path(__file__).parent
 PACKAGE_DIR: Path = TEST_DIR.parent
 WORKERS_PY: Path = PACKAGE_DIR.parent / "cli"
 WORKERS_RUNTIME_SDK: Path = PACKAGE_DIR.parent / "runtime-sdk" / "src"
+TESTLIB: Path = PACKAGE_DIR.parent / "testlib"
 DJANGO_CF_SRC: Path = PACKAGE_DIR / "django_cf"
 
 D1_PROJECT: Path = PACKAGE_DIR / "templates" / "d1"
@@ -255,6 +256,11 @@ def inject_compat_flags(file: Path, extra_flags: list[str]) -> None:
     file.write_text(content)
 
 
+@pytest.fixture(scope="session", autouse=True)
+def build_testlib():
+    subprocess.run(["uv", "build"], cwd=TESTLIB, check=True)
+
+
 @pytest.fixture(
     scope="module",
     params=COMPAT_CONFIGS,
@@ -277,6 +283,7 @@ def in_worker_server(
     tmp_path = tmp_path_factory.mktemp("in_worker")
     target = tmp_path / IN_WORKER_PROJECT.name
     shutil.copytree(IN_WORKER_PROJECT, target, ignore=GENERATED)
+    shutil.copytree(TESTLIB, tmp_path / "testlib", ignore=GENERATED)
 
     wrangler_jsonc = target / "wrangler.jsonc"
     replace_compat_date(wrangler_jsonc, compat_config.compat_date)
