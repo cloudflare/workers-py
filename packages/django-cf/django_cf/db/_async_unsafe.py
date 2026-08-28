@@ -1,5 +1,4 @@
-"""Helper for removing Django's ``async_unsafe`` guard from backend methods.
-"""
+"""Helper for removing Django's ``async_unsafe`` guard from backend methods."""
 
 from django.utils import asyncio as _django_asyncio
 
