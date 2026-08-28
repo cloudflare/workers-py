@@ -1,0 +1,19 @@
+packages/runtime-sdk/tests/web-frameworks-test/fastapi-tests/src/test_routing.py
+  s_9db23b1aebb66d::t_5333d9a6e03890 23-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "a754e1df9462ea27d7b41a53f70b9f3d4b5f9d50",
+  "prompts": {},
+  "sessions": {
+    "s_9db23b1aebb66d": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fdaeca4e4ffe3feqxEGInLru2P",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Dominik Picheta <dominik@cloudflare.com>"
+    }
+  }
+}
