@@ -1,0 +1,14 @@
+[project]
+name = "django-cf-mysql-hyperdrive-tests"
+version = "0.0.0"
+requires-python = ">=3.14"
+dependencies = [
+    "django>=5.2.8,<6.1",
+    # >=1.1.3 reports itself as mysqlclient 2.2.8, which is new enough for the
+    # version check in django.db.backends.mysql.base. The `rsa` extra pulls
+    # cryptography, which MySQL 8 needs for `caching_sha2_password` auth.
+    "pymysql[rsa]>=1.1.3",
+    "pytest",
+    "pytest-asyncio<1.2.0",
+    "sqlparse",
+]

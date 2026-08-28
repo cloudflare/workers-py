@@ -1,0 +1,20 @@
+{
+    // Separate from tests/in_worker/worker: that project runs everywhere, while
+    // this one needs a real MySQL server and Python 3.14 socket support.
+    "name": "django-cf-mysql-hyperdrive-tests",
+    "main": "src/worker.py",
+    "compatibility_date": "%COMPAT_DATE",
+    "compatibility_flags": ["python_workers"],
+    "hyperdrive": [
+        {
+            "binding": "HYPERDRIVE_MYSQL",
+            "id": "00000000-0000-0000-0000-000000000002",
+            "localConnectionString": "mysql://testuser:testpass@127.0.0.1:3306/testdb"
+        }
+    ],
+    // The probe calls itself back through SELF to get two genuinely overlapping
+    // Worker requests, so the service name has to match this worker's name.
+    "services": [
+        { "binding": "SELF", "service": "django-cf-mysql-hyperdrive-tests" }
+    ]
+}

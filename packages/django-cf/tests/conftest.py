@@ -32,6 +32,24 @@ D1_PROJECT: Path = PACKAGE_DIR / "templates" / "d1"
 DURABLE_OBJECTS_PROJECT: Path = PACKAGE_DIR / "templates" / "durable-objects"
 R2_PROJECT: Path = TEST_DIR / "servers" / "r2"
 IN_WORKER_PROJECT: Path = TEST_DIR / "in_worker" / "worker"
+HYPERDRIVE_PROJECT: Path = TEST_DIR / "hyperdrive" / "worker"
+
+OPT_IN_MARKERS: tuple[str, ...] = ("hyperdrive",)
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
+    """Skip opt-in suites unless the run explicitly asks for them via ``-m``."""
+    markexpr: str = config.getoption("markexpr")
+    for marker in OPT_IN_MARKERS:
+        if marker in markexpr:
+            continue
+        skip = pytest.mark.skip(reason=f"needs local services; run with -m {marker}")
+        for item in items:
+            if marker in item.keywords:
+                item.add_marker(skip)
+
 
 DEV_STARTUP_TIMEOUT: int = 240
 DEV_POLL_INTERVAL: float = 0.5
@@ -83,6 +101,12 @@ COMPAT_CONFIGS: list[CompatConfig] = [
         # TODO: remove these when 3.14 is stable, and enabled by date
         extra_compat_flags=["python_workers_20260610", "experimental"],
     ),
+]
+
+
+# Hyperdrive requires Python 3.14 or later
+COMPAT_CONFIGS_HYPERDRIVE = [
+    c for c in COMPAT_CONFIGS if c.python_version >= "3.14"
 ]
 
 
@@ -264,19 +288,27 @@ def compat_config(request: pytest.FixtureRequest) -> CompatConfig:
     return request.param
 
 
-@pytest.fixture(scope="module")
-def in_worker_server(
-    tmp_path_factory: pytest.TempPathFactory, compat_config: CompatConfig
+
+@pytest.fixture(
+    scope="module",
+    params=COMPAT_CONFIGS_HYPERDRIVE,
+    ids=[c.python_version for c in COMPAT_CONFIGS_HYPERDRIVE],
+)
+def hyperdrive_compat_config(request: pytest.FixtureRequest) -> CompatConfig:
+    return request.param
+
+
+def _serve_worker_server(
+    project_dir: Path, tmp_path: Path, compat_config: CompatConfig
 ) -> Generator[str]:
-    """Serve ``tests/in_worker/worker``, once per compat config.
+    """Serve a worker project, once per compat config.
 
     Unlike the app fixtures above, this one runs ``uv run --no-project`` and
     vendors the runtime SDK and django-cf working trees by hand: the worker has
     no Django project to build, it only needs the two libraries importable.
     """
-    tmp_path = tmp_path_factory.mktemp("in_worker")
-    target = tmp_path / IN_WORKER_PROJECT.name
-    shutil.copytree(IN_WORKER_PROJECT, target, ignore=GENERATED)
+    target = tmp_path / project_dir.name
+    shutil.copytree(project_dir, target, ignore=GENERATED)
 
     wrangler_jsonc = target / "wrangler.jsonc"
     replace_compat_date(wrangler_jsonc, compat_config.compat_date)
@@ -305,6 +337,27 @@ def in_worker_server(
 
     with _dev_server(target, tmp_path, env, pywrangler) as (base_url, _):
         yield base_url
+
+
+@pytest.fixture(scope="module")
+def in_worker_server(
+    tmp_path_factory: pytest.TempPathFactory, compat_config: CompatConfig
+) -> Generator[str]:
+    yield from _serve_worker_server(
+        IN_WORKER_PROJECT, tmp_path_factory.mktemp("in_worker"), compat_config
+    )
+
+
+@pytest.fixture(scope="module")
+def hyperdrive_server(
+    tmp_path_factory: pytest.TempPathFactory,
+    hyperdrive_compat_config: CompatConfig,
+) -> Generator[str]:
+    yield from _serve_worker_server(
+        HYPERDRIVE_PROJECT,
+        tmp_path_factory.mktemp("hyperdrive"),
+        hyperdrive_compat_config,
+    )
 
 
 class InWorkerTestResult(TypedDict):
