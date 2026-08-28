@@ -8,9 +8,24 @@ from worker import (
     STREAMING_NUM_CHUNKS,
     crash_app,
     example_hdr,
+    header_echo_app,
 )
 
-from workers import Request, env, wsgi
+from workers import Request, WorkerEntrypoint, env, wsgi
+
+
+@pytest.mark.asyncio
+async def test_generated_entrypoint_serves_wsgi_app():
+    default = wsgi.entrypoint(header_echo_app)
+    assert default.__name__ == "Default"
+    assert issubclass(default, WorkerEntrypoint)
+
+    entrypoint = object.__new__(default)
+    entrypoint.env = {}
+    response = await entrypoint.fetch(js.Request.new("http://example.com/"))
+
+    assert response.status == 200
+    assert await response.text() == "Hello, World"
 
 
 @pytest.mark.asyncio
