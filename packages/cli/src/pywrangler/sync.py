@@ -7,6 +7,7 @@ from pathlib import Path
 import click
 
 from .resolve import (
+    MANAGED_SDK_PACKAGE,
     InstallPlan,
     resolve_requirements,
 )
@@ -237,11 +238,11 @@ def _install_requirements_to_vendor(
     return None
 
 
-def _install_requirements_to_venv(requirements: list[str]) -> str | None:
+def _install_requirements_to_venv(constraints: list[str]) -> str | None:
     """Install packages to the native venv.
 
-    Uses pinned versions from vendor directory if available to ensure host packages
-    accurately reflect what will run in production.
+    Installs the project requirements using pyproject.toml, constrained to the
+    versions that were resolved for Pyodide whenever a version is available.
 
     Returns:
         Error message string if installation failed, None if successful.
@@ -250,22 +251,28 @@ def _install_requirements_to_venv(requirements: list[str]) -> str | None:
     venv_workers_path = get_venv_workers_path()
     project_root = get_project_root()
     relative_venv_workers_path = venv_workers_path.relative_to(project_root)
-    requirements = requirements.copy()
-    requirements.append("pyodide-py")
 
     logger.info(
         f"Installing packages into [bold]{relative_venv_workers_path}[/bold]...",
         extra={"markup": True},
     )
 
-    with temp_requirements_file(requirements) as requirements_file:
+    extra_packages = [
+        "pyodide-py",
+        MANAGED_SDK_PACKAGE,
+    ]
+
+    with temp_requirements_file(constraints) as constraints_file:
         result = run_command(
             [
                 "uv",
                 "pip",
                 "install",
                 "-r",
-                requirements_file,
+                str(project_root / "pyproject.toml"),
+                "-c",
+                constraints_file,
+                *extra_packages,
             ],
             check=False,
             capture_output=True,
@@ -348,12 +355,11 @@ def install_requirements(plan: InstallPlan, allow_build: bool = False) -> None:
     # This ensures host packages accurately reflect what will run in production.
     # If the installation to the Pyodide vendor directory fails, use the original requirements
     # to see if it fails in the native venv as well.
-    host_requirements = (
-        plan.to_requirement_strings()
-        if pyodide_error
-        else _get_vendor_package_versions()
-    )
-    native_error = _install_requirements_to_venv(host_requirements)
+    if pyodide_error:
+        host_constraints = []
+    else:
+        host_constraints = _get_vendor_package_versions()
+    native_error = _install_requirements_to_venv(host_constraints)
 
     # Show the native error first (more likely to be actionable), then the Pyodide error.
     if native_error:
