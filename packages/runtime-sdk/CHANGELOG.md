@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.8.1 (2026-08-28)
+
+### Bug Fixes
+
+- Make Headers subclass Mapping ([#233](https://github.com/cloudflare/workers-py/pull/233),
+  [`2e0a47f`](https://github.com/cloudflare/workers-py/commit/2e0a47f7aca2091a0396fcd8b04c03979326698a))
+
+
 ## v1.8.0 (2026-08-28)
 
 ### Bug Fixes
