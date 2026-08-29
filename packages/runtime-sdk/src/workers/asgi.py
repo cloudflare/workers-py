@@ -165,6 +165,16 @@ async def start_application(app):
             if not startup.done():
                 startup.set_result(False)
                 return
+            # Frameworks re-raise the original right after sending the failed
+            # event, with no await in between, so the awaiter has not resumed
+            # and the attachment still reaches it as the cause:
+            # https://github.com/encode/starlette/blob/1.3.1/starlette/routing.py
+            for reported in (startup, shutdown_complete):
+                if reported.done() and not reported.cancelled():
+                    failure = reported.exception()
+                    if failure is not None:
+                        failure.__cause__ = exc
+                        return
             # After a successful startup, a shutdown-phase error can't affect the
             # already-served request, so log it and let shutdown complete.
             logger.exception("Exception in ASGI lifespan application", exc_info=exc)
