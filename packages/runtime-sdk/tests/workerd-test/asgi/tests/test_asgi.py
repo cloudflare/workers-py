@@ -428,3 +428,49 @@ async def test_multiple_set_cookie_headers_survive():
         "first=1; Path=/",
         "second=2; Path=/",
     ]
+
+
+class _StartupFailEmptyMessageApp:
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            message = await receive()
+            if message["type"] == "lifespan.startup":
+                await send({"type": "lifespan.startup.failed", "message": ""})
+            return
+
+
+@pytest.mark.asyncio
+async def test_lifespan_startup_failure_with_empty_message():
+    req = js.Request.new("http://example.com/startup-fail-empty")
+    with pytest.raises(RuntimeError, match="ASGI lifespan startup failed"):
+        await asyncio.wait_for(
+            asgi.fetch(_StartupFailEmptyMessageApp(), req, env), timeout=5
+        )
+
+
+class _PreAckCrashApp:
+    """Raises on the lifespan scope before any ack; HTTP must still serve."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            raise RuntimeError("crashed before ack")
+        await receive()
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+
+@pytest.mark.asyncio
+async def test_lifespan_preack_crash_is_logged_and_treated_as_unsupported():
+    handler = _install_handler()
+    try:
+        req = js.Request.new("http://example.com/preack-crash")
+        response = await asyncio.wait_for(
+            asgi.fetch(_PreAckCrashApp(), req, env), timeout=5
+        )
+        assert await response.text() == "ok"
+        assert any(
+            "before reporting startup" in record.getMessage()
+            for record in handler.records
+        )
+    finally:
+        _remove_handler(handler)
