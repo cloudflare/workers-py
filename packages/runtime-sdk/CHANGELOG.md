@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.8.3 (2026-08-31)
+
+### Bug Fixes
+
+- **runtime-sdk**: Stop losing details of ASGI lifespan failures
+  ([#172](https://github.com/cloudflare/workers-py/pull/172),
+  [`c6d1f69`](https://github.com/cloudflare/workers-py/commit/c6d1f69e96fd13b5b9e41f48e70aebb7469310c8))
+
+
 ## v1.8.2 (2026-08-31)
 
 ### Bug Fixes

@@ -345,7 +345,7 @@ wheels = [
 
 [[package]]
 name = "workers-runtime-sdk"
-version = "1.8.2"
+version = "1.8.3"
 source = { editable = "." }
 
 [package.dev-dependencies]
