@@ -4,7 +4,6 @@ import asyncio
 import contextlib
 import importlib.util
 import io
-import os
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -19,7 +18,6 @@ from worker_durable_object import TestDurableObject  # noqa: F401
 from workers import Response, WorkerEntrypoint
 
 BASE_DIR = Path(__file__).parent
-os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")
 
 
 async def _noop(*args):

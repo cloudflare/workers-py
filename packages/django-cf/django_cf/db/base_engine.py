@@ -12,6 +12,7 @@ from django.db import (
     OperationalError,
     ProgrammingError,
 )
+from django.db.backends.base.base import BaseDatabaseWrapper
 from django.db.backends.sqlite3.base import DatabaseWrapper as SQLiteDatabaseWrapper
 from django.db.backends.sqlite3.client import DatabaseClient as SQLiteDatabaseClient
 from django.db.backends.sqlite3.creation import (
@@ -42,6 +43,8 @@ from django.db.models.functions import (
     TruncYear,
 )
 from django.db.models.sql.compiler import SQLCompiler
+
+from ._async_unsafe import _unwrap_async_unsafe
 
 
 def replace_date_trunc_in_sql(sql):
@@ -495,6 +498,16 @@ class CFDatabaseWrapper(SQLiteDatabaseWrapper):
     ops_class = CFDatabaseOperations
 
     transaction_modes = frozenset([])
+
+    connect = _unwrap_async_unsafe(BaseDatabaseWrapper.connect)
+    ensure_connection = _unwrap_async_unsafe(BaseDatabaseWrapper.ensure_connection)
+    cursor = _unwrap_async_unsafe(BaseDatabaseWrapper.cursor)
+    commit = _unwrap_async_unsafe(BaseDatabaseWrapper.commit)
+    rollback = _unwrap_async_unsafe(BaseDatabaseWrapper.rollback)
+    savepoint = _unwrap_async_unsafe(BaseDatabaseWrapper.savepoint)
+    savepoint_rollback = _unwrap_async_unsafe(BaseDatabaseWrapper.savepoint_rollback)
+    savepoint_commit = _unwrap_async_unsafe(BaseDatabaseWrapper.savepoint_commit)
+    clean_savepoints = _unwrap_async_unsafe(BaseDatabaseWrapper.clean_savepoints)
 
     def get_compiler(self, default_using=None, using=None, **kwargs):
         if using is None:
