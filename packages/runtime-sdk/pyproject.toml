@@ -28,35 +28,7 @@ dev = [
 "Bug Tracker" = "https://github.com/cloudflare/workers-py/issues"
 
 [tool.ruff]
-target-version = "py311"
-lint.select = [
-  "B0",     # bugbear (all B0* checks enabled by default)
-  "B904",   # bugbear (Within an except clause, raise exceptions with raise ... from err)
-  "B905",   # bugbear (zip() without an explicit strict= parameter set.)
-  "C4",     # flake8-comprehensions
-  "C9",     # mccabe complexity
-  "E",      # pycodestyles
-  "F",      # pyflakes
-  "I",      # isort
-  "PERF",   # Perflint
-  "PGH",    # pygrep-hooks
-  "PL",     # Pylint
-  "UP",     # pyupgrade
-  "W",      # pycodestyles
-]
-lint.ignore = [
-  "C901", # Too complex
-  "E402",
-  "E501",
-  "E731",
-  "E741",
-  "PLR0911", # Too many return statements
-  "PLR0915", # Too many statements
-  "PLW2901",
-  "UP031",
-  "UP038", # Use X | Y instead of (X, Y)
-]
-lint.flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
+extend = "../../ruff.toml"
 lint.per-file-ignores."tests/**" = ["PLR2004", "PLR0913"]
 lint.per-file-ignores."tests/workerd-test/**" = ["C901", "PLR0911", "PLR0912", "PLR2004", "PLW0603"]
 lint.per-file-ignores."tests/bindings-test/**" = ["C901", "PLR0911", "PLR0912", "PLR2004", "PLW0603"]

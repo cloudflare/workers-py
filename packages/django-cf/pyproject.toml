@@ -47,47 +47,21 @@ include = ["django_cf", "django_cf.*"]
 exclude = ["tests*", "docs*", "templates*", ".github*", "*.__pycache__"]
 
 [tool.ruff]
+extend = "../../ruff.toml"
 target-version = "py312"
 extend-exclude = [".wrangler", "python_modules", "staticfiles"]
-lint.select = [
-  "B0",     # bugbear (all B0* checks enabled by default)
-  "B904",   # bugbear (Within an except clause, raise exceptions with raise ... from err)
-  "B905",   # bugbear (zip() without an explicit strict= parameter set.)
-  "C4",     # flake8-comprehensions
-  "C9",     # mccabe complexity
-  "E",      # pycodestyles
-  "F",      # pyflakes
-  "I",      # isort
-  "PERF",   # Perflint
-  "PGH",    # pygrep-hooks
-  "PL",     # Pylint
-  "UP",     # pyupgrade
-  "W",      # pycodestyles
-]
-lint.ignore = [
-  # Shared across every package in this monorepo.
-  "E402",
-  "E501",
-  "E731",
-  "E741",
-  "PLW2901",
-  "UP031",
+lint.extend-ignore = [
   # Deferred: satisfying these requires behavioural or structural changes to
   # code imported from https://github.com/G4brym/django-cf, so they are turned
   # off to keep the lint adoption commit mechanical. Re-enable one rule per PR.
   "B904",    # `raise ... from err` alters exception chaining and tracebacks
   "B905",    # `zip(strict=True)` can raise where the loose zip silently truncates
-  "C901",    # too complex; needs function decomposition (also ignored by runtime-sdk)
   "PERF401", # manual-list-comprehension; needs a loop rewrite
-  "PLR0911", # too many return statements (also ignored by runtime-sdk)
   "PLR0912", # too many branches; needs decomposition
   "PLR0913", # too many arguments; signature change
-  "PLR0915", # too many statements (also ignored by runtime-sdk)
   "PLR2004", # magic value comparison; needs named constants
   "PLW0603", # global statement; architectural, see db/backends/do/storage.py
-  "UP038",   # `isinstance(x, X | Y)` (also ignored by runtime-sdk)
 ]
-lint.flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
 # Generated Django scaffolding kept verbatim so it stays copy-pasteable.
 lint.per-file-ignores."tests/servers/**" = ["F401"]
 lint.per-file-ignores."templates/**" = ["F401"]
