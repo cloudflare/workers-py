@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.17.1 (2026-08-31)
+
+### Bug Fixes
+
+- Update compat flag and enable date for python 3.14
+  ([#235](https://github.com/cloudflare/workers-py/pull/235),
+  [`0ece5a2`](https://github.com/cloudflare/workers-py/commit/0ece5a2589513fd7f1d085bb33a4b0c1217e345a))
+
+
 ## v1.17.0 (2026-08-28)
 
 ### Features
