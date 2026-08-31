@@ -399,11 +399,11 @@ async def fetch(
             raise
 
 
-def entrypoint(app: Any) -> type[WorkerEntrypoint]:
+def entrypoint(app: Any, *, serialize: bool = False) -> type[WorkerEntrypoint]:
     """Create the default Worker entrypoint for a WSGI application."""
 
     class Default(WorkerEntrypoint):
         async def fetch(self, request):
-            return await fetch(app, request, self.env)
+            return await fetch(app, request, self.env, serialize=serialize)
 
     return Default
