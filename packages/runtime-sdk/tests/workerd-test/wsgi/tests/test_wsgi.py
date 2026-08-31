@@ -241,4 +241,3 @@ async def test_serialized_wsgi_iteration_error_releases_lock():
         timeout=5,
     )
     assert await response.text() == "Hello, World"
-

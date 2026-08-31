@@ -1,7 +1,6 @@
 import asyncio
 from weakref import ReferenceType, WeakKeyDictionary, ref
 
-
 # Use weakref so that event loops can be garbage collected
 # when they are no longer in use.
 _locks: WeakKeyDictionary[asyncio.AbstractEventLoop, ReferenceType[asyncio.Lock]] = (
@@ -47,7 +46,7 @@ class RequestLock:
         """
         if not self._enabled:
             return
-        
+
         self._release_on_exit = False
 
     def release(self) -> None:
