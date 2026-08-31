@@ -1,8 +1,9 @@
+import asyncio
 import json
 
 import js
 import pytest
-from pyodide.ffi import to_js
+from pyodide.ffi import run_sync, to_js
 from worker import (
     STREAMING_CHUNK_SIZE,
     STREAMING_NUM_CHUNKS,
@@ -119,3 +120,125 @@ def test_build_environ_handles_js_and_python_requests():
     py_env = wsgi.build_environ(py_request, env, b"")
     assert js_env["HTTP_HEADER1"] == py_env["HTTP_HEADER1"] == "Value1"
     assert js_env["HTTP_HEADER2"] == py_env["HTTP_HEADER2"] == "Value2"
+
+
+class _ConcurrentApp:
+    def __init__(self):
+        self.active = 0
+        self.max_active = 0
+
+    def __call__(self, environ, start_response):
+        self.active += 1
+        self.max_active = max(self.max_active, self.active)
+        run_sync(asyncio.sleep(0.05))
+        self.active -= 1
+        start_response("200 OK", [])
+        return [b"ok"]
+
+
+async def _fetch_wsgi_text(app, *, serialize=False):
+    response = await wsgi.fetch(
+        app, js.Request.new("http://example.com/"), env, serialize=serialize
+    )
+    return await response.text()
+
+
+@pytest.mark.asyncio
+async def test_serialized_wsgi_requests_do_not_overlap():
+    app = _ConcurrentApp()
+    await asyncio.wait_for(
+        asyncio.gather(
+            _fetch_wsgi_text(app, serialize=True),
+            _fetch_wsgi_text(app, serialize=True),
+            _fetch_wsgi_text(app, serialize=True),
+            _fetch_wsgi_text(app, serialize=True),
+        ),
+        timeout=5,
+    )
+    assert app.max_active == 1
+
+
+@pytest.mark.asyncio
+async def test_default_wsgi_requests_can_overlap():
+    app = _ConcurrentApp()
+    await asyncio.wait_for(
+        asyncio.gather(
+            _fetch_wsgi_text(app),
+            _fetch_wsgi_text(app),
+        ),
+        timeout=5,
+    )
+    assert app.max_active == 2
+
+
+@pytest.mark.asyncio
+async def test_serialized_wsgi_streams_and_closes_original_iterable():
+    class Iterable:
+        def __init__(self):
+            self.closed = False
+
+        def __iter__(self):
+            yield b"first"
+            yield b"second"
+
+        def close(self):
+            self.closed = True
+
+    result = Iterable()
+    seen_input = None
+    seen_body = None
+
+    def app(environ, start_response):
+        nonlocal seen_body, seen_input
+        seen_input = environ["wsgi.input"]
+        seen_body = seen_input.read()
+        write = start_response(
+            "200 Everything", [("Set-Cookie", "a=1"), ("Set-Cookie", "b=2")]
+        )
+        write(b"before")
+        return result
+
+    response = await wsgi.fetch(
+        app,
+        js.Request.new("http://example.com/", method="POST", body="request"),
+        env,
+        serialize=True,
+    )
+    assert seen_input is not None
+    assert seen_body == b"request"
+    assert response.status == 200
+    assert response.statusText == "Everything"
+    assert not result.closed
+    assert not seen_input.closed
+    assert await response.text() == "beforefirstsecond"
+    assert result.closed
+    assert seen_input.closed
+    assert response.headers.get("set-cookie") == "a=1, b=2"
+
+
+@pytest.mark.asyncio
+async def test_serialized_wsgi_iteration_error_releases_lock():
+    def failing_app(environ, start_response):
+        start_response("200 OK", [])
+
+        def fail():
+            raise RuntimeError("iteration failed")
+            yield b"unreachable"
+
+        return fail()
+
+    with pytest.raises(RuntimeError, match="iteration failed"):
+        await asyncio.wait_for(
+            wsgi.fetch(
+                failing_app, js.Request.new("http://example.com/"), env, serialize=True
+            ),
+            timeout=5,
+        )
+    response = await asyncio.wait_for(
+        wsgi.fetch(
+            header_echo_app, js.Request.new("http://example.com/"), env, serialize=True
+        ),
+        timeout=5,
+    )
+    assert await response.text() == "Hello, World"
+
