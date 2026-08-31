@@ -1,0 +1,29 @@
+packages/runtime-sdk/tests/web-frameworks-test/fastapi-tests/src/test_platform_lifecycle.py
+  s_11612c12ff00f6::t_18c5a90050b56b 6,8,14-15,25-44
+packages/runtime-sdk/src/workers/asgi.py
+  s_b8e52b2cbb57d4::t_32ffcfa2b669da 326-330,406,433-437,439-441,443-445,450-451,455-456,464-465,472-489,492,495-496
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "5b8cb5e477a8844799cd3e61d2ea51561a294b6e",
+  "prompts": {},
+  "sessions": {
+    "s_11612c12ff00f6": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_00450475cffeTKcADX0uXj73nb",
+        "model": "claude-opus-4-6"
+      },
+      "human_author": "Dominik Picheta <dominik@cloudflare.com>"
+    },
+    "s_b8e52b2cbb57d4": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_fc1444d20ffengXfu26b9z6uxh",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Dominik Picheta <dominik@cloudflare.com>"
+    }
+  }
+}
