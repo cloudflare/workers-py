@@ -71,7 +71,7 @@ COMPAT_CONFIGS: list[CompatConfig] = [
         compat_date="2026-07-01",
         python_version="3.14",
         # TODO: remove these when 3.14 is stable, and enabled by date
-        extra_compat_flags=["python_workers_20260610", "experimental"],
+        extra_compat_flags=["python_workers_314", "experimental"],
     ),
 ]
 
