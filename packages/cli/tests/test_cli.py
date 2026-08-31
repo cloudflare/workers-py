@@ -853,7 +853,7 @@ def test_check_wrangler_version_sufficient(mock_run_command):
     # Mock successful wrangler version output
     mock_result = Mock()
     mock_result.returncode = 0
-    mock_result.stdout = "wrangler 4.109.0"
+    mock_result.stdout = "wrangler 4.127.1"
     mock_run_command.return_value = mock_result
 
     # Should not raise an exception
