@@ -7,7 +7,7 @@ from urllib.parse import unquote, urlsplit
 
 import js
 
-from workers import Context, Request
+from workers import Context, Request, WorkerEntrypoint
 
 logger = logging.getLogger("wsgi")
 NULL_BODY_STATUSES = frozenset({101, 103, 204, 205, 304})
@@ -379,3 +379,13 @@ async def fetch(
     except Exception:
         logger.exception("WSGI request failed")
         raise
+
+
+def entrypoint(app: Any) -> type[WorkerEntrypoint]:
+    """Create the default Worker entrypoint for a WSGI application."""
+
+    class Default(WorkerEntrypoint):
+        async def fetch(self, request):
+            return await fetch(app, request, self.env)
+
+    return Default

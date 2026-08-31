@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.17.0 (2026-08-28)
+
+### Features
+
+- Make pywrangler respect uv.sources from pyproject.toml
+  ([#234](https://github.com/cloudflare/workers-py/pull/234),
+  [`33e1bdc`](https://github.com/cloudflare/workers-py/commit/33e1bdcdaa531dc4ac0975619f4a517d98bceace))
+
+
 ## v1.16.7 (2026-08-22)
 
 ### Bug Fixes

@@ -2,6 +2,36 @@
 
 <!-- version list -->
 
+## v1.8.1 (2026-08-28)
+
+### Bug Fixes
+
+- Make Headers subclass Mapping ([#233](https://github.com/cloudflare/workers-py/pull/233),
+  [`2e0a47f`](https://github.com/cloudflare/workers-py/commit/2e0a47f7aca2091a0396fcd8b04c03979326698a))
+
+
+## v1.8.0 (2026-08-28)
+
+### Bug Fixes
+
+- Defer ASGI lifespan shutdown until request completion
+  ([`3249184`](https://github.com/cloudflare/workers-py/commit/324918442748a0b87affc6128315ceb190e1b368))
+
+- Make wsgi streaming response handlers async
+  ([#191](https://github.com/cloudflare/workers-py/pull/191),
+  [`12168ae`](https://github.com/cloudflare/workers-py/commit/12168aef7599067a910a518f1ce7860a00ae9a58))
+
+- **runtime-sdk**: Close the WebSocket transport when the app task ends
+  ([#166](https://github.com/cloudflare/workers-py/pull/166),
+  [`e67e7e7`](https://github.com/cloudflare/workers-py/commit/e67e7e78af7fa6976f1f9966508b9869a6840ce5))
+
+### Features
+
+- Add wsgi.entrypoint like asgi.entrypoint
+  ([#232](https://github.com/cloudflare/workers-py/pull/232),
+  [`e044561`](https://github.com/cloudflare/workers-py/commit/e04456174b3f5bc9df8b3f8293ced6d08aaffc0f))
+
+
 ## v1.7.0 (2026-08-24)
 
 ### Bug Fixes
