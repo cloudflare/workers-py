@@ -1,16 +1,16 @@
-from pyodide.webloop import WebLoop
-from dataclasses import dataclass
-from typing import Any
 import asyncio
-from io import StringIO
-
-import sys
 import importlib.util
+import sys
 from asyncio import InvalidStateError
-from contextlib import contextmanager, redirect_stdout, redirect_stderr
+from contextlib import contextmanager, redirect_stderr, redirect_stdout
+from dataclasses import dataclass
+from io import StringIO
+from typing import Any
 from urllib.parse import urlparse
-from workers import Response, WorkerEntrypoint
+
 import pytest
+from pyodide.webloop import WebLoop
+from workers import Response, WorkerEntrypoint
 
 
 class EnvPlugin:

@@ -46,24 +46,7 @@ pywrangler = "pywrangler.cli:app"
 "Bug Tracker" = "https://github.com/cloudflare/workers-py/issues"
 
 [tool.ruff]
-target-version = "py311"
-lint.select = [
-  "B0",     # bugbear (all B0* checks enabled by default)
-  "B904",   # bugbear (Within an except clause, raise exceptions with raise ... from err)
-  "B905",   # bugbear (zip() without an explicit strict= parameter set.)
-  "C4",     # flake8-comprehensions
-  "C9",     # mccabe complexity
-  "E",      # pycodestyles
-  "F",      # pyflakes
-  "I",      # isort
-  "PERF",   # Perflint
-  "PGH",    # pygrep-hooks
-  "PL",     # Pylint
-  "UP",     # pyupgrade
-  "W",      # pycodestyles
-]
-lint.ignore = ["E402", "E501", "E731", "E741", "PLW2901", "UP031"]
-lint.flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
+extend = "../../ruff.toml"
 lint.per-file-ignores."tests/**" = ["PLR2004", "PLR0913"]
 
 [tool.mypy]

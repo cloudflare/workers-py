@@ -1,0 +1,32 @@
+target-version = "py311"
+
+[lint]
+select = [
+  "B0",     # bugbear (all B0* checks enabled by default)
+  "B904",   # bugbear (Within an except clause, raise exceptions with raise ... from err)
+  "B905",   # bugbear (zip() without an explicit strict= parameter set.)
+  "C4",     # flake8-comprehensions
+  "C9",     # mccabe complexity
+  "E",      # pycodestyles
+  "F",      # pyflakes
+  "I",      # isort
+  "PERF",   # Perflint
+  "PGH",    # pygrep-hooks
+  "PL",     # Pylint
+  "UP",     # pyupgrade
+  "W",      # pycodestyles
+]
+ignore = [
+  "C901", # Too complex
+  "E402",
+  "E501",
+  "E731",
+  "E741",
+  "PLR0911", # Too many return statements
+  "PLR0915", # Too many statements
+  "PLR2004", # Magic value
+  "PLW2901",
+  "UP031",
+  "UP038", # Use X | Y instead of (X, Y)
+]
+flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true
