@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v0.2.16 (2026-09-01)
+
+### Bug Fixes
+
+- Remove redundant to_py() calls from r2 and do
+  ([#243](https://github.com/cloudflare/workers-py/pull/243),
+  [`623a82c`](https://github.com/cloudflare/workers-py/commit/623a82c538910b34534499e0cf54e022d31ab5a0))
+
+
 ## v0.2.15 (2026-08-24)
 
 ### Bug Fixes
