@@ -46,7 +46,7 @@ class DatabaseWrapper(CFDatabaseWrapper):
             stmt = db.exec(proc_query)
 
         try:
-            response = stmt.raw().toArray().to_py()
+            response = stmt.raw().toArray()
             result = CFResult.from_object(
                 query, params, response, stmt.rowsRead, stmt.rowsWritten
             )
