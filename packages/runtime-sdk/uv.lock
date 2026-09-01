@@ -326,6 +326,26 @@ wheels = [
 ]
 
 [[package]]
+name = "testlib"
+version = "0.0.0"
+source = { editable = "../testlib" }
+dependencies = [
+    { name = "pytest" },
+]
+
+[package.optional-dependencies]
+host = [
+    { name = "requests" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "pytest" },
+    { name = "requests", marker = "extra == 'host'" },
+]
+provides-extras = ["host"]
+
+[[package]]
 name = "typing-extensions"
 version = "4.15.0"
 source = { registry = "https://pypi.org/simple" }
@@ -354,6 +374,7 @@ dev = [
     { name = "pytest" },
     { name = "requests" },
     { name = "ruff" },
+    { name = "testlib", extra = ["host"] },
 ]
 
 [package.metadata]
@@ -364,4 +385,5 @@ dev = [
     { name = "pytest", specifier = ">=7.0.0" },
     { name = "requests", specifier = ">=2.28.0" },
     { name = "ruff", specifier = ">=0.1.0" },
+    { name = "testlib", extras = ["host"], editable = "../testlib" },
 ]
