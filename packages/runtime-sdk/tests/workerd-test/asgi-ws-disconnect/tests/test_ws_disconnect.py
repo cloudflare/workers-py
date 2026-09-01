@@ -73,20 +73,17 @@ async def _events():
 
 @pytest.mark.asyncio
 async def test_client_close_reaches_app_as_disconnect():
-    response = await _ws_connect("/ws")
-    ws = response.webSocket
-    assert ws is not None
-    ws.accept()
-    before = len(await _events())
-    ws.close(1000, "bye")
-    deadline = asyncio.get_event_loop().time() + TIMEOUT_S
-    while asyncio.get_event_loop().time() < deadline:
-        events = await _events()
-        if len(events) > before:
-            assert events[-1]["type"] == "disconnect"
-            return
-        await asyncio.sleep(0.2)
-    pytest.fail("the app never observed the client's disconnect")
+    async with _ws_session("/ws") as ws:
+        before = len(await _events())
+        ws.close(1000, "bye")
+        deadline = asyncio.get_event_loop().time() + TIMEOUT_S
+        while asyncio.get_event_loop().time() < deadline:
+            events = await _events()
+            if len(events) > before:
+                assert events[-1]["type"] == "disconnect"
+                return
+            await asyncio.sleep(0.2)
+        pytest.fail("the app never observed the client's disconnect")
 
 
 @contextlib.asynccontextmanager
