@@ -21,7 +21,11 @@ dev = [
   "ruff>=0.1.0",
   "mypy>=1.0.0",
   "requests>=2.28.0",
+  "testlib[host]",
 ]
+
+[tool.uv.sources]
+testlib = { path = "../testlib", editable = true }
 
 [project.urls]
 "Homepage" = "https://github.com/cloudflare/workers-py"

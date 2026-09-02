@@ -34,7 +34,11 @@ dev = [
     "requests",
     "ruff",
     "django",
+    "testlib[host]",
 ]
+
+[tool.uv.sources]
+testlib = { path = "../testlib", editable = true }
 
 [project.urls]
 "Homepage" = "https://github.com/cloudflare/workers-py"
