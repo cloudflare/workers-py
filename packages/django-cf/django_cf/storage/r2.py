@@ -157,7 +157,7 @@ class R2Storage(Storage):
         full_path = self._full_path(name)
         try:
             bucket = self._get_bucket()
-            result = self._run_sync(bucket.head(full_path)).to_py()
+            result = self._run_sync(bucket.head(full_path))
             return result is not None
         except Exception:
             return False
@@ -199,7 +199,7 @@ class R2Storage(Storage):
         full_path = self._full_path(name)
         try:
             bucket = self._get_bucket()
-            metadata = self._run_sync(bucket.head(full_path)).to_py()
+            metadata = self._run_sync(bucket.head(full_path))
             if metadata and hasattr(metadata, "size"):
                 return metadata.size
             return 0
@@ -246,7 +246,7 @@ class R2Storage(Storage):
         full_path = self._full_path(name)
         try:
             bucket = self._get_bucket()
-            metadata = self._run_sync(bucket.head(full_path)).to_py()
+            metadata = self._run_sync(bucket.head(full_path))
 
             if metadata and hasattr(metadata, "uploaded"):
                 uploaded = metadata.uploaded

@@ -7,4 +7,8 @@ dependencies = [
     "python-multipart",
     "pytest",
     "pytest-asyncio<1.2.0",
+    "testlib",
 ]
+
+[tool.uv.sources]
+testlib = { path = "../testlib/dist/testlib-0.0.0-py3-none-any.whl" }

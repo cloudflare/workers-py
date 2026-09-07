@@ -2,4 +2,7 @@
 name = "flask-tests"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["flask", "pytest"]
+dependencies = ["flask", "pytest", "testlib"]
+
+[tool.uv.sources]
+testlib = { path = "../testlib/dist/testlib-0.0.0-py3-none-any.whl" }

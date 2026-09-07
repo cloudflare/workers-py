@@ -9,6 +9,9 @@ from django_cf.db.backends.do.storage import get_storage
 
 
 class TestDurableObject(DjangoCFDurableObject, DurableObject):
+    def __init__(self, ctx, env):
+        super().__init__(ctx, env)
+
     def get_app(self):
         return django_wsgi_app()
 
@@ -29,6 +32,9 @@ class TestDurableObject(DjangoCFDurableObject, DurableObject):
         self.ctx.storage.sql.exec(DROP_DO_TABLE_SQL)
 
     async def test_storage_is_configured(self):
+        from workers.entrypoints import DurableObjectContext
+
+        assert isinstance(self.ctx, DurableObjectContext)
         assert get_storage() is not None
 
     async def test_run_query_uses_configured_storage(self):
@@ -37,6 +43,10 @@ class TestDurableObject(DjangoCFDurableObject, DurableObject):
         sql.exec(f"DROP TABLE IF EXISTS {table}")
         sql.exec(f"CREATE TABLE {table} (id INTEGER PRIMARY KEY, value TEXT)")
         sql.exec(f"INSERT INTO {table} VALUES (?, ?)", 1, "ok")
+
+        rows = sql.exec(f"SELECT id, value FROM {table}").raw().toArray()
+        assert isinstance(rows, list)
+        assert rows == [[1, "ok"]]
 
         result = self.database.run_query(
             f"SELECT id, value FROM {table} WHERE id = %s", [1]
