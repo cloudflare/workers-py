@@ -180,7 +180,6 @@ def langchain_openai_chat_models_base_context(module):
         yield
 
 
-
 @register_exec_patch("openai.lib.bedrock")
 @contextmanager
 def openai_context(module):
@@ -188,6 +187,7 @@ def openai_context(module):
         # Uses os.urandom() to generate a random signature key
         # https://github.com/openai/openai-python/blob/b19c2161b1eac80fbf1f6f67a64a50af99c53356/src/openai/lib/bedrock.py#L33
         yield
+
 
 # @register_exec_patch("multidict._multidict")
 # @contextmanager

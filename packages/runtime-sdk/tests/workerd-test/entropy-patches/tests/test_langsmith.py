@@ -1,7 +1,7 @@
 # ruff: noqa: F401
-import langsmith._internal._constants
-
 import sys
+
+import langsmith._internal._constants
 
 if sys.version_info <= (3, 13):
     # This is broken in Python 3.13
