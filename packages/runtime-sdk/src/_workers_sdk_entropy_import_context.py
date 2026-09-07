@@ -180,10 +180,12 @@ def langchain_openai_chat_models_base_context(module):
         yield
 
 
-@register_exec_patch("openai.lib.bedrock")
+@register_exec_patch("litestar.openapi.controller")
+@register_exec_patch("litestar.constants")
 @contextmanager
-def openai_context(module):
+def litestar_context(module):
+    # Uses os.urandom() to generate a OPENAPI_JSON_HANDLER_NAME
+    # https://github.com/litestar-org/litestar/blob/e3b6a1d103a9160a575dce01ae34839e6e9bf990/litestar/constants.py#L19
+    # https://github.com/litestar-org/litestar/blob/v2.24.0/litestar/openapi/controller.py#L27
     with allow_bad_entropy_calls(1):
-        # Uses os.urandom() to generate a random signature key
-        # https://github.com/openai/openai-python/blob/b19c2161b1eac80fbf1f6f67a64a50af99c53356/src/openai/lib/bedrock.py#L33
         yield
