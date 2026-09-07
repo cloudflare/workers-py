@@ -104,7 +104,14 @@ jobs:
     - name: Install uv
       uses: astral-sh/setup-uv@c771a70e6277c0a99b617c7a806ffedaca235ff9 # v9.0.0
       with:
-        python-version: '3.13'
+        python-version: '3.14'
+
+    # needed to build psycopg-c from source
+    # TODO(soon): maybe allow pywrangler to skip native package installs
+    # when not needed. Native installations are just for validation + type hints
+    # and are not used at all in the runtime.
+    - name: Install libpq development files
+      run: sudo apt-get update && sudo apt-get install --yes libpq-dev
 
     - name: Run Hyperdrive binding tests
       working-directory: packages/runtime-sdk

@@ -22,6 +22,11 @@ Then run the test:
 
 uv run pytest tests/test_bindings.py -m hyperdrive -k postgresql
 
+Host prerequisites for the psycopg C extension:
+
+Ubuntu: sudo apt-get install libpq-dev
+macOS: brew install libpq && export PATH="$(brew --prefix libpq)/bin:$PATH"
+
 Note: "POSTGRES_HOST_AUTH_METHOD=md5" is required for PostgreSQL to work with pg8000, since the
       default `scram-sha-256` is not available in the pg8000 with Python workers (missing openssl)
 """
@@ -59,6 +64,26 @@ async def test_connect(env):
     cur.execute("SELECT 1")
     assert cur.fetchone() == [1]
     conn.close()
+
+
+@pytest.mark.asyncio
+async def test_connect_psycopg(env):
+    import psycopg  # noqa: PLC0415
+
+    assert psycopg.pq.__impl__ == "c"
+    hd = env.HYPERDRIVE_PG
+    with psycopg.connect(
+        host=hd.host,
+        port=int(hd.port),
+        user=hd.user,
+        password=hd.password,
+        dbname=hd.database,
+        # Hyperdrive terminates TLS to the origin, so this hop is plaintext.
+        sslmode="disable",
+    ) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT %s", (1,))
+            assert cur.fetchone() == (1,)
 
 
 @pytest.mark.asyncio

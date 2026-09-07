@@ -24,6 +24,7 @@ uv run pytest tests/test_bindings.py -m hyperdrive -k mysql
 
 import sys
 
+import aiomysql
 import pymysql
 import pytest
 from conftest import unique_table_name
@@ -56,6 +57,26 @@ async def test_connect(env):
     cur.execute("SELECT 1")
     assert cur.fetchone() == (1,)
     conn.close()
+
+
+@pytest.mark.asyncio
+async def test_connect_aiomysql(env):
+    hd = env.HYPERDRIVE_MYSQL
+    conn = await aiomysql.connect(
+        host=hd.host,
+        port=int(hd.port),
+        user=hd.user,
+        password=hd.password,
+        db=hd.database,
+        # Hyperdrive terminates TLS to the origin, so this hop is plaintext.
+        ssl=None,
+    )
+    try:
+        async with conn.cursor() as cur:
+            await cur.execute("SELECT %s", (1,))
+            assert await cur.fetchone() == (1,)
+    finally:
+        await conn.ensure_closed()
 
 
 @pytest.mark.asyncio
