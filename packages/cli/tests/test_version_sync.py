@@ -103,10 +103,7 @@ class TestInstallRequirements:
             ("nonexistent-package", "1.0.0"),
             ("workers-runtime-sdk", "1.0.0"),
         ]
-        assert mock_venv.call_args_list[0][0][0] == [
-            "nonexistent-package==1.0.0",
-            "workers-runtime-sdk==1.0.0",
-        ]
+        assert mock_venv.call_args_list[0][0][0] == []
 
         log_messages = [record.message for record in caplog.records]
         native_idx = next(
@@ -156,11 +153,8 @@ class TestInstallRequirements:
             ("workers-runtime-sdk", "1.0.0"),
         ]
 
-        # native installation should be called with the original requirements
-        assert mock_venv.call_args_list[0][0][0] == [
-            "some-package==1.0.0",
-            "workers-runtime-sdk==1.0.0",
-        ]
+        # Without a Pyodide resolution, native installation is unconstrained.
+        assert mock_venv.call_args_list[0][0][0] == []
 
         log_messages = [record.message for record in caplog.records]
         assert any(mocked_pyodide_error in msg for msg in log_messages)
@@ -343,24 +337,11 @@ class TestInstallPlan:
         plan = InstallPlan(lockfile)
         assert plan.requirements == []
 
-    def test_to_requirement_strings(self, tmp_path):
-        lockfile = tmp_path / "pylock.toml"
-        lockfile.write_text(
-            'lock-version = "1.0"\n'
-            '[[packages]]\nname = "click"\nversion = "8.1.7"\n'
-            '[[packages]]\nname = "numpy"\nversion = "2.0.2"\n'
-        )
-        plan = InstallPlan(lockfile)
-        assert plan.to_requirement_strings() == ["click==8.1.7", "numpy==2.0.2"]
-
 
 class TestResolveRequirements:
     @patch.object(pywrangler_resolve, "_compile_lockfile")
-    @patch.object(pywrangler_resolve, "parse_requirements", return_value=["click>=8.0"])
-    @patch.object(pywrangler_utils, "get_lockfile_path")
-    def test_compiles_from_deps(
-        self, mock_lockpath, mock_parse, mock_compile, tmp_path
-    ):
+    @patch.object(pywrangler_resolve, "get_lockfile_path")
+    def test_compiles_from_project(self, mock_lockpath, mock_compile, tmp_path):
         lockfile = tmp_path / "pylock.toml"
         mock_lockpath.return_value = lockfile
 
@@ -376,8 +357,12 @@ class TestResolveRequirements:
         plan = pywrangler_resolve.resolve_requirements()
         assert ("click", "8.1.7") in plan.requirements
         assert ("workers-runtime-sdk", "1.1.5") in plan.requirements
-        mock_parse.assert_called_once()
-        mock_compile.assert_called_once()
+        mock_compile.assert_called_once_with(
+            [pywrangler_resolve.MANAGED_SDK_PACKAGE],
+            lockfile,
+            upgrade=False,
+            allow_build=False,
+        )
 
 
 class TestSyncNeededWithLockfile:

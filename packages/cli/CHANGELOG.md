@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v1.17.1 (2026-08-31)
+
+### Bug Fixes
+
+- Update compat flag and enable date for python 3.14
+  ([#235](https://github.com/cloudflare/workers-py/pull/235),
+  [`0ece5a2`](https://github.com/cloudflare/workers-py/commit/0ece5a2589513fd7f1d085bb33a4b0c1217e345a))
+
+
+## v1.17.0 (2026-08-28)
+
+### Features
+
+- Make pywrangler respect uv.sources from pyproject.toml
+  ([#234](https://github.com/cloudflare/workers-py/pull/234),
+  [`33e1bdc`](https://github.com/cloudflare/workers-py/commit/33e1bdcdaa531dc4ac0975619f4a517d98bceace))
+
+
 ## v1.16.7 (2026-08-22)
 
 ### Bug Fixes

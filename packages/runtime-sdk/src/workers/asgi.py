@@ -127,7 +127,9 @@ async def start_application(app):
                 startup.set_result(True)
             return
         if got["type"] == "lifespan.startup.failed":
-            message = got.get("message", "ASGI lifespan startup failed")
+            # `or`, not a .get default: an empty message field is legal and
+            # would otherwise produce RuntimeError('').
+            message = got.get("message") or "ASGI lifespan startup failed"
             if not startup.done():
                 startup.set_exception(RuntimeError(message))
             return
@@ -136,7 +138,7 @@ async def start_application(app):
                 shutdown_complete.set_result(None)
             return
         if got["type"] == "lifespan.shutdown.failed":
-            message = got.get("message", "ASGI lifespan shutdown failed")
+            message = got.get("message") or "ASGI lifespan shutdown failed"
             if not shutdown_complete.done():
                 shutdown_complete.set_exception(RuntimeError(message))
             return
@@ -161,8 +163,15 @@ async def start_application(app):
                 shutdown_complete.set_result(None)
         except Exception as exc:
             # Spec: an exception raised before startup is acked signals that the
-            # app doesn't support lifespan; swallow it and serve requests anyway.
+            # app doesn't support lifespan; serve requests anyway. Log it, or an
+            # app that crashed mid-startup looks like one with no lifespan
+            # handler at all.
             if not startup.done():
+                logger.debug(
+                    "ASGI lifespan task raised before reporting startup; "
+                    "treating the app as not supporting lifespan",
+                    exc_info=exc,
+                )
                 startup.set_result(False)
                 return
             # After a successful startup, a shutdown-phase error can't affect the

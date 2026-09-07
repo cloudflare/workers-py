@@ -109,6 +109,16 @@ class TestR2StorageReadErrors:
 
 
 class TestR2StorageExistsErrors:
+    def test_exists_returns_true_for_existing_file(self):
+        storage = make_live_r2_storage(location=unique_name("r2-existing-exists"))
+        name = "file.txt"
+        save_bytes(storage, name, b"content")
+
+        try:
+            assert storage.exists(name) is True
+        finally:
+            storage.delete(name)
+
     def test_exists_returns_false_on_not_found(self):
         storage = make_live_r2_storage(location=unique_name("r2-missing-exists"))
 
@@ -116,6 +126,17 @@ class TestR2StorageExistsErrors:
 
 
 class TestR2StorageSizeErrors:
+    def test_size_returns_existing_file_size(self):
+        storage = make_live_r2_storage(location=unique_name("r2-existing-size"))
+        name = "file.txt"
+        content = b"test content"
+        save_bytes(storage, name, content)
+
+        try:
+            assert storage.size(name) == len(content)
+        finally:
+            storage.delete(name)
+
     def test_size_returns_zero_on_not_found(self):
         storage = make_live_r2_storage(location=unique_name("r2-missing-size"))
 

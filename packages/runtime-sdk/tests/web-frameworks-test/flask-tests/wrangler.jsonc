@@ -1,0 +1,6 @@
+{
+    "name": "flask-tests",
+    "main": "src/worker.py",
+    "compatibility_date": "%COMPAT_DATE",
+    "compatibility_flags": ["python_workers"]
+}

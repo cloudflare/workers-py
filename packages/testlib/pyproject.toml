@@ -1,0 +1,16 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "testlib"
+version = "0.0.0"
+requires-python = ">=3.11"
+dependencies = ["pytest"]
+
+[project.optional-dependencies]
+host = ["requests"]
+
+[tool.ruff]
+extend = "../../ruff.toml"
+lint.per-file-ignores."testlib/host.py" = ["PLR2004", "PLR0913"]

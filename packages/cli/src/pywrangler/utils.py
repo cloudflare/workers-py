@@ -239,7 +239,7 @@ def get_pywrangler_config() -> dict:
 
 
 MIN_UV_VERSION = (0, 12, 3)
-MIN_WRANGLER_VERSION = (4, 109, 0)
+MIN_WRANGLER_VERSION = (4, 127, 1)
 
 
 def check_uv_version() -> None:
