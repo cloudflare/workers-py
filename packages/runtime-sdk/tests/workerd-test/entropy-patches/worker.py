@@ -5,6 +5,7 @@ from tests import (  # noqa: F401
     test_langsmith,
     test_litestar,
     test_numpy,
+    test_opentelemetry,
     test_pydantic,
     test_rust_packages,
     test_ssl_avoidance,
