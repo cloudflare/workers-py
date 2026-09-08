@@ -188,6 +188,14 @@ def opentelemetry_context(module):
         yield
 
 
+@register_exec_patch("opentelemetry.trace.propagation")
+@contextmanager
+def opentelemetry_trace_propagation_context(module):
+    # OpenTelemetry creates a UUID-backed span key while importing tracing.
+    with allow_bad_entropy_calls(1):
+        yield
+
+
 @register_exec_patch("litestar.openapi.controller")
 @register_exec_patch("litestar.constants")
 @contextmanager

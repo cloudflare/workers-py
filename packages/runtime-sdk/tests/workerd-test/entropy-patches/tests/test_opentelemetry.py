@@ -1,5 +1,6 @@
 # ruff: noqa: F401
 import opentelemetry.context
+import opentelemetry.trace
 
 
 def test_import():
