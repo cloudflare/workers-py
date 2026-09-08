@@ -18,4 +18,5 @@ dependencies = [
     # "langchain-openai",
     # "openai",
     "litestar",
+    "opentelemetry-sdk",
 ]

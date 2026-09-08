@@ -180,6 +180,22 @@ def langchain_openai_chat_models_base_context(module):
         yield
 
 
+@register_exec_patch("opentelemetry.context")
+@contextmanager
+def opentelemetry_context(module):
+    # OpenTelemetry creates three UUID-backed context keys at import time.
+    with allow_bad_entropy_calls(3):
+        yield
+
+
+@register_exec_patch("opentelemetry.trace.propagation")
+@contextmanager
+def opentelemetry_trace_propagation_context(module):
+    # OpenTelemetry creates a UUID-backed span key while importing tracing.
+    with allow_bad_entropy_calls(1):
+        yield
+
+
 @register_exec_patch("litestar.openapi.controller")
 @register_exec_patch("litestar.constants")
 @contextmanager
