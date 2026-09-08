@@ -1,6 +1,5 @@
 # ruff: noqa: F401
 import aiohttp.http_websocket
-import multidict
 
 
 def test_import():
