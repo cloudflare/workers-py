@@ -70,12 +70,18 @@ def test_in_workerd(  # noqa: PLR0913, PLR0917  (too-many-arguments)
     bundle_cache_dir,
 ):
     compat_date = compat_config.compat_date
+    python_version = compat_config.python_version
 
     # `wsgi` streams the request body via `pyodide.ffi.run_sync` (JSPI), which
     # is only available in newer Pyodide runtimes.
-    if test_dir.name == "wsgi" and compat_date < "2026-01-01":
+    if test_dir.name == "wsgi" and python_version == "3.12":
         pytest.skip(
             "wsgi requires pyodide.ffi.run_sync (JSPI), unavailable before 2026-01-01"
+        )
+
+    if test_dir.name == "entropy-patches" and python_version == "3.14":
+        pytest.skip(
+            "TODO: enable me after https://github.com/cloudflare/workerd/pull/7200 lands in wrangler"
         )
 
     color = pytestconfig.get_terminal_writer().hasmarkup
