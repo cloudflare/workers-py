@@ -140,16 +140,34 @@ def types_command(outdir: str | None, config: str | None) -> Never:
         "Defaults to the [tool.pywrangler] allow-build setting in pyproject.toml."
     ),
 )
+@click.option(
+    "--skip-native-installation/--no-skip-native-installation",
+    is_flag=True,
+    help=(
+        "Skip installing packages into the native virtual environment. "
+        "Use this option when you want to speed up the sync process (e.g. CI/CD), "
+        "or when you are using a package that is not available for the native platform."
+    ),
+)
 def sync_command(
-    force: bool = False, upgrade: bool = False, allow_build: bool | None = None
+    force: bool = False,
+    upgrade: bool = False,
+    allow_build: bool | None = None,
+    skip_native_installation: bool = False,
 ) -> None:
     """
     Installs Python packages from pyproject.toml into src/vendor.
 
-    Also creates a virtual env for Workers that you can use for testing.
+    By default, also creates a virtual env for Workers that you can use for testing.
     """
 
-    sync(force, directly_requested=True, upgrade=upgrade, allow_build=allow_build)
+    sync(
+        force,
+        directly_requested=True,
+        upgrade=upgrade,
+        allow_build=allow_build,
+        skip_native_installation=skip_native_installation,
+    )
     write_success("Sync process completed successfully.")
 
 
