@@ -8,6 +8,7 @@ from pyodide.ffi import to_js
 from worker import STREAMING_CHUNK_SIZE, STREAMING_NUM_CHUNKS, example_hdr
 
 import asgi
+import workers
 from workers import Request, env
 from workers import asgi as workers_asgi
 
@@ -474,3 +475,47 @@ async def test_lifespan_preack_crash_is_logged_and_treated_as_unsupported():
         )
     finally:
         _remove_handler(handler)
+
+
+@pytest.mark.asyncio
+async def test_stream_finalizer_proxy_survives_javascript_retention(monkeypatch):
+    # Array.push, like waitUntil, retains its argument and returns no Promise.
+    # Reading it after fetch returns exposes a borrowed proxy's destruction;
+    # awaiting response.text() alone can pass while waitUntil rejects the task.
+    retained = js.Array.new()
+    monkeypatch.setattr(workers, "wait_until", retained.push)
+    release = asyncio.Event()
+    events = []
+
+    async def app(scope, receive, send):
+        if scope["type"] == "lifespan":
+            assert (await receive())["type"] == "lifespan.startup"
+            events.append("startup")
+            await send({"type": "lifespan.startup.complete"})
+            assert (await receive())["type"] == "lifespan.shutdown"
+            events.append("shutdown")
+            await send({"type": "lifespan.shutdown.complete"})
+            return
+        await receive()
+        await send({"type": "http.response.start", "status": 200})
+        await send({"type": "http.response.body", "body": b"first", "more_body": True})
+        await release.wait()
+        await send({"type": "http.response.body", "body": b"last"})
+        await asyncio.sleep(0)
+        events.append("background-complete")
+
+    response = await asyncio.wait_for(
+        asgi.fetch(app, js.Request.new("http://example.com/proxy-lifetime"), env),
+        timeout=5,
+    )
+    try:
+        assert retained.length == 1
+        finalizer = retained.at(0)
+        assert asyncio.isfuture(finalizer)
+        assert not finalizer.done()
+    finally:
+        release.set()
+        assert await asyncio.wait_for(response.text(), timeout=5) == "firstlast"
+
+    await asyncio.wait_for(finalizer, timeout=5)
+    assert events == ["startup", "background-complete", "shutdown"]

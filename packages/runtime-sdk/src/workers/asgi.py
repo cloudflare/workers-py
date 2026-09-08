@@ -458,7 +458,14 @@ async def fetch(
             finally:
                 await shutdown()
 
-        wait_until(run_in_background(finalize_request()))
+        from pyodide.ffi import create_proxy  # noqa: PLC0415
+
+        # waitUntil retains the task after returning to Python. A borrowed
+        # proxy expires before JavaScript can finish assimilating the task.
+        finalizer = run_in_background(finalize_request())
+        finalizer_proxy = create_proxy(finalizer)
+        finalizer.add_done_callback(lambda finished: finalizer_proxy.destroy())
+        wait_until(finalizer_proxy)
 
     return result
 
