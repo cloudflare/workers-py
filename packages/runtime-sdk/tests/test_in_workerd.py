@@ -79,6 +79,11 @@ def test_in_workerd(  # noqa: PLR0913, PLR0917  (too-many-arguments)
             "wsgi requires pyodide.ffi.run_sync (JSPI), unavailable before 2026-01-01"
         )
 
+    if test_dir.name == "entropy-patches" and python_version == "3.14":
+        pytest.skip(
+            "TODO: enable me after https://github.com/cloudflare/workerd/pull/7200 lands in wrangler"
+        )
+
     color = pytestconfig.get_terminal_writer().hasmarkup
     target = tmp_path / test_dir.name
     disk_service_dir = target / DISK_SERVICE_NAME
