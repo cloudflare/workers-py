@@ -738,7 +738,7 @@ wheels = [
 
 [[package]]
 name = "workers-py"
-version = "1.17.1"
+version = "1.17.2"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -790,7 +790,7 @@ dev = [
 
 [[package]]
 name = "workers-runtime-sdk"
-version = "1.8.2"
+version = "1.8.3"
 source = { editable = "../runtime-sdk" }
 
 [package.metadata]
@@ -801,4 +801,5 @@ dev = [
     { name = "pytest", specifier = ">=7.0.0" },
     { name = "requests", specifier = ">=2.28.0" },
     { name = "ruff", specifier = ">=0.1.0" },
+    { name = "testlib", extras = ["host"], editable = "../testlib" },
 ]
