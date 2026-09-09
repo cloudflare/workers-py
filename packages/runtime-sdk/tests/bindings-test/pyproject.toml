@@ -6,18 +6,12 @@ dependencies = [
     "pytest",
     "pytest-asyncio<1.2.0",
     # These are for hyperdrive tests
-dependencies = [
-    "pytest",
-    "pytest-asyncio<1.2.0",
-    # These are for hyperdrive tests
     "pg8000",
     "pymysql",
     "aiomysql",
     "psycopg; python_version >= '3.14'",
     "psycopg-c; python_version >= '3.14'",
     "cryptography",
-    "testlib",
-]
     "testlib",
 ]
 
