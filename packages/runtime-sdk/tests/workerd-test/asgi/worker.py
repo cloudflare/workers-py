@@ -177,6 +177,37 @@ class StreamingApp:
             )
 
 
+class DelayedStreamingApp:
+    """Streams one chunk, then waits so fetch returns before finalization."""
+
+    def __init__(self):
+        self.release_stream = asyncio.Event()
+        self.shutdown_complete = asyncio.Event()
+
+    def reset(self):
+        self.release_stream = asyncio.Event()
+        self.shutdown_complete = asyncio.Event()
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            while True:
+                message = await receive()
+                if message["type"] == "lifespan.startup":
+                    await send({"type": "lifespan.startup.complete"})
+                elif message["type"] == "lifespan.shutdown":
+                    await send({"type": "lifespan.shutdown.complete"})
+                    self.shutdown_complete.set()
+                    return
+
+        await receive()
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send(
+            {"type": "http.response.body", "body": b"first", "more_body": True}
+        )
+        await self.release_stream.wait()
+        await send({"type": "http.response.body", "body": b"second"})
+
+
 # ---------------------------------------------------------------------------
 # App instances and constants
 # ---------------------------------------------------------------------------
@@ -259,6 +290,7 @@ class MultiCookieApp:
 app = HeaderEchoApp()
 sse_app = SSEApp()
 streaming_app = StreamingApp()
+delayed_streaming_app = DelayedStreamingApp()
 scope_echo_app = ScopeEchoApp()
 late_failure_stream_app = LateFailureStreamApp()
 multi_cookie_app = MultiCookieApp()
@@ -277,6 +309,8 @@ class Default(WorkerEntrypoint):
             return await asgi.fetch(sse_app, request, self.env, self.ctx)
         elif path == "/stream":
             return await asgi.fetch(streaming_app, request, self.env, self.ctx)
+        elif path == "/delayed-stream":
+            return await asgi.fetch(delayed_streaming_app, request, self.env, self.ctx)
         elif path.startswith("/scope"):
             return await asgi.fetch(scope_echo_app, request, self.env, self.ctx)
         elif path == "/stream-late-failure":

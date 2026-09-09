@@ -6,8 +6,9 @@ from typing import Any
 from urllib.parse import unquote
 
 import js
+from pyodide.ffi import create_proxy
 
-from workers import Context, Request, WorkerEntrypoint
+from workers import Context, Request, WorkerEntrypoint, wait_until
 from workers.utils import _to_js_headers
 
 ASGI = {"spec_version": "2.0", "version": "3.0"}
@@ -450,15 +451,15 @@ async def fetch(
     if request_task.done():
         await shutdown()
     else:
-        from workers import wait_until  # noqa: PLC0415
-
         async def finalize_request():
             try:
                 await request_task
             finally:
                 await shutdown()
 
-        wait_until(run_in_background(finalize_request()))
+        finalizer_task = run_in_background(finalize_request())
+        task_proxy = create_proxy(finalizer_task)
+        wait_until(task_proxy)
 
     return result
 
