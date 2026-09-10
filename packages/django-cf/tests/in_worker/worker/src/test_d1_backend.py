@@ -164,12 +164,6 @@ class TestD1GetConnectionParams:
 
 
 class TestD1ExceptionHandling:
-    @pytest.mark.xfail(
-        reason=(
-            "The `except Exception: raise Error(Error.new().stack)` handler in `run_query` swallows this and re-raises a JS Error. Removing that handler is a separate change; these pass once it lands."
-        ),
-        strict=True,
-    )
     def test_run_query_lets_binding_errors_propagate(self):
         wrapper = D1_BACKEND
 
