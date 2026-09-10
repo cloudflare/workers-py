@@ -5,7 +5,12 @@ import logging
 import js
 import pytest
 from pyodide.ffi import to_js
-from worker import STREAMING_CHUNK_SIZE, STREAMING_NUM_CHUNKS, example_hdr
+from worker import (
+    STREAMING_CHUNK_SIZE,
+    STREAMING_NUM_CHUNKS,
+    delayed_streaming_app,
+    example_hdr,
+)
 
 import asgi
 from workers import Request, env
@@ -87,6 +92,26 @@ async def test_streaming():
         start = i * STREAMING_CHUNK_SIZE
         chunk = body_bytes[start : start + STREAMING_CHUNK_SIZE]
         assert all(b == i % 256 for b in chunk)
+
+
+@pytest.mark.asyncio
+async def test_streaming_finalizer_survives_fetch_return():
+    delayed_streaming_app.reset()
+    response = await asyncio.wait_for(
+        env.SELF.fetch("http://example.com/delayed-stream"), timeout=5
+    )
+
+    # The first chunk makes fetch resolve while the ASGI task is still blocked.
+    assert not delayed_streaming_app.shutdown_complete.is_set()
+    reader = response.body.getReader()
+    first = await asyncio.wait_for(reader.read(), timeout=5)
+    assert first.value.to_bytes() == b"first"
+
+    delayed_streaming_app.release_stream.set()
+    second = await asyncio.wait_for(reader.read(), timeout=5)
+    assert second.value.to_bytes() == b"second"
+    assert (await asyncio.wait_for(reader.read(), timeout=5)).done
+    await asyncio.wait_for(delayed_streaming_app.shutdown_complete.wait(), timeout=5)
 
 
 class _ListHandler(logging.Handler):

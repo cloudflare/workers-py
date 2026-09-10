@@ -15,6 +15,7 @@ WORKERD_TESTS = TEST_DIR / "workerd-test"
 WORKERS_PY = TEST_DIR.parent.parent / "cli"
 WORKERS_RUNTIME_SDK = TEST_DIR.parent / "src"
 DISK_SERVICE_NAME = "TEST_TMPDIR"
+BORROWED_PROXY_ERROR = "This borrowed proxy was automatically destroyed"
 
 
 def discover_workerd_tests():
@@ -62,6 +63,7 @@ def bundle_cache_dir(tmp_path_factory):
 )
 @pytest.mark.parametrize("test_dir, wd_test_file", discover_workerd_tests())
 def test_in_workerd(  # noqa: PLR0913, PLR0917  (too-many-arguments)
+    capfd,
     tmp_path,
     test_dir,
     wd_test_file,
@@ -153,3 +155,10 @@ def test_in_workerd(  # noqa: PLR0913, PLR0917  (too-many-arguments)
         cwd=target,
         check=True,
     )
+
+    # This happens in the background so it is not captured
+    # inside the worker. We need to look at the worker's logs
+    # to see if there are any errors.
+    captured = capfd.readouterr()
+    output = captured.out + captured.err
+    assert BORROWED_PROXY_ERROR not in output
