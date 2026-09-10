@@ -160,6 +160,5 @@ def test_in_workerd(  # noqa: PLR0913, PLR0917  (too-many-arguments)
     # inside the worker. We need to look at the worker's logs
     # to see if there are any errors.
     captured = capfd.readouterr()
-    if test_dir.name == "asgi":
-        output = captured.out + captured.err
-        assert BORROWED_PROXY_ERROR not in output
+    output = captured.out + captured.err
+    assert BORROWED_PROXY_ERROR not in output
