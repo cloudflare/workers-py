@@ -1,0 +1,5 @@
+{
+    "name": "http-client-compatibility-test",
+    "compatibility_date": "%COMPAT_DATE",
+    "compatibility_flags": ["python_workers"]
+}
