@@ -58,7 +58,6 @@ lint.extend-ignore = [
   # Deferred: satisfying these requires behavioural or structural changes to
   # code imported from https://github.com/G4brym/django-cf, so they are turned
   # off to keep the lint adoption commit mechanical. Re-enable one rule per PR.
-  "B904",    # `raise ... from err` alters exception chaining and tracebacks
   "B905",    # `zip(strict=True)` can raise where the loose zip silently truncates
   "PERF401", # manual-list-comprehension; needs a loop rewrite
   "PLR0912", # too many branches; needs decomposition

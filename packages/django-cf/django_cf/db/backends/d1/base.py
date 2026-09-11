@@ -1,4 +1,5 @@
 from django.core.exceptions import ImproperlyConfigured
+from pyodide.ffi import run_sync
 
 from ...base_engine import (
     CFDatabaseWrapper,
@@ -31,14 +32,6 @@ class DatabaseWrapper(CFDatabaseWrapper):
 
     def __init__(self, *args):
         super().__init__(*args)
-
-        try:
-            from pyodide.ffi import run_sync
-
-            self.run_sync = run_sync
-        except ImportError as e:
-            print(e)
-            raise Exception("Code not running inside a worker!")
 
     def process_query(self, query, params=None):
         # Replace django_date_trunc and django_datetime_trunc with SQLite equivalents
@@ -81,25 +74,19 @@ class DatabaseWrapper(CFDatabaseWrapper):
             stmt = db.prepare(proc_query)
 
         read_only = is_read_only_query(proc_query)
-        try:
-            if read_only:
-                response = self.run_sync(stmt.raw())
-                result = CFResult.from_object(query, params, response, len(response), 0)
-            else:
-                response = self.run_sync(stmt.all())
-                meta = response["meta"]
-                result = CFResult.from_object(
-                    query,
-                    params,
-                    response["results"],
-                    meta["rows_read"],
-                    meta["rows_written"],
-                    meta["last_row_id"],
-                )
-        except Exception:
-            from js import Error
-
-            Error.stackTraceLimit = 1e10
-            raise Error(Error.new().stack)
+        if read_only:
+            response = run_sync(stmt.raw())
+            result = CFResult.from_object(query, params, response, len(response), 0)
+        else:
+            response = run_sync(stmt.all())
+            meta = response["meta"]
+            result = CFResult.from_object(
+                query,
+                params,
+                response["results"],
+                meta["rows_read"],
+                meta["rows_written"],
+                meta["last_row_id"],
+            )
 
         return result

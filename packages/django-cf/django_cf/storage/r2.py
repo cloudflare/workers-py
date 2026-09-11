@@ -6,6 +6,7 @@ from django.core.files.base import File
 from django.core.files.storage import Storage
 from django.utils.deconstruct import deconstructible
 from js import Uint8Array
+from pyodide.ffi import run_sync
 
 
 class R2File(File):
@@ -71,20 +72,10 @@ class R2Storage(Storage):
         self.location = location.strip("/")
         self.allow_overwrite = allow_overwrite
         self._bucket = None
-        self._run_sync = None
 
     def _get_bucket(self):
         """Lazy initialization of the R2 bucket binding."""
         if self._bucket is None:
-            if self._run_sync is None:
-                try:
-                    from pyodide.ffi import run_sync
-
-                    self._run_sync = run_sync
-
-                except ImportError:
-                    raise Exception("Code not running inside a worker!")
-
             from workers import env
 
             self._bucket = getattr(env, self.binding)
@@ -110,12 +101,12 @@ class R2Storage(Storage):
         full_path = self._full_path(name)
         try:
             bucket = self._get_bucket()
-            r2_object = self._run_sync(bucket.get(full_path))
+            r2_object = run_sync(bucket.get(full_path))
 
             if r2_object is None:
                 return None
 
-            return bytes(self._run_sync(r2_object.arrayBuffer()))
+            return bytes(run_sync(r2_object.arrayBuffer()))
         except Exception:
             return None
 
@@ -137,9 +128,7 @@ class R2Storage(Storage):
         if hasattr(content, "content_type") and content.content_type:
             options["httpMetadata"] = {"contentType": content.content_type}
 
-        self._run_sync(
-            bucket.put(full_path, file_content, options if options else None)
-        )
+        run_sync(bucket.put(full_path, file_content, options if options else None))
         return name
 
     def delete(self, name):
@@ -148,7 +137,7 @@ class R2Storage(Storage):
         """
         full_path = self._full_path(name)
         bucket = self._get_bucket()
-        self._run_sync(bucket.delete(full_path))
+        run_sync(bucket.delete(full_path))
 
     def exists(self, name):
         """
@@ -157,7 +146,7 @@ class R2Storage(Storage):
         full_path = self._full_path(name)
         try:
             bucket = self._get_bucket()
-            result = self._run_sync(bucket.head(full_path))
+            result = run_sync(bucket.head(full_path))
             return result is not None
         except Exception:
             return False
@@ -174,7 +163,7 @@ class R2Storage(Storage):
             full_path += "/"
 
         bucket = self._get_bucket()
-        result = self._run_sync(bucket.list({"prefix": full_path, "delimiter": "/"}))
+        result = run_sync(bucket.list({"prefix": full_path, "delimiter": "/"}))
 
         directories = []
         files = []
@@ -199,7 +188,7 @@ class R2Storage(Storage):
         full_path = self._full_path(name)
         try:
             bucket = self._get_bucket()
-            metadata = self._run_sync(bucket.head(full_path))
+            metadata = run_sync(bucket.head(full_path))
             if metadata and hasattr(metadata, "size"):
                 return metadata.size
             return 0
@@ -246,7 +235,7 @@ class R2Storage(Storage):
         full_path = self._full_path(name)
         try:
             bucket = self._get_bucket()
-            metadata = self._run_sync(bucket.head(full_path))
+            metadata = run_sync(bucket.head(full_path))
 
             if metadata and hasattr(metadata, "uploaded"):
                 uploaded = metadata.uploaded
