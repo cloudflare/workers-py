@@ -149,7 +149,7 @@ class CFDatabaseOperations(SQLiteDatabaseOperations):
             else:
                 values = tuple(params.values())
                 values = self._quote_params_for_last_executed_query(values)
-                params = dict(zip(params, values))
+                params = dict(zip(params, values, strict=True))
             try:
                 return sql % params
             except Exception:
