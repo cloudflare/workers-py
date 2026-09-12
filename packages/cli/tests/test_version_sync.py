@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from unittest.mock import patch
 
@@ -69,6 +70,25 @@ def test_get_vendor_package_versions_disables_color():
 
 
 class TestInstallRequirements:
+    @patch.object(pywrangler_sync, "_log_installed_packages")
+    @patch.object(pywrangler_sync, "_install_requirements_to_vendor")
+    @patch.object(pywrangler_sync, "_get_vendor_package_versions")
+    @patch.object(pywrangler_sync, "_install_requirements_to_venv")
+    def test_skip_native_only_installs_vendor_packages(
+        self, mock_venv, mock_get_vendor, mock_vendor, mock_log, tmp_path
+    ):
+        mock_vendor.return_value = None
+        plan = _make_plan(tmp_path, [("some-package", "1.0.0")])
+
+        with patch.object(pywrangler_sync, "_record_native_skip") as mock_record:
+            pywrangler_sync.install_requirements(plan, skip_native_installation=True)
+
+        mock_vendor.assert_called_once_with(plan, allow_build=False)
+        mock_get_vendor.assert_not_called()
+        mock_venv.assert_not_called()
+        mock_log.assert_called_once_with(pywrangler_sync.get_pyodide_venv_path())
+        mock_record.assert_called_once_with()
+
     @patch.object(pywrangler_sync, "_install_requirements_to_vendor")
     @patch.object(pywrangler_sync, "_get_vendor_package_versions")
     @patch.object(pywrangler_sync, "_install_requirements_to_venv")
@@ -278,6 +298,98 @@ class TestSyncTokenVersion:
 
         assert pywrangler_sync.is_sync_needed() is False
 
+    def test_skip_native_ignores_missing_native_token(
+        self, project_root: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.2.3")
+        pywrangler_sync._write_sync_token(pywrangler_sync.get_vendor_token_path())
+
+        assert pywrangler_sync.is_sync_needed(skip_native_installation=True) is False
+        assert pywrangler_sync.is_sync_needed() is True
+
+    def test_recorded_native_skip_is_fresh_for_plain_sync(
+        self, project_root: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.2.3")
+        pywrangler_sync._write_sync_token(pywrangler_sync.get_vendor_token_path())
+
+        pywrangler_sync._record_native_skip()
+
+        assert pywrangler_sync.get_native_skip_token_path().is_file()
+        assert not pywrangler_sync.get_venv_workers_token_path().exists()
+        assert pywrangler_sync.is_sync_needed() is False
+
+    def test_recorded_native_skip_is_stale_after_version_change(
+        self, project_root: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.2.3")
+        pywrangler_sync._write_sync_token(pywrangler_sync.get_vendor_token_path())
+        pywrangler_sync._record_native_skip()
+
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.2.4")
+
+        assert pywrangler_sync.is_sync_needed() is True
+
+    def test_recorded_native_skip_is_stale_after_pyproject_change(
+        self, project_root: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.2.3")
+        pywrangler_sync._write_sync_token(pywrangler_sync.get_vendor_token_path())
+        pywrangler_sync._record_native_skip()
+        pyproject = project_root / "pyproject.toml"
+        future_ns = (
+            pywrangler_sync.get_native_skip_token_path().stat().st_mtime_ns
+            + 1_000_000_000
+        )
+
+        os.utime(pyproject, ns=(future_ns, future_ns))
+
+        assert pywrangler_sync.is_sync_needed() is True
+
+    def test_native_install_replaces_recorded_skip(
+        self, project_root: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.2.3")
+        pywrangler_sync._record_native_skip()
+        result = type("Result", (), {"returncode": 0, "stdout": ""})()
+        monkeypatch.setattr(
+            pywrangler_sync, "run_command", lambda *args, **kwargs: result
+        )
+
+        assert pywrangler_sync._install_requirements_to_venv([]) is None
+
+        assert pywrangler_sync.get_venv_workers_token_path().is_file()
+        assert not pywrangler_sync.get_native_skip_token_path().exists()
+
+    def test_failed_native_install_clears_recorded_skip(
+        self, project_root: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.2.3")
+        pywrangler_sync._record_native_skip()
+        result = type("Result", (), {"returncode": 1, "stdout": "failed"})()
+        monkeypatch.setattr(
+            pywrangler_sync, "run_command", lambda *args, **kwargs: result
+        )
+
+        assert pywrangler_sync._install_requirements_to_venv([]) == "failed"
+
+        assert not pywrangler_sync.get_venv_workers_token_path().exists()
+        assert not pywrangler_sync.get_native_skip_token_path().exists()
+
+    def test_noop_skip_records_persistent_state(
+        self, project_root: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_version", lambda: "1.2.3")
+        monkeypatch.setattr(pywrangler_sync, "check_requirements_txt", lambda: None)
+        monkeypatch.setattr(pywrangler_sync, "get_pywrangler_config", lambda: {})
+        monkeypatch.setattr(pywrangler_sync, "is_sync_needed", lambda **kwargs: False)
+        pywrangler_sync._write_sync_token(pywrangler_sync.get_venv_workers_token_path())
+
+        pywrangler_sync.sync(skip_native_installation=True)
+
+        assert pywrangler_sync.get_native_skip_token_path().is_file()
+        assert not pywrangler_sync.get_venv_workers_token_path().exists()
+
     def test_sync_needed_when_version_changes(
         self, project_root: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
@@ -385,7 +497,6 @@ class TestSyncNeededWithLockfile:
 
         lockfile = project_root / "pylock.toml"
         lockfile.write_text("click==8.1.7\n")
-        import os
         import time
 
         future = time.time() + 10
