@@ -205,6 +205,67 @@ class LateFailureStreamApp:
         raise RuntimeError("app failed mid-stream")
 
 
+class UnhashableLifespanApp:
+    """Unhashable and not weak-referenceable, which worker mode must accept."""
+
+    __slots__ = ("startup_count",)
+    __hash__ = None
+
+    def __init__(self):
+        self.startup_count = 0
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            while True:
+                message = await receive()
+                if message["type"] == "lifespan.startup":
+                    self.startup_count += 1
+                    await send({"type": "lifespan.startup.complete"})
+                elif message["type"] == "lifespan.shutdown":
+                    await send({"type": "lifespan.shutdown.complete"})
+                    return
+        await receive()
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send(
+            {"type": "http.response.body", "body": str(self.startup_count).encode()}
+        )
+
+
+class CountingLifespanApp:
+    """Reports how many times its lifespan has been started."""
+
+    def __init__(self):
+        self.startup_count = 0
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            while True:
+                message = await receive()
+                if message["type"] == "lifespan.startup":
+                    self.startup_count += 1
+                    scope["state"]["startup_count"] = self.startup_count
+                    await send({"type": "lifespan.startup.complete"})
+                elif message["type"] == "lifespan.shutdown":
+                    await send({"type": "lifespan.shutdown.complete"})
+                    return
+        await receive()
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [(b"content-type", b"text/plain")],
+            }
+        )
+        await send(
+            {
+                "type": "http.response.body",
+                # Read back through the scope, so the test covers the lifespan
+                # state reaching a later request rather than just the instance.
+                "body": str(scope["state"]["startup_count"]).encode(),
+            }
+        )
+
+
 class ScopeEchoApp:
     """Echoes selected scope fields as JSON so tests can inspect them."""
 
@@ -260,6 +321,9 @@ app = HeaderEchoApp()
 sse_app = SSEApp()
 streaming_app = StreamingApp()
 scope_echo_app = ScopeEchoApp()
+worker_lifespan_app = CountingLifespanApp()
+request_lifespan_app = CountingLifespanApp()
+unhashable_lifespan_app = UnhashableLifespanApp()
 late_failure_stream_app = LateFailureStreamApp()
 multi_cookie_app = MultiCookieApp()
 
@@ -279,6 +343,20 @@ class Default(WorkerEntrypoint):
             return await asgi.fetch(streaming_app, request, self.env, self.ctx)
         elif path.startswith("/scope"):
             return await asgi.fetch(scope_echo_app, request, self.env, self.ctx)
+        elif path == "/lifespan-worker":
+            return await asgi.fetch(
+                worker_lifespan_app, request, self.env, self.ctx, lifespan="worker"
+            )
+        elif path == "/lifespan-worker-unhashable":
+            return await asgi.fetch(
+                unhashable_lifespan_app, request, self.env, self.ctx, lifespan="worker"
+            )
+        elif path == "/lifespan-worker-stream":
+            return await asgi.fetch(
+                streaming_app, request, self.env, self.ctx, lifespan="worker"
+            )
+        elif path == "/lifespan-request":
+            return await asgi.fetch(request_lifespan_app, request, self.env, self.ctx)
         elif path == "/stream-late-failure":
             return await asgi.fetch(
                 late_failure_stream_app, request, self.env, self.ctx
