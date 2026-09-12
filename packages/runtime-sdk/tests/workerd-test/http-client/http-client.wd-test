@@ -1,0 +1,45 @@
+using Workerd = import "/workerd/workerd.capnp";
+
+const client :Workerd.Worker = (
+  modules = [
+    (name = "worker.py", pythonModule = embed "worker.py"),
+    %PYTHON_MODULES
+  ],
+  bindings = [
+    (name = "color", json = "%COLOR"),
+  ],
+  globalOutbound = "external",
+  compatibilityDate = "%COMPAT_DATE",
+  compatibilityFlags = ["python_workers", "service_binding_extra_handlers"],
+);
+
+const origin :Workerd.Worker = (
+  modules = [
+    (name = "origin.py", pythonModule = embed "origin.py"),
+    %PYTHON_MODULES
+  ],
+  compatibilityDate = "%COMPAT_DATE",
+  compatibilityFlags = ["python_workers"],
+);
+
+const unitTests :Workerd.Config = (
+  services = [
+    (
+      name = "external",
+      external = (
+        address = "loopback:raw-http-origin",
+        tcp = (),
+      ),
+    ),
+    (name = "http-client", worker = .client),
+    (name = "http-origin", worker = .origin),
+  ],
+  sockets = [
+    (
+      name = "raw-http-origin",
+      address = "loopback:raw-http-origin",
+      http = (),
+      service = "http-origin",
+    ),
+  ],
+);
