@@ -230,10 +230,11 @@ class TestD1RunQuery:
                 parent_id=second_parent.pk, value="two"
             )
 
-            seen = []
             queryset = D1CursorChild.objects.using("d1").order_by("id")
-            for child in queryset.iterator(chunk_size=1):
-                seen.append((child.value, child.parent.name))
+            seen = [
+                (child.value, child.parent.name)
+                for child in queryset.iterator(chunk_size=1)
+            ]
 
             assert sorted(seen) == [("one", "alpha"), ("two", "beta")]
 

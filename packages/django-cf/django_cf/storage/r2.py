@@ -165,19 +165,16 @@ class R2Storage(Storage):
         bucket = self._get_bucket()
         result = run_sync(bucket.list({"prefix": full_path, "delimiter": "/"}))
 
-        directories = []
-        files = []
-
         delimited_prefixes = result.get("delimitedPrefixes", [])
-        for delimited_prefix in delimited_prefixes:
-            directories.append(
-                os.path.basename(delimited_prefix.replace(full_path, "", 1).rstrip("/"))
-            )
+        directories = [
+            os.path.basename(delimited_prefix.replace(full_path, "", 1).rstrip("/"))
+            for delimited_prefix in delimited_prefixes
+        ]
 
         objects = result.get("objects", [])
-        for obj in objects:
-            if not obj.key.endswith("/"):
-                files.append(os.path.basename(obj.key))
+        files = [
+            os.path.basename(obj.key) for obj in objects if not obj.key.endswith("/")
+        ]
 
         return directories, files
 

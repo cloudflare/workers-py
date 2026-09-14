@@ -63,10 +63,8 @@ async def iterate_view(request):
 
     order_field = "-value" if request.GET.get("direction") == "desc" else "value"
 
-    values = []
     queryset = AsgiD1Record.objects.using("d1").order_by(order_field)
-    async for record in queryset:
-        values.append(record.value)
+    values = [record.value async for record in queryset]
 
     return JsonResponse({"values": values})
 
