@@ -58,6 +58,10 @@ def get_venv_workers_token_path() -> Path:
     return get_venv_workers_path() / ".synced"
 
 
+def get_native_skip_token_path() -> Path:
+    return get_venv_workers_path() / ".native-skipped"
+
+
 def get_vendor_modules_path() -> Path:
     return get_project_root() / "python_modules"
 
@@ -262,6 +266,9 @@ def _install_requirements_to_venv(constraints: list[str]) -> str | None:
         MANAGED_SDK_PACKAGE,
     ]
 
+    _remove_sync_token(get_venv_workers_token_path())
+    _remove_sync_token(get_native_skip_token_path())
+
     with temp_requirements_file(constraints) as constraints_file:
         result = run_command(
             [
@@ -346,20 +353,24 @@ def _get_vendor_package_versions() -> list[str]:
     return _parse_pip_freeze(result.stdout)
 
 
-def install_requirements(plan: InstallPlan, allow_build: bool = False) -> None:
+def install_requirements(
+    plan: InstallPlan, allow_build: bool = False, skip_native_installation: bool = False
+) -> None:
     # First, install to the Pyodide vendor directory. This determines the exact package
     # versions that will run in production.
     pyodide_error = _install_requirements_to_vendor(plan, allow_build=allow_build)
 
-    # Then install to .venv-workers using the pinned versions from vendor.
-    # This ensures host packages accurately reflect what will run in production.
-    # If the installation to the Pyodide vendor directory fails, use the original requirements
-    # to see if it fails in the native venv as well.
-    if pyodide_error:
-        host_constraints = []
-    else:
-        host_constraints = _get_vendor_package_versions()
-    native_error = _install_requirements_to_venv(host_constraints)
+    native_error = None
+    if not skip_native_installation:
+        # Then install to .venv-workers using the pinned versions from vendor.
+        # This ensures host packages accurately reflect what will run in production.
+        # If the installation to the Pyodide vendor directory fails, use the original
+        # requirements to see if it fails in the native venv as well.
+        if pyodide_error:
+            host_constraints = []
+        else:
+            host_constraints = _get_vendor_package_versions()
+        native_error = _install_requirements_to_venv(host_constraints)
 
     # Show the native error first (more likely to be actionable), then the Pyodide error.
     if native_error:
@@ -391,13 +402,24 @@ def install_requirements(plan: InstallPlan, allow_build: bool = False) -> None:
             )
         raise click.exceptions.Exit(code=1)
 
-    _log_installed_packages(get_venv_workers_path())
+    if skip_native_installation:
+        _record_native_skip()
+    _log_installed_packages(get_pyodide_venv_path())
 
 
 def _write_sync_token(token: Path) -> None:
     """Record the current workers-py version into the given sync token file."""
     token.parent.mkdir(parents=True, exist_ok=True)
     token.write_text(get_pywrangler_version())
+
+
+def _remove_sync_token(token: Path) -> None:
+    token.unlink(missing_ok=True)
+
+
+def _record_native_skip() -> None:
+    _remove_sync_token(get_venv_workers_token_path())
+    _write_sync_token(get_native_skip_token_path())
 
 
 def _read_sync_token_version(token: Path) -> str | None:
@@ -426,7 +448,7 @@ def _is_out_of_date(token: Path, time: float) -> bool:
     return False
 
 
-def is_sync_needed() -> bool:
+def is_sync_needed(skip_native_installation: bool = False) -> bool:
     """
     Checks if pyproject.toml or pylock.toml has been modified since the last
     sync, or if the workers-py version has changed since the last sync.
@@ -445,9 +467,16 @@ def is_sync_needed() -> bool:
     if lockfile.is_file():
         latest_mtime = max(latest_mtime, lockfile.stat().st_mtime)
 
-    return _is_out_of_date(get_vendor_token_path(), latest_mtime) or _is_out_of_date(
-        get_venv_workers_token_path(), latest_mtime
-    )
+    # Pyodide venv is out-of-date
+    if _is_out_of_date(get_vendor_token_path(), latest_mtime):
+        return True
+
+    # Native venv is out-of-date
+    if skip_native_installation:
+        return False
+    native_is_stale = _is_out_of_date(get_venv_workers_token_path(), latest_mtime)
+    skip_is_stale = _is_out_of_date(get_native_skip_token_path(), latest_mtime)
+    return native_is_stale and skip_is_stale
 
 
 def sync(
@@ -455,6 +484,7 @@ def sync(
     directly_requested: bool = False,
     upgrade: bool = False,
     allow_build: bool | None = None,
+    skip_native_installation: bool = False,
 ) -> None:
     # Check if requirements.txt does not exist.
     check_requirements_txt()
@@ -466,8 +496,12 @@ def sync(
         allow_build = bool(get_pywrangler_config().get("allow-build", False))
 
     # Check if sync is needed based on file timestamps
-    sync_needed = force or is_sync_needed()
+    sync_needed = force or is_sync_needed(
+        skip_native_installation=skip_native_installation
+    )
     if not sync_needed:
+        if skip_native_installation:
+            _record_native_skip()
         logger.debug("Sync not needed - no changes detected")
         if directly_requested:
             logger.warning(
@@ -480,8 +514,9 @@ def sync(
     # Check to make sure a wrangler config file exists.
     check_wrangler_config()
 
-    # Create .venv-workers if it doesn't exist
-    create_workers_venv()
+    # Create the native Workers venv unless it was explicitly disabled.
+    if not skip_native_installation:
+        create_workers_venv()
 
     # Set up Pyodide virtual env
     create_pyodide_venv()
@@ -492,4 +527,6 @@ def sync(
         logger.warning(
             "No dependencies found in [project.dependencies] section of pyproject.toml."
         )
-    install_requirements(plan, allow_build=allow_build)
+    install_requirements(
+        plan, allow_build=allow_build, skip_native_installation=skip_native_installation
+    )

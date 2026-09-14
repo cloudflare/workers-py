@@ -291,6 +291,53 @@ def test_sync_command_integration(dependencies, test_dir):  # noqa: C901 (test c
             )
 
 
+def test_sync_skip_native_install_integration(test_dir):
+    """Test that a skipped native install stays fresh until explicitly forced."""
+    create_test_pyproject(test_dir, ["click"])
+    create_test_wrangler_jsonc(test_dir, "src/worker.py")
+
+    result = subprocess.run(
+        ["uv", "run", "pywrangler", "sync", "--skip-native-installation"],
+        capture_output=True,
+        text=True,
+        cwd=test_dir,
+        check=False,
+    )
+
+    assert result.returncode == 0, (
+        f"sync --skip-native-installation failed: {result.stdout}\n{result.stderr}"
+    )
+    assert is_package_installed(test_dir / "python_modules", "click")
+    assert not (test_dir / ".venv-workers" / ".synced").exists()
+    assert (test_dir / ".venv-workers" / ".native-skipped").exists()
+    assert not (test_dir / ".venv-workers" / "pyvenv.cfg").exists()
+
+    plain_result = subprocess.run(
+        ["uv", "run", "pywrangler", "sync"],
+        capture_output=True,
+        text=True,
+        cwd=test_dir,
+        check=False,
+    )
+    assert plain_result.returncode == 0
+    assert not (test_dir / ".venv-workers" / ".synced").exists()
+    assert (test_dir / ".venv-workers" / ".native-skipped").exists()
+
+    force_result = subprocess.run(
+        ["uv", "run", "pywrangler", "sync", "--force"],
+        capture_output=True,
+        text=True,
+        cwd=test_dir,
+        check=False,
+    )
+    assert force_result.returncode == 0, (
+        f"forced native sync failed: {force_result.stdout}\n{force_result.stderr}"
+    )
+    assert (test_dir / ".venv-workers" / ".synced").exists()
+    assert not (test_dir / ".venv-workers" / ".native-skipped").exists()
+    assert (test_dir / ".venv-workers" / "pyvenv.cfg").exists()
+
+
 def test_sync_removes_stale_packages(test_dir):
     """Test that removing a dependency from pyproject.toml cleans it up from python_modules."""
     create_test_wrangler_jsonc(test_dir, "src/worker.py")
@@ -572,7 +619,11 @@ def test_sync_command_handles_missing_pyproject():
         assert "pyproject.toml not found" in result.stdout
 
 
-@patch.object(pywrangler_sync, "is_sync_needed", lambda: False)
+@patch.object(
+    pywrangler_sync,
+    "is_sync_needed",
+    lambda skip_native_installation=False: False,
+)
 @patch.object(pywrangler_sync, "install_requirements")
 def test_sync_command_with_unchanged_timestamps(
     mock_install_requirements, test_dir, caplog
@@ -596,7 +647,11 @@ def test_sync_command_with_unchanged_timestamps(
     mock_install_requirements.assert_not_called()
 
 
-@patch.object(pywrangler_sync, "is_sync_needed", lambda: True)
+@patch.object(
+    pywrangler_sync,
+    "is_sync_needed",
+    lambda skip_native_installation=False: True,
+)
 @patch.object(pywrangler_sync, "install_requirements")
 def test_sync_command_with_changed_timestamps(
     mock_install_requirements,
@@ -621,7 +676,11 @@ def test_sync_command_with_changed_timestamps(
     mock_install_requirements.assert_called_once()
 
 
-@patch.object(pywrangler_sync, "is_sync_needed", lambda: False)
+@patch.object(
+    pywrangler_sync,
+    "is_sync_needed",
+    lambda skip_native_installation=False: False,
+)
 @patch.object(pywrangler_sync, "install_requirements")
 @patch.object(pywrangler_sync, "resolve_requirements")
 def test_sync_command_with_force_flag(
@@ -643,6 +702,22 @@ def test_sync_command_with_force_flag(
 
     # Verify that all the sync functions were called despite the timestamp check
     mock_install_requirements.assert_called_once()
+
+
+@patch("pywrangler.cli.sync")
+def test_sync_command_with_skip_native_flag(mock_sync):
+    runner = CliRunner()
+
+    result = runner.invoke(app, ["sync", "--skip-native-installation"])
+
+    assert result.exit_code == 0
+    mock_sync.assert_called_once_with(
+        False,
+        directly_requested=True,
+        upgrade=False,
+        allow_build=None,
+        skip_native_installation=True,
+    )
 
 
 def test_sync_command_handles_missing_wrangler_config(test_dir, caplog):
