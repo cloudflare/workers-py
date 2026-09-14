@@ -84,6 +84,9 @@ def test_in_workerd(  # noqa: PLR0913, PLR0917  (too-many-arguments)
             "TODO: enable me after https://github.com/cloudflare/workerd/pull/7200 lands in wrangler"
         )
 
+    if test_dir.name == "http-client" and python_version < "3.14":
+        pytest.skip("HTTP client compatibility tests require Python 3.14 or newer")
+
     color = pytestconfig.get_terminal_writer().hasmarkup
     target = tmp_path / test_dir.name
     disk_service_dir = target / DISK_SERVICE_NAME
