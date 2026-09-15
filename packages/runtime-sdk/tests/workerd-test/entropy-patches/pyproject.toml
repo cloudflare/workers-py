@@ -14,5 +14,8 @@ dependencies = [
     "jiter",
     "aiohttp",
     "langsmith",
-    "langchain-openai",
+    # TODO(fixme): Cannot use random.getrandbits() outside of request context
+    # "langchain-openai",
+    # "openai",
+    "litestar",
 ]

@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.8.4 (2026-09-08)
+
+### Bug Fixes
+
+- **runtime-sdk**: Fix top-level entropy call for litestar and fix entropy tests
+  ([#241](https://github.com/cloudflare/workers-py/pull/241),
+  [`99b77c7`](https://github.com/cloudflare/workers-py/commit/99b77c7658d1e4b0591233b8ce6cc179719751e3))
+
+
 ## v1.8.3 (2026-08-31)
 
 ### Bug Fixes

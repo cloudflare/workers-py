@@ -1,5 +1,5 @@
 # ruff: noqa: F401
-import langsmith._internal._constants
+import litestar
 
 
 def test_import():
