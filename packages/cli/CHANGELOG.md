@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.17.3 (2026-09-15)
+
+### Bug Fixes
+
+- Update package index to use pyodide 314.0.7
+  ([#256](https://github.com/cloudflare/workers-py/pull/256),
+  [`f89851b`](https://github.com/cloudflare/workers-py/commit/f89851bd8329f75f64e58dc7eb046fbee0d7baac))
+
+
 ## v1.17.2 (2026-09-07)
 
 ### Bug Fixes
