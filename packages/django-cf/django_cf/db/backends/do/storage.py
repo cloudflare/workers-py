@@ -2,7 +2,7 @@ storage = None
 
 
 def set_storage(db):
-    global storage
+    global storage  # noqa: PLW0603
     storage = db
 
 
