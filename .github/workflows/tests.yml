@@ -106,13 +106,6 @@ jobs:
       with:
         python-version: '3.14'
 
-    # needed to build psycopg-c from source
-    # TODO(soon): maybe allow pywrangler to skip native package installs
-    # when not needed. Native installations are just for validation + type hints
-    # and are not used at all in the runtime.
-    - name: Install libpq development files
-      run: sudo apt-get update && sudo apt-get install --yes libpq-dev
-
     - name: Run Hyperdrive binding tests
       working-directory: packages/runtime-sdk
       run: |

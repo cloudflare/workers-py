@@ -9,8 +9,8 @@ dependencies = [
     "pg8000",
     "pymysql",
     "aiomysql",
-    "psycopg; python_version >= '3.14'",
-    "psycopg-c; python_version >= '3.14'",
+    "psycopg[binary]; python_version >= '3.14'",
+    "asyncpg; python_version >= '3.14'",
     "cryptography",
     "testlib",
 ]

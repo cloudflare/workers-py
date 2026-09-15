@@ -22,11 +22,6 @@ Then run the test:
 
 uv run pytest tests/test_bindings.py -m hyperdrive -k postgresql
 
-Host prerequisites for the psycopg C extension:
-
-Ubuntu: sudo apt-get install libpq-dev
-macOS: brew install libpq && export PATH="$(brew --prefix libpq)/bin:$PATH"
-
 Note: "POSTGRES_HOST_AUTH_METHOD=md5" is required for PostgreSQL to work with pg8000, since the
       default `scram-sha-256` is not available in the pg8000 with Python workers (missing openssl)
 """
@@ -70,7 +65,7 @@ async def test_connect(env):
 async def test_connect_psycopg(env):
     import psycopg  # noqa: PLC0415
 
-    assert psycopg.pq.__impl__ == "c"
+    assert psycopg.pq.__impl__ == "binary"
     hd = env.HYPERDRIVE_PG
     with psycopg.connect(
         host=hd.host,
@@ -84,6 +79,51 @@ async def test_connect_psycopg(env):
         with conn.cursor() as cur:
             cur.execute("SELECT %s", (1,))
             assert cur.fetchone() == (1,)
+
+
+@pytest.mark.asyncio
+async def test_asyncpg_crud(env):
+    import asyncpg  # noqa: PLC0415
+
+    hd = env.HYPERDRIVE_PG
+    conn = await asyncpg.connect(
+        host=hd.host,
+        port=int(hd.port),
+        user=hd.user,
+        password=hd.password,
+        database=hd.database,
+        # Hyperdrive terminates TLS to the origin, so this hop is plaintext.
+        ssl=False,
+    )
+    table = unique_table_name()
+    try:
+        await conn.execute(
+            f"CREATE TABLE {table} (id SERIAL PRIMARY KEY, name TEXT, value INT)"
+        )
+        await conn.execute(
+            f"INSERT INTO {table} (name, value) VALUES ($1, $2)", "alpha", 1
+        )
+
+        row = await conn.fetchrow(
+            f"SELECT name, value FROM {table} WHERE name = $1", "alpha"
+        )
+        assert tuple(row) == ("alpha", 1)
+
+        await conn.execute(
+            f"UPDATE {table} SET value = $1 WHERE name = $2", 11, "alpha"
+        )
+        assert (
+            await conn.fetchval(f"SELECT value FROM {table} WHERE name = $1", "alpha")
+            == 11
+        )
+
+        await conn.execute(f"DELETE FROM {table} WHERE name = $1", "alpha")
+        assert await conn.fetchval(f"SELECT COUNT(*) FROM {table}") == 0
+    finally:
+        try:
+            await conn.execute(f"DROP TABLE IF EXISTS {table}")
+        finally:
+            await conn.close()
 
 
 @pytest.mark.asyncio
