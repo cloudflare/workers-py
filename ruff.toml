@@ -18,15 +18,11 @@ select = [
 ]
 ignore = [
   "C901", # Too complex
-  "E402",
-  "E501",
-  "E731",
-  "E741",
+  "E501", # Line too long
   "PLR0911", # Too many return statements
   "PLR0915", # Too many statements
   "PLR2004", # Magic value
-  "PLW2901",
-  "UP031",
+  "PLW2901", # loop variable overwritten by assignment
   "UP038", # Use X | Y instead of (X, Y)
 ]
 flake8-comprehensions.allow-dict-calls-with-keyword-arguments = true

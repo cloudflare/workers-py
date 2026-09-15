@@ -62,6 +62,71 @@ async def test_connect(env):
 
 
 @pytest.mark.asyncio
+async def test_connect_psycopg(env):
+    import psycopg  # noqa: PLC0415
+
+    assert psycopg.pq.__impl__ == "binary"
+    hd = env.HYPERDRIVE_PG
+    with psycopg.connect(
+        host=hd.host,
+        port=int(hd.port),
+        user=hd.user,
+        password=hd.password,
+        dbname=hd.database,
+        # Hyperdrive terminates TLS to the origin, so this hop is plaintext.
+        sslmode="disable",
+    ) as conn:
+        with conn.cursor() as cur:
+            cur.execute("SELECT %s", (1,))
+            assert cur.fetchone() == (1,)
+
+
+@pytest.mark.asyncio
+async def test_asyncpg_crud(env):
+    import asyncpg  # noqa: PLC0415
+
+    hd = env.HYPERDRIVE_PG
+    conn = await asyncpg.connect(
+        host=hd.host,
+        port=int(hd.port),
+        user=hd.user,
+        password=hd.password,
+        database=hd.database,
+        # Hyperdrive terminates TLS to the origin, so this hop is plaintext.
+        ssl=False,
+    )
+    table = unique_table_name()
+    try:
+        await conn.execute(
+            f"CREATE TABLE {table} (id SERIAL PRIMARY KEY, name TEXT, value INT)"
+        )
+        await conn.execute(
+            f"INSERT INTO {table} (name, value) VALUES ($1, $2)", "alpha", 1
+        )
+
+        row = await conn.fetchrow(
+            f"SELECT name, value FROM {table} WHERE name = $1", "alpha"
+        )
+        assert tuple(row) == ("alpha", 1)
+
+        await conn.execute(
+            f"UPDATE {table} SET value = $1 WHERE name = $2", 11, "alpha"
+        )
+        assert (
+            await conn.fetchval(f"SELECT value FROM {table} WHERE name = $1", "alpha")
+            == 11
+        )
+
+        await conn.execute(f"DELETE FROM {table} WHERE name = $1", "alpha")
+        assert await conn.fetchval(f"SELECT COUNT(*) FROM {table}") == 0
+    finally:
+        try:
+            await conn.execute(f"DROP TABLE IF EXISTS {table}")
+        finally:
+            await conn.close()
+
+
+@pytest.mark.asyncio
 async def test_create_insert_select(env):
     conn = _connect(env)
     table = unique_table_name()
