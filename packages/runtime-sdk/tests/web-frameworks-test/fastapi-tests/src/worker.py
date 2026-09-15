@@ -602,7 +602,7 @@ class FastAPIAppPlugin:
 
 @app.get("/run-tests/{suite_name:path}")
 async def run_suite(suite_name: str, request: Request):
-    runner = TestRunner(request.scope["env"])
+    runner = TestRunner(request.scope["env"], extra_plugins=[FastAPIAppPlugin()])
     result = runner.run_suite(suite_name)
     return JSONResponse(result.payload, status_code=result.status)
 
