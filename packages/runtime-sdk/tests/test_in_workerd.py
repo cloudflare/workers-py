@@ -29,6 +29,30 @@ def discover_workerd_tests():
     return cases
 
 
+def resolve_workerd(target: Path) -> str:
+    """Return the path to the workerd binary to use for tests.
+
+    If the ``WORKERD_PATH`` environment variable is set, it is used as-is (this
+    is useful for testing against a locally built workerd). Otherwise, workerd
+    is installed from npm into ``target`` and the installed binary is used.
+    """
+    workerd_path = os.environ.get("WORKERD_PATH")
+    if workerd_path:
+        workerd_bin = Path(workerd_path).expanduser().resolve()
+        if not workerd_bin.is_file():
+            raise FileNotFoundError(
+                f"WORKERD_PATH is set but does not point to a file: {workerd_bin}"
+            )
+        return str(workerd_bin)
+
+    subprocess.run(
+        ["npm", "i", "workerd"],
+        cwd=target,
+        check=True,
+    )
+    return "node_modules/workerd/bin/workerd"
+
+
 def embed(dir: Path, root: Path, level: int = 0):
     modules = []
     module_path_root = dir
@@ -123,13 +147,9 @@ def test_in_workerd(  # noqa: PLR0913, PLR0917  (too-many-arguments)
     )
     configure_compatibility(wd_config, compat_config)
 
-    subprocess.run(
-        ["npm", "i", "workerd"],
-        cwd=target,
-        check=True,
-    )
+    workerd_bin = resolve_workerd(target)
     workerd_common = [
-        "node_modules/workerd/bin/workerd",
+        workerd_bin,
         "test",
         wd_test_file,
         "--experimental",
