@@ -30,20 +30,11 @@ from fastapi.responses import (
 from fastapi.responses import Response as FastAPIResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from pyodide.webloop import WebLoop
 from starlette.background import BackgroundTask
 from starlette.middleware.gzip import GZipMiddleware
 from testlib.entrypoint import TestRunner
 
 import asgi
-
-
-async def _noop(*args):
-    pass
-
-
-WebLoop.shutdown_asyncgens = _noop
-WebLoop.shutdown_default_executor = _noop
 
 STATIC_DIR = Path(__file__).parent / "static"
 

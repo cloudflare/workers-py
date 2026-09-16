@@ -1,28 +1,10 @@
 import asyncio
 import os
-import sys
 
-import pytest
 from pyodide.ffi import run_sync
-from pyodide.webloop import WebLoop
+from testlib.entrypoint import run_pytest
 
 from workers import WorkerEntrypoint, wsgi
-
-
-async def noop(*args):
-    pass
-
-
-# pytest-asyncio relies on these but in Pyodide < 0.29 WebLoop does not implement them
-WebLoop.shutdown_asyncgens = noop
-WebLoop.shutdown_default_executor = noop
-
-# Pyodide 0.26.0a2's _cancel_all_tasks calls task.exception() on pending tasks,
-# which raises InvalidStateError under Pyodide's WebLoop.
-# Ignore this error to prevent pytest-asyncio from crashing.
-if sys.version_info < (3, 13):
-    asyncio.runners._cancel_all_tasks = lambda loop: None  # type: ignore[attr-defined]
-
 
 # ---------------------------------------------------------------------------
 # WSGI apps
@@ -140,4 +122,4 @@ class Default(WorkerEntrypoint):
         args = [".", "-vv"]
         if self.env.color:
             args.append("--color=yes")
-        assert pytest.main(args) == 0
+        run_pytest(args)
