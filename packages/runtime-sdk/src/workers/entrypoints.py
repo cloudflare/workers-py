@@ -157,7 +157,13 @@ class _WorkflowStepWrapper:
                 if p.name == "ctx":
                     results_future_list.append(p)
                 else:
-                    results_future_list.append(depends[curr])
+                    dep = depends[curr]
+                    if not hasattr(dep, "_step_name"):
+                        raise TypeError(
+                            f"'depends' entry for parameter {p.name!r} is not a "
+                            "function decorated with step.do"
+                        )
+                    results_future_list.append(dep)
                     curr += 1
 
         return results_future_list
