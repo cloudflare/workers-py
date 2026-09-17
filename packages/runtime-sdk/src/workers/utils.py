@@ -126,6 +126,25 @@ def import_from_javascript(module_name: str) -> Any:
         raise
 
 
+# Directory, relative to the worker bundle root, that `pywrangler sync` vendors Python packages
+# into. wrangler registers `.js`/`.mjs` files found under `python_modules/workers/` as ES modules
+# (everything else in `python_modules/` is opaque data), which is what lets them be imported via
+# `import_from_javascript`.
+_SDK_JS_MODULE_PREFIX = "python_modules/workers/"
+
+
+async def import_sdk_javascript_module_async(name: str) -> Any:
+    """
+    Asynchronous function to import an sdk js module
+
+    This does not rely on JSPI, so it also works with Pyodide 0.26.0a2.
+    """
+    try:
+        return await _pyodide_entrypoint_helper.doAnImport(_SDK_JS_MODULE_PREFIX + name)
+    except JsException as e:
+        raise ImportError(f"Failed to import '{name}': {e}") from e
+
+
 @contextmanager
 def patch_env(
     d: dict[str, Any] | Sequence[tuple[str, Any]] | None = None, **kwds: dict[str, Any]

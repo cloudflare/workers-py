@@ -66,12 +66,25 @@ def embed(dir: Path, root: Path, level: int = 0):
         module_path = path.absolute().relative_to(module_path_root)
         embed_path = path.absolute().relative_to(root)
         if path.suffix == ".py":
-            modules.append(
-                f'(name = "{module_path}", pythonModule = embed "{embed_path}")'
-            )
+            module_type = "pythonModule"
+        elif _is_sdk_js_module(path.relative_to(dir)):
+            module_type = "esModule"
         else:
-            modules.append(f'(name = "{module_path}", data = embed "{embed_path}")')
+            module_type = "data"
+        modules.append(
+            f'(name = "{module_path}", {module_type} = embed "{embed_path}")'
+        )
     return modules
+
+
+def _is_sdk_js_module(path_in_vendor_dir: Path) -> bool:
+    """Mirror wrangler: `.js`/`.mjs` files under `python_modules/workers/` are ES modules.
+
+    Other vendored packages may ship `.js` assets that are not valid ES modules, so wrangler
+    only applies this rule to the SDK's own `workers/` package. Everything else stays `data`.
+    """
+    in_sdk_package = path_in_vendor_dir.parts[:1] == ("workers",)
+    return in_sdk_package and path_in_vendor_dir.suffix in (".js", ".mjs")
 
 
 @pytest.fixture(scope="module")
