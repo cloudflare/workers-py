@@ -150,8 +150,13 @@ def _from_js_error(exc: JsException) -> Exception:
     if not exc.message or not exc.message.startswith("PythonError"):
         return _to_python_exception(exc)
 
-    # extract the Python exception type from the traceback
-    error_message_last_line = exc.message.split("\n")[-2]
+    # extract the Python exception type from the traceback. The message may have
+    # been stripped down to just "PythonError" when crossing an RPC boundary, in
+    # which case there is no traceback to inspect.
+    lines = exc.message.split("\n")
+    if len(lines) < 2:
+        return _to_python_exception(exc)
+    error_message_last_line = lines[-2]
     if error_message_last_line.startswith("TypeError"):
         return TypeError(error_message_last_line)
     elif error_message_last_line.startswith("ValueError"):
