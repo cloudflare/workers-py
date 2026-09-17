@@ -217,7 +217,8 @@ async def _do_call(entrypoint, name, key, config, callback, *results):
 
         if inspect.iscoroutine(result):
             result = await result
-        return to_js(result, dict_converter=Object.fromEntries)
+        # The step result crosses the RPC boundary back to the Workflows engine
+        return python_to_rpc(result)
 
     async def _closure():
         try:

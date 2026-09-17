@@ -21,6 +21,7 @@ class TestWorkflow(WorkflowEntrypoint):
             "non_retryable": self._non_retryable,
             "catch_error": self._catch_error,
             "duplicate_step_names": self._duplicate_step_names,
+            "step_output_conversion": self._step_output_conversion,
         }
         handler = handlers.get(mode)
         if handler is None:
@@ -137,6 +138,26 @@ class TestWorkflow(WorkflowEntrypoint):
         # Run both same-named steps concurrently so they are in flight together.
         concurrent = list(await asyncio.gather(first(), second()))
         return {"concurrent": concurrent, "uses": await uses()}
+
+    async def _step_output_conversion(self, event, step):
+        @step.do("produce")
+        async def produce():
+            return {
+                "when": datetime.datetime(2026, 1, 2, 3, 4, 5),
+                "nothing": None,
+                "nested": {"nothing": None},
+            }
+
+        @step.do()
+        async def consume(produce):
+            return {
+                "when_is_datetime": isinstance(produce["when"], datetime.datetime),
+                "year": produce["when"].year,
+                "nothing_is_none": produce["nothing"] is None,
+                "nested_nothing_is_none": produce["nested"]["nothing"] is None,
+            }
+
+        return await consume()
 
     async def _catch_error(self, event, step):
         @step.do(
