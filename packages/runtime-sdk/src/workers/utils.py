@@ -147,16 +147,24 @@ def _to_python_exception(exc: JsException) -> Exception:
 def _from_js_error(exc: JsException) -> Exception:
     # convert into Python exception after a full round trip
     # Python - JS - Python
-    if not exc.message or not exc.message.startswith("PythonError"):
+    message = exc.message or ""
+
+    # A Python exception that escaped to JS is a Pyodide `PythonError` whose
+    # message is the formatted traceback. Depending on how it was serialized
+    # over RPC it either keeps its name or arrives as a plain `Error` with
+    # "PythonError: " folded into the message.
+    if getattr(exc, "name", None) != "PythonError" and not message.startswith(
+        "PythonError"
+    ):
         return _to_python_exception(exc)
 
-    # extract the Python exception type from the traceback. The message may have
-    # been stripped down to just "PythonError" when crossing an RPC boundary, in
-    # which case there is no traceback to inspect.
-    lines = exc.message.split("\n")
+    # extract the Python exception type from the last line of the traceback. The
+    # message may have been stripped down to just "PythonError" when crossing an RPC
+    # boundary, in which case there is no traceback to inspect.
+    lines = message.rstrip().split("\n")
     if len(lines) < 2:
         return _to_python_exception(exc)
-    error_message_last_line = lines[-2]
+    error_message_last_line = lines[-1]
     if error_message_last_line.startswith("TypeError"):
         return TypeError(error_message_last_line)
     elif error_message_last_line.startswith("ValueError"):
