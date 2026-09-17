@@ -20,6 +20,7 @@ ignore = [
   "C901", # Too complex
   "E501", # Line too long
   "PLR0911", # Too many return statements
+  "PLR0913", # Too many arguments
   "PLR0915", # Too many statements
   "PLR2004", # Magic value
   "PLW2901", # loop variable overwritten by assignment

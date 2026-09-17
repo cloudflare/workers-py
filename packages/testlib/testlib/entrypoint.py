@@ -43,7 +43,11 @@ class ResultCollector:
         report = outcome.get_result()
         key = self._key(item)
         if report.passed:
-            self.results[key] = {"status": "passed"}
+            if report.when == "call":
+                self.results[key] = {"status": "passed"}
+            elif report.when == "teardown" and key not in self.results:
+                # Only reachable if no call report was recorded at all.
+                self.results[key] = {"status": "passed"}
         elif report.skipped:
             self.results[key] = {
                 "status": "skipped",
@@ -134,14 +138,16 @@ class TestRunnerResult:
 
 
 class TestRunner:
-    def __init__(self, env):
+    def __init__(self, env, extra_plugins=()):
         self.env = env
         self.collector = ResultCollector()
+        self.extra_plugins = list(extra_plugins)
 
     def plugins(self):
         return [
             self.collector,
             EnvPlugin(self.env),
+            *self.extra_plugins,
         ]
 
     def run_suite(self, suite_name):
@@ -180,7 +186,11 @@ class TestRunner:
 class TestRunnerEntrypoint(WorkerEntrypoint):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.runner = TestRunner(self.env)
+        self.runner = TestRunner(self.env, extra_plugins=self.plugins())
+
+    def plugins(self):
+        """Extra pytest plugins to register for in-worker suites."""
+        return []
 
     async def fetch(self, request):
         path = urlparse(request.url).path

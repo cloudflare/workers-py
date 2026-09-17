@@ -137,71 +137,74 @@ class CloudflareAccessMiddleware:
             logger.error("Failed to retrieve Cloudflare public keys")
             return None
 
-        email = None
-        name = None
-
         # Validate and decode JWT
         try:
-            # Try each public key until one works
-            decoded_token = None
-            for key_data in public_keys:
-                try:
-                    decoded_token = self._decode_and_verify_jwt(jwt_token, key_data)
-                    if decoded_token:
-                        break
-                except Exception as e:
-                    logger.debug(f"Key {key_data.get('kid')} failed: {str(e)}")
-                    continue
-
+            decoded_token = self._decode_with_any_key(jwt_token, public_keys)
             if not decoded_token:
                 logger.warning("JWT token validation failed with all available keys")
                 return None
 
-            # Validate AUD if configured
-            if self.aud:
-                token_aud = decoded_token.get("aud")
-                if isinstance(token_aud, list):
-                    if self.aud not in token_aud:
-                        logger.warning(
-                            f"JWT audience mismatch. Expected: {self.aud}, Got: {token_aud}"
-                        )
-                        return None
-                elif token_aud != self.aud:
-                    logger.warning(
-                        f"JWT audience mismatch. Expected: {self.aud}, Got: {token_aud}"
-                    )
-                    return None
+            if not self._validate_audience(decoded_token):
+                return None
 
-            # Validate AUD if not configured but we have a team name
-            if not self.aud and self.team_name:
-                token_aud = decoded_token.get("aud")
-                if not token_aud:
-                    logger.warning("No audience found in JWT token")
-                    return None
-
-            # Extract user information from JWT claims
             email = decoded_token.get("email")
-            name = decoded_token.get("name", "")
-
-            # Try to get name from custom claims if not in standard claims
-            if not name:
-                custom_claims = decoded_token.get("custom", {})
-                first_name = custom_claims.get("firstName", "")
-                last_name = custom_claims.get("lastName", "")
-                if first_name or last_name:
-                    name = f"{first_name} {last_name}".strip()
-
             if not email:
                 logger.warning("No email found in JWT token")
                 return None
+            name = self._extract_name(decoded_token)
 
         except Exception as e:
             logger.warning(f"JWT token validation error: {repr(e)}")
             return None
 
-        # Get or create user
-        user = self._get_or_create_user(email, name)
-        return user
+        return self._get_or_create_user(email, name)
+
+    def _decode_with_any_key(self, jwt_token, public_keys):
+        """Try each public key in turn; return the decoded payload or None."""
+        for key_data in public_keys:
+            try:
+                decoded_token = self._decode_and_verify_jwt(jwt_token, key_data)
+            except Exception as e:
+                logger.debug(f"Key {key_data.get('kid')} failed: {str(e)}")
+                continue
+            if decoded_token:
+                return decoded_token
+        return None
+
+    def _validate_audience(self, decoded_token):
+        """Check the token's audience against the configured AUD, if any."""
+        token_aud = decoded_token.get("aud")
+
+        if self.aud:
+            matches = (
+                self.aud in token_aud
+                if isinstance(token_aud, list)
+                else token_aud == self.aud
+            )
+            if not matches:
+                logger.warning(
+                    f"JWT audience mismatch. Expected: {self.aud}, Got: {token_aud}"
+                )
+            return matches
+
+        # AUD not configured but we have a team name: require some audience
+        if self.team_name and not token_aud:
+            logger.warning("No audience found in JWT token")
+            return False
+
+        return True
+
+    @staticmethod
+    def _extract_name(decoded_token):
+        """Extract the display name from standard or custom JWT claims."""
+        name = decoded_token.get("name", "")
+        if name:
+            return name
+
+        custom_claims = decoded_token.get("custom", {})
+        first_name = custom_claims.get("firstName", "")
+        last_name = custom_claims.get("lastName", "")
+        return f"{first_name} {last_name}".strip()
 
     def _extract_jwt_token(self, request):
         """Extract JWT token from CF-Access-Jwt-Assertion header or cf_authorization cookie."""
@@ -267,49 +270,53 @@ class CloudflareAccessMiddleware:
         if cached_keys:
             return cached_keys
 
-        if IS_WORKER:
-            response = run_sync(fetch(self.certs_url))
-            if response.status == 200:
-                data = run_sync(response.json()).to_py()
-            else:
-                logger.error(f"Failed to fetch Cloudflare keys: HTTP {response.status}")
-                return None
-        else:
-            try:
-                with urllib.request.urlopen(self.certs_url) as response:
-                    if response.status == 200:
-                        data = json.loads(response.read().decode("utf-8"))
-                    else:
-                        logger.error(
-                            f"Failed to fetch Cloudflare keys: HTTP {response.status}"
-                        )
-                        return None
-            except urllib.error.URLError as e:
-                logger.error(f"Network error fetching Cloudflare keys: {str(e)}")
-                return None
-            except Exception as e:
-                logger.error(f"Unexpected error fetching Cloudflare keys: {str(e)}")
-                return None
+        data = self._fetch_certs()
+        if data is None:
+            return None
 
-        keys = data.get("keys", [])
-
-        # Process keys for JWT validation
-        processed_keys = []
-        for key_info in keys:
-            if key_info.get("kty") == "RSA":
-                # Extract RSA components
-                try:
-                    processed_key = self._process_rsa_key(key_info)
-                    if processed_key:
-                        processed_keys.append(processed_key)
-                except Exception as e:
-                    logger.warning(
-                        f"Failed to process key {key_info.get('kid')}: {str(e)}"
-                    )
-                    continue
+        processed_keys = self._process_jwks(data.get("keys", []))
 
         # Cache the keys
         cache.set(cache_key, processed_keys, self.cache_timeout)
+        return processed_keys
+
+    def _fetch_certs(self):
+        """Fetch the JWKS document from the certs URL. Returns dict or None."""
+        if IS_WORKER:
+            response = run_sync(fetch(self.certs_url))
+            if response.status != 200:
+                logger.error(f"Failed to fetch Cloudflare keys: HTTP {response.status}")
+                return None
+            return run_sync(response.json()).to_py()
+
+        try:
+            with urllib.request.urlopen(self.certs_url) as response:
+                if response.status != 200:
+                    logger.error(
+                        f"Failed to fetch Cloudflare keys: HTTP {response.status}"
+                    )
+                    return None
+                return json.loads(response.read().decode("utf-8"))
+        except urllib.error.URLError as e:
+            logger.error(f"Network error fetching Cloudflare keys: {str(e)}")
+            return None
+        except Exception as e:
+            logger.error(f"Unexpected error fetching Cloudflare keys: {str(e)}")
+            return None
+
+    def _process_jwks(self, keys):
+        """Convert RSA JWKs into the internal key format used for verification."""
+        processed_keys = []
+        for key_info in keys:
+            if key_info.get("kty") != "RSA":
+                continue
+            try:
+                processed_key = self._process_rsa_key(key_info)
+            except Exception as e:
+                logger.warning(f"Failed to process key {key_info.get('kid')}: {str(e)}")
+                continue
+            if processed_key:
+                processed_keys.append(processed_key)
         return processed_keys
 
     def _process_rsa_key(self, key_info):
