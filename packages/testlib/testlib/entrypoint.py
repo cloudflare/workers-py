@@ -59,7 +59,8 @@ class ResultCollector:
             if report.when == "call":
                 excinfo = call.excinfo
                 if excinfo is None:
-                    result["error"] = "unknown error"
+                    # e.g. a strict xfail that unexpectedly passed.
+                    result["error"] = report.longreprtext or "unknown error"
                 elif excinfo.errisinstance(AssertionError):
                     result["error"] = str(excinfo.value)
                     del result["traceback"]
