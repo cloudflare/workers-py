@@ -54,18 +54,6 @@ exclude = ["tests*", "docs*", "templates*", ".github*", "*.__pycache__"]
 extend = "../../ruff.toml"
 target-version = "py312"
 extend-exclude = [".wrangler", "python_modules", "staticfiles"]
-lint.extend-ignore = [
-  # Deferred: satisfying these requires behavioural or structural changes to
-  # code imported from https://github.com/G4brym/django-cf, so they are turned
-  # off to keep the lint adoption commit mechanical. Re-enable one rule per PR.
-  "B904",    # `raise ... from err` alters exception chaining and tracebacks
-  "B905",    # `zip(strict=True)` can raise where the loose zip silently truncates
-  "PERF401", # manual-list-comprehension; needs a loop rewrite
-  "PLR0912", # too many branches; needs decomposition
-  "PLR0913", # too many arguments; signature change
-  "PLR2004", # magic value comparison; needs named constants
-  "PLW0603", # global statement; architectural, see db/backends/do/storage.py
-]
 # Generated Django scaffolding kept verbatim so it stays copy-pasteable.
 lint.per-file-ignores."tests/servers/**" = ["F401"]
 lint.per-file-ignores."templates/**" = ["F401"]

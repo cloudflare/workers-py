@@ -1,5 +1,6 @@
 import asyncio
 import contextlib
+import json
 
 import pytest
 from pyodide.ffi import create_proxy, to_js
@@ -59,9 +60,6 @@ async def _ws_connect(path):
         ),
         TIMEOUT_S,
     )
-
-
-import json
 
 
 async def _events():

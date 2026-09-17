@@ -149,7 +149,7 @@ class CFDatabaseOperations(SQLiteDatabaseOperations):
             else:
                 values = tuple(params.values())
                 values = self._quote_params_for_last_executed_query(values)
-                params = dict(zip(params, values))
+                params = dict(zip(params, values, strict=True))
             try:
                 return sql % params
             except Exception:
@@ -161,7 +161,7 @@ class CFDatabaseOperations(SQLiteDatabaseOperations):
 
     def bulk_insert_sql(self, fields, placeholder_rows):
         placeholder_rows_sql = (", ".join(row) for row in placeholder_rows)
-        values_sql = ", ".join("(%s)" % sql for sql in placeholder_rows_sql)
+        values_sql = ", ".join(f"({sql})" for sql in placeholder_rows_sql)
         return "VALUES " + values_sql
 
 
@@ -242,34 +242,16 @@ class CFResult:
         except ImportError:
             jsnull = None
 
-        result = []
+        def to_row(row):
+            values = row if isinstance(row, list) else row.values()
+            return tuple(None if v is jsnull else v for v in values)
 
-        for row in data:
-            row_items = ()
-            if isinstance(row, list):
-                for v in row:
-                    if v is jsnull:
-                        row_items += (None,)
-                    else:
-                        row_items += (v,)
-            else:
-                for v in row.values():
-                    if v is jsnull:
-                        row_items += (None,)
-                    else:
-                        row_items += (v,)
-
-            result.append(row_items)
-
-        instance = CFResult(result)
+        instance = CFResult([to_row(row) for row in data])
 
         if rows_read or rows_written:
-            if "INSERT" in query.upper():
-                instance.set_rowcount(rows_written or 0)
-            elif "UPDATE" in query.upper() or "DELETE" in query.upper():
-                instance.set_rowcount(rows_written or 0)
-            else:
-                instance.set_rowcount(rows_read or 0)
+            upper_query = query.upper()
+            is_write = any(kw in upper_query for kw in ("INSERT", "UPDATE", "DELETE"))
+            instance.set_rowcount((rows_written if is_write else rows_read) or 0)
 
         if last_row_id is not None:
             instance.set_lastrowid(last_row_id)
