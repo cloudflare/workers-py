@@ -4,6 +4,7 @@ Top level entropy patches for packages
 
 import sys
 from contextlib import contextmanager
+from importlib.metadata import PackageNotFoundError, version
 
 from _cloudflare.allow_entropy import (
     allow_bad_entropy_calls,
@@ -15,6 +16,29 @@ from _cloudflare.import_patch_manager import (
     register_create_patch,
     register_exec_patch,
 )
+
+
+@contextmanager
+def allow_bad_entropy_calls_for_version(
+    package_name: str,
+    num_calls: int,
+    min_version: tuple[int, ...],
+    max_version: tuple[int, ...] | None = None,
+):
+    try:
+        package_version = tuple(map(int, version(package_name).split(".")))
+    except PackageNotFoundError:
+        yield
+        return
+
+    if package_version < min_version or (
+        max_version is not None and package_version > max_version
+    ):
+        yield
+        return
+
+    with allow_bad_entropy_calls(num_calls):
+        yield
 
 
 class STATE:
@@ -176,6 +200,30 @@ def langsmith__internal__constants_context(module):
 @register_exec_patch("langchain_openai.chat_models.base")
 @contextmanager
 def langchain_openai_chat_models_base_context(module):
+    with allow_bad_entropy_calls(1):
+        yield
+
+
+@register_exec_patch("opentelemetry.context")
+@contextmanager
+def opentelemetry_context(module):
+    # OpenTelemetry creates three UUID-backed keys.
+    with allow_bad_entropy_calls_for_version("opentelemetry-api", 3, (1, 40, 0)):
+        yield
+
+
+@register_exec_patch("opentelemetry.trace.propagation")
+@contextmanager
+def opentelemetry_trace_propagation_context(module):
+    # OpenTelemetry creates a UUID-backed key.
+    with allow_bad_entropy_calls(1):
+        yield
+
+
+@register_exec_patch("opentelemetry.baggage")
+@contextmanager
+def opentelemetry_baggage_context(module):
+    # OpenTelemetry creates a UUID-backed key.
     with allow_bad_entropy_calls(1):
         yield
 
