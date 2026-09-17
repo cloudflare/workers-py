@@ -18,5 +18,6 @@ dependencies = [
     # "langchain-openai",
     # "openai",
     "litestar",
-    "opentelemetry-sdk",
+    "opentelemetry-api",
+    "mcp; python_version >= '3.14'",
 ]

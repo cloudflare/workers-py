@@ -4,6 +4,7 @@ from tests import (  # noqa: F401
     test_aiohttp_websocket,
     test_langsmith,
     test_litestar,
+    test_mcp,
     test_numpy,
     test_opentelemetry,
     test_pydantic,
