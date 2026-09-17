@@ -109,14 +109,30 @@ class TestWorkflow(WorkflowEntrypoint):
         return await flaky()
 
     async def _non_retryable(self, event, step):
+        # Fails on the first attempt with NonRetryableError and would succeed on a
+        # second attempt. If the engine honours NonRetryableError the step fails
+        # once and `run()` sees a NonRetryableError; if the engine retries, the step
+        # completes with `attempt == 2`.
         @step.do(
             "non-retryable-step",
-            config={"retries": {"limit": 1, "delay": 0, "backoff": "constant"}},
+            config={"retries": {"limit": 3, "delay": 0, "backoff": "constant"}},
         )
-        async def boom():
-            raise NonRetryableError("do not retry")
+        async def boom(ctx):
+            if int(ctx["attempt"]) < 2:
+                raise NonRetryableError("do not retry")
+            return {"retried": True, "attempt": int(ctx["attempt"])}
 
-        return await boom()
+        try:
+            result = await boom()
+        except NonRetryableError as exc:
+            return {
+                "retried": False,
+                "caught": "NonRetryableError",
+                "message": str(exc),
+            }
+        except Exception as exc:
+            return {"retried": False, "caught": type(exc).__name__, "message": str(exc)}
+        return result
 
     async def _duplicate_step_names(self, event, step):
         # The engine disambiguates repeated step names with a counter, so two

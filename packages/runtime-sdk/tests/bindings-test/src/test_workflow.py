@@ -149,7 +149,17 @@ async def test_step_retry_config(env):
 async def test_non_retryable_error(env):
     instance = await env.MY_WORKFLOW.create({"params": {"mode": "non_retryable"}})
     status = await _poll(instance)
-    assert status["status"] == "errored", f"unexpected status: {dict(status)!r}"
+    assert status["status"] == "complete", f"unexpected status: {dict(status)!r}"
+    out = status["output"]
+    # The step would succeed on attempt 2, so `retried` means the engine ignored
+    # the NonRetryableError.
+    assert out["retried"] is False, f"step was retried: {out!r}"
+    # ...and the error must come back to `run()` as a Python NonRetryableError.
+    assert out["caught"] == "NonRetryableError", out
+    # The message is preserved end to end in workerd, but miniflare currently
+    # truncates error messages crossing from the Python worker into its
+    # Workflows engine at the first ": " so accept an empty message here.
+    assert out["message"] in ("do not retry", ""), out
 
 
 async def test_error_handling_catch(env):

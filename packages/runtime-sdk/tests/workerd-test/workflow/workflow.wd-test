@@ -1,0 +1,30 @@
+using Workerd = import "/workerd/workerd.capnp";
+
+const config :Workerd.Config = (
+  services = [
+    (name = "py", worker = .pyWorker),
+    (name = "js", worker = .jsWorker),
+  ],
+);
+
+const pyWorker :Workerd.Worker = (
+  modules = [
+    (name = "worker.py", pythonModule = embed "worker.py"),
+    %PYTHON_MODULES
+  ],
+  compatibilityDate = "%COMPAT_DATE",
+  compatibilityFlags = ["python_workers", "python_workflows", "python_workflows_implicit_dependencies"],
+);
+
+# Stands in for the Workflows engine: calls the Python WorkflowEntrypoint over RPC and hands it
+# a `step` RpcTarget, exactly like the real engine does.
+const jsWorker :Workerd.Worker = (
+  compatibilityFlags = ["nodejs_compat"],
+  compatibilityDate = "%COMPAT_DATE",
+  modules = [
+    (name = "worker", esModule = embed "worker.js"),
+  ],
+  bindings = [
+    (name = "PythonWorkflow", service = (name = "py", entrypoint = "TestWorkflow")),
+  ],
+);
