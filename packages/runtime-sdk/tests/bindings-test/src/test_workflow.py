@@ -159,8 +159,10 @@ async def test_error_handling_catch(env):
     # Per the docs, a step error propagates to run() and is catchable with
     # `except Exception`. Neither the concrete type nor the original message is
     # guaranteed to survive the RPC layer, so we assert the reliable contract:
-    # the error was caught and a message was produced.
+    # the error was caught and a message was produced, and that the SDK's own
+    # error translation did not blow up (e.g. IndexError while parsing it).
     assert status["output"]["caught"] is not None
+    assert status["output"]["caught"] != "IndexError"
     assert status["output"]["message"]
 
 
