@@ -17,7 +17,11 @@ from .rpc import (
     python_from_rpc,
     python_to_rpc,
 )
-from .utils import _from_js_error, _is_js_instance
+from .utils import (
+    _from_js_error,
+    _is_js_instance,
+    import_sdk_javascript_module_async,
+)
 
 if TYPE_CHECKING:
     from js import DurableObjectState, Env, ExecutionContext
@@ -294,6 +298,22 @@ def _wrap_class(cls):
     return cls
 
 
+_workflows_js_module = None
+
+
+async def _wrap_js_workflow_step(js_step):
+    """
+    Wrap the JS `WorkflowStep` stub with `wrapWorkflowStep` from the SDK's `workflows.js`.
+
+    The wrapper makes a Python `NonRetryableError` raised inside a step reach the Workflows
+    engine as a JS error the engine recognises as non-retryable (see `workflows.js`).
+    """
+    global _workflows_js_module  # noqa: PLW0603
+    if _workflows_js_module is None:
+        _workflows_js_module = await import_sdk_javascript_module_async("workflows.js")
+    return _workflows_js_module.wrapWorkflowStep(js_step)
+
+
 def _wrap_workflow_step(cls):
     run_fn = cls.__dict__.get("run")
     if run_fn is None:
@@ -304,7 +324,7 @@ def _wrap_workflow_step(cls):
         if event is not None:
             event = python_from_rpc(event)
         if step is not None:
-            step = _WorkflowStepWrapper(step)
+            step = _WorkflowStepWrapper(await _wrap_js_workflow_step(step))
 
         result = run_fn(self, event, step, *args, **kwargs)
 

@@ -163,15 +163,30 @@ def _to_python_exception(exc: JsException) -> Exception:
         return exc
 
 
+_NON_RETRYABLE_ERROR_NAME = "NonRetryableError"
+
+
 def _from_js_error(exc: JsException) -> Exception:
     # convert into Python exception after a full round trip
     # Python - JS - Python
     message = exc.message or ""
 
+    # A NonRetryableError raised inside a workflow step is translated by the
+    # runtime into a JS error named "NonRetryableError" before it reaches the
+    # Workflows engine, which is how the engine knows not to retry the step.
+    # When the engine rethrows it back to us the name either survives, or is
+    # folded into the message as a prefix.
+    if getattr(exc, "name", None) == _NON_RETRYABLE_ERROR_NAME:
+        return NonRetryableError(message)
+    if message == _NON_RETRYABLE_ERROR_NAME:
+        return NonRetryableError()
+    if message.startswith(_NON_RETRYABLE_ERROR_NAME + ": "):
+        return NonRetryableError(message[len(_NON_RETRYABLE_ERROR_NAME) + 2 :])
+
     # A Python exception that escaped to JS is a Pyodide `PythonError` whose
     # message is the formatted traceback. Depending on how it was serialized
     # over RPC it either keeps its name or arrives as a plain `Error` with
-    # "PythonError: " folded into the message.
+    # "PythonError: " folded into the message
     if getattr(exc, "name", None) != "PythonError" and not message.startswith(
         "PythonError"
     ):
