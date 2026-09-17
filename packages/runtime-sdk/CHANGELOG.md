@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.8.5 (2026-09-17)
+
+### Bug Fixes
+
+- **runtime-sdk**: Fix top-level import for opentelemetry package
+  ([#248](https://github.com/cloudflare/workers-py/pull/248),
+  [`338c12e`](https://github.com/cloudflare/workers-py/commit/338c12e5dc6aada9dd20968fdae6bb6e805ad33e))
+
+
 ## v1.8.4 (2026-09-08)
 
 ### Bug Fixes
