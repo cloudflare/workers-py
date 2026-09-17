@@ -166,6 +166,16 @@ async def test_error_handling_catch(env):
     assert status["output"]["message"]
 
 
+async def test_duplicate_step_names(env):
+    instance = await env.MY_WORKFLOW.create(
+        {"params": {"mode": "duplicate_step_names"}}
+    )
+    status = await _poll(instance)
+    assert status["status"] == "complete", f"unexpected status: {dict(status)!r}"
+    assert status["output"]["concurrent"] == [1, 2]
+    assert status["output"]["uses"] == 20
+
+
 # The tests below pass pre-converted (to_js) objects, the legacy pattern from the
 # Workflows docs, to ensure existing code keeps working now that the binding
 # auto-converts plain Python objects.
