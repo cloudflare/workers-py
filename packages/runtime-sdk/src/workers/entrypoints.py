@@ -116,7 +116,7 @@ class _WorkflowStepWrapper:
                     func, depends, implicit
                 )
                 results = await self._gather_results(results_future_list, concurrent)
-                return await _do_call(self, step_name, config, func, *results)
+                return await _do_call(self, step_name, wrapper, config, func, *results)
 
             wrapper._step_name = step_name
             self.step_closures[step_name] = wrapper
@@ -194,17 +194,17 @@ class _WorkflowStepWrapper:
         )
 
     async def _resolve_dependency(self, dep):
-        if hasattr(dep, "name") and dep.name == "ctx":
+        if isinstance(dep, inspect.Parameter) and dep.name == "ctx":
             return dep
-        elif dep._step_name in self._memoized_dependencies:
-            return self._memoized_dependencies[dep._step_name]
-        elif dep._step_name in self._in_flight:
-            return await self._in_flight[dep._step_name]
+        elif dep in self._memoized_dependencies:
+            return self._memoized_dependencies[dep]
+        elif dep in self._in_flight:
+            return await self._in_flight[dep]
 
         return await dep()
 
 
-async def _do_call(entrypoint, name, config, callback, *results):
+async def _do_call(entrypoint, name, key, config, callback, *results):
     async def _callback(ctx=None):
         # deconstruct the actual ctx object
         resolved_results = tuple(
@@ -233,13 +233,13 @@ async def _do_call(entrypoint, name, config, callback, *results):
             raise _from_js_error(exc) from exc
 
     task = create_task(_closure())
-    entrypoint._in_flight[name] = task
+    entrypoint._in_flight[key] = task
 
     try:
         result = await task
-        entrypoint._memoized_dependencies[name] = result
+        entrypoint._memoized_dependencies[key] = result
     finally:
-        del entrypoint._in_flight[name]
+        entrypoint._in_flight.pop(key, None)
 
     return result
 

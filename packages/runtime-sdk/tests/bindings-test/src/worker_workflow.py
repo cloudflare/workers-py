@@ -1,3 +1,4 @@
+import asyncio
 import datetime
 
 from workers import WorkflowEntrypoint
@@ -19,6 +20,7 @@ class TestWorkflow(WorkflowEntrypoint):
             "retry": self._retry,
             "non_retryable": self._non_retryable,
             "catch_error": self._catch_error,
+            "duplicate_step_names": self._duplicate_step_names,
         }
         handler = handlers.get(mode)
         if handler is None:
@@ -114,6 +116,27 @@ class TestWorkflow(WorkflowEntrypoint):
             raise NonRetryableError("do not retry")
 
         return await boom()
+
+    async def _duplicate_step_names(self, event, step):
+        # The engine disambiguates repeated step names with a counter, so two
+        # steps sharing a name must not share memoised results or in-flight tasks.
+        @step.do("dup")
+        async def first():
+            return 1
+
+        @step.do("dup")
+        async def second():
+            return 2
+
+        # Implicit dependencies resolve by step name, so `dup` refers to the most
+        # recently registered closure (`second`) and must return its result.
+        @step.do()
+        async def uses(dup):
+            return dup * 10
+
+        # Run both same-named steps concurrently so they are in flight together.
+        concurrent = list(await asyncio.gather(first(), second()))
+        return {"concurrent": concurrent, "uses": await uses()}
 
     async def _catch_error(self, event, step):
         @step.do(
