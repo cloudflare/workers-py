@@ -20,4 +20,8 @@ dependencies = [
     "litestar",
     "opentelemetry-api",
     "mcp; python_version >= '3.14'",
+    "workers-runtime-sdk",
 ]
+
+[tool.uv.sources]
+workers-runtime-sdk = { path = "../packages/runtime-sdk" }
