@@ -169,9 +169,10 @@ def _install_requirements_to_vendor(
 ) -> str | None:
     """Install packages to the Pyodide vendor directory from pylock.toml.
 
-    By default ``--no-build`` is passed so only prebuilt wheels install. When
-    *allow_build* is True, source distributions / local directory sources are
-    allowed to build.
+    By default only prebuilt wheels install, except for local path sources such
+    as directories and sdists, which have no wheel and are explicitly requested
+    by the project, so they are always built. When *allow_build* is True, every
+    source distribution is allowed to build.
 
     Returns:
         Error message string if installation failed, None if successful.
@@ -206,13 +207,14 @@ def _install_requirements_to_vendor(
 
     install_cmd = ["uv", "pip", "install"]
     if not allow_build:
-        install_cmd.append("--no-build")
-    else:
-        # uv caches built wheels for local sources keyed on their path, so edits
-        # to local checkouts wouldn't be picked up. Refresh the build cache for
-        # those packages so `sync` always rebuilds them.
-        for name in plan.local_packages:
-            install_cmd += ["--refresh-package", name]
+        install_cmd += ["--only-binary", ":all:"]
+        for name in plan.local_build_packages:
+            install_cmd += ["--no-binary", name]
+    # uv caches built wheels for local sources keyed on their path, so edits to
+    # local checkouts wouldn't be picked up. Refresh the build cache for those
+    # packages so `sync` always rebuilds them.
+    for name in plan.local_packages:
+        install_cmd += ["--refresh-package", name]
     install_cmd += ["-r", str(plan.lockfile), "--preview-features", "pylock"]
     result = run_command(
         install_cmd,

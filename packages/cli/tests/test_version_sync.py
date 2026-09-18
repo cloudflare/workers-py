@@ -68,6 +68,66 @@ def test_get_vendor_package_versions_disables_color():
     assert env.get("VIRTUAL_ENV") == str(Path("pyodide-venv"))
 
 
+class TestInstallToVendorCommand:
+    """Check the `uv pip install` flags built by `_install_requirements_to_vendor`."""
+
+    @pytest.fixture
+    def plan(self, tmp_path: Path) -> InstallPlan:
+        lockfile = tmp_path / "pylock.toml"
+        lockfile.write_text(
+            'lock-version = "1.0"\n'
+            '[[packages]]\nname = "click"\nversion = "8.1.7"\n'
+            '[[packages]]\nname = "local-dir"\n'
+            'directory = { path = "../local-dir", editable = false }\n'
+            '[[packages]]\nname = "local-wheel"\nversion = "3.0"\n'
+            'archive = { path = "dist/local_wheel-3.0-py3-none-any.whl" }\n'
+        )
+        return InstallPlan(lockfile)
+
+    def _run(self, plan: InstallPlan, tmp_path: Path, *, allow_build: bool) -> list:
+        with (
+            patch.object(pywrangler_sync, "run_command") as mock_run,
+            patch.object(pywrangler_sync, "get_project_root", return_value=tmp_path),
+            patch.object(
+                pywrangler_sync,
+                "get_vendor_modules_path",
+                return_value=tmp_path / "python_modules",
+            ),
+            patch.object(
+                pywrangler_sync,
+                "get_pyodide_venv_path",
+                return_value=tmp_path / "pyodide-venv",
+            ),
+            patch.object(pywrangler_sync, "get_python_version", return_value="3.12"),
+            patch.object(pywrangler_sync, "_write_sync_token"),
+            patch.object(pywrangler_sync, "get_vendor_token_path"),
+        ):
+            mock_run.return_value.returncode = 1
+            mock_run.return_value.stdout = "boom"
+            pywrangler_sync._install_requirements_to_vendor(
+                plan, allow_build=allow_build
+            )
+            return mock_run.call_args[0][0]
+
+    def test_default_builds_only_local_sources(self, plan, tmp_path):
+        command = self._run(plan, tmp_path, allow_build=False)
+        assert command[:3] == ["uv", "pip", "install"]
+        assert "--no-build" not in command
+        assert command[3:5] == ["--only-binary", ":all:"]
+        assert ["--no-binary", "local-dir"] == command[5:7]
+        # Local wheels must not be marked --no-binary or uv refuses them.
+        assert "local-wheel" not in command[: command.index("--refresh-package")]
+        assert command.count("--refresh-package") == 2
+        assert "-r" in command
+
+    def test_allow_build_lifts_binary_restriction(self, plan, tmp_path):
+        command = self._run(plan, tmp_path, allow_build=True)
+        assert "--only-binary" not in command
+        assert "--no-binary" not in command
+        assert "--no-build" not in command
+        assert command.count("--refresh-package") == 2
+
+
 class TestInstallRequirements:
     @patch.object(pywrangler_sync, "_install_requirements_to_vendor")
     @patch.object(pywrangler_sync, "_get_vendor_package_versions")
@@ -336,6 +396,26 @@ class TestInstallPlan:
         lockfile.write_text('lock-version = "1.0"\n')
         plan = InstallPlan(lockfile)
         assert plan.requirements == []
+
+    def test_classifies_local_sources(self, tmp_path):
+        """Local directories and sdists must be built; local wheels must not."""
+        lockfile = tmp_path / "pylock.toml"
+        lockfile.write_text(
+            'lock-version = "1.0"\n'
+            '[[packages]]\nname = "from-pypi"\nversion = "1.0"\n'
+            'wheels = [{ url = "https://example.invalid/from_pypi-1.0-py3-none-any.whl" }]\n'
+            '[[packages]]\nname = "local-dir"\n'
+            'directory = { path = "../local-dir", editable = false }\n'
+            '[[packages]]\nname = "local-sdist"\nversion = "2.0"\n'
+            'sdist = { path = "dist/local_sdist-2.0.tar.gz" }\n'
+            '[[packages]]\nname = "local-wheel"\nversion = "3.0"\n'
+            'archive = { path = "dist/local_wheel-3.0-py3-none-any.whl" }\n'
+            '[[packages]]\nname = "remote-archive"\nversion = "4.0"\n'
+            'archive = { url = "https://example.invalid/remote_archive-4.0.tar.gz" }\n'
+        )
+        plan = InstallPlan(lockfile)
+        assert plan.local_packages == ["local-dir", "local-sdist", "local-wheel"]
+        assert plan.local_build_packages == ["local-dir", "local-sdist"]
 
 
 class TestResolveRequirements:

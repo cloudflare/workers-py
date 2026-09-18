@@ -30,6 +30,9 @@ class InstallPlan:
         # Names of packages sourced from a local path. They need refreshing when
         # rebuilt.
         self.local_packages: list[str] = []
+        # Subset of `local_packages` that have no wheel and so must be built
+        # (directories, sdists). Local `.whl` files are excluded.
+        self.local_build_packages: list[str] = []
 
         with open(lockfile, "rb") as f:
             data = tomllib.load(f)
@@ -39,18 +42,26 @@ class InstallPlan:
             if not name:
                 logger.warning("Skipping malformed lockfile entry: %s", pkg)
                 continue
-            if any(self._is_local_source(pkg, key) for key in self._LOCAL_SOURCE_KEYS):
+            local_paths = [
+                path
+                for key in self._LOCAL_SOURCE_KEYS
+                if (path := self._local_source_path(pkg, key)) is not None
+            ]
+            if local_paths:
                 self.local_packages.append(name)
+                if not all(path.endswith(".whl") for path in local_paths):
+                    self.local_build_packages.append(name)
 
             self.requirements.append((name, pkg.get("version")))
 
     @staticmethod
-    def _is_local_source(pkg: dict, key: str) -> bool:
+    def _local_source_path(pkg: dict, key: str) -> str | None:
         source = pkg.get(key)
         if not isinstance(source, dict):
-            return False
+            return None
         # A local reference has a `path`
-        return "path" in source
+        path = source.get("path")
+        return path if isinstance(path, str) else None
 
 
 def parse_requirements() -> list[str]:
@@ -79,9 +90,9 @@ def _compile_lockfile(
     are preserved across re-runs (no silent upgrades).
 
     By default ``--no-build`` is passed so only prebuilt wheels are used. This
-    is because building a Pyodide platformed wheel will fail. Set *allow_build*
-    to permit building source distributions / local directory sources. This is
-    useful for testing against local checkouts of pure Python packages.
+    is because building a Pyodide platformed wheel will fail. Local directory
+    sources still resolve because uv reads their static metadata without
+    building. Set *allow_build* to permit building source distributions.
     """
     project_root = get_project_root()
     with temp_requirements_file(supplemental_requirements) as req_in_path:
