@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "testlib"
 version = "0.0.0"
 requires-python = ">=3.11"
-dependencies = ["pytest"]
+dependencies = ["pytest", "pyodide-tblib>=3.2.3"]
 
 [project.optional-dependencies]
 host = ["requests"]
