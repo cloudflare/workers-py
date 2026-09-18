@@ -19,6 +19,48 @@ import requests
 SUITE_CONNECT_TIMEOUT = 10
 SUITE_READ_TIMEOUT = 300
 
+# The monorepo's `packages/` directory.
+PACKAGES: Path = Path(__file__).parents[2]
+WORKERS_PY: Path = PACKAGES / "cli"
+PY_WRANGLER_CMD: list[str] = [
+    "uv",
+    "run",
+    "--no-project",
+    "--with",
+    str(WORKERS_PY),
+    "pywrangler",
+]
+
+
+def link_packages(tmp_path: Path) -> Path:
+    """Symlink the monorepo's ``packages/`` directory into *tmp_path*.
+
+    Worker test projects are copied to ``tmp_path/<name>`` before being synced,
+    so their ``[tool.uv.sources]`` entries refer to the working-tree checkouts
+    as ``../packages/<package>``. This makes those paths resolve, so
+    ``pywrangler sync`` builds and vendors the local testlib, runtime-sdk and
+    django-cf instead of the PyPI releases.
+    """
+    link = tmp_path / "packages"
+    link.symlink_to(PACKAGES, target_is_directory=True)
+    return link
+
+
+def pywrangler_sync(cwd: Path, env: dict[str, str]) -> None:
+    """Run ``pywrangler sync`` in *cwd*, failing the test with its output on error."""
+    result = subprocess.run(
+        [*PY_WRANGLER_CMD, "sync"],
+        cwd=cwd,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        pytest.fail(
+            f"pywrangler sync failed in {cwd}\n{result.stdout}\n{result.stderr}"
+        )
+
 
 @dataclass(frozen=True)
 class CompatConfig:
@@ -130,7 +172,6 @@ def dev_server(
     target: Path,
     tmp_path: Path,
     env: dict[str, str],
-    pywrangler: list[str],
     *,
     startup_timeout: int,
     readiness_path: str = "",
@@ -146,7 +187,7 @@ def dev_server(
     with log_path.open("w") as log_file:
         process = subprocess.Popen(
             [
-                *pywrangler,
+                *PY_WRANGLER_CMD,
                 "dev",
                 "--port",
                 str(port),

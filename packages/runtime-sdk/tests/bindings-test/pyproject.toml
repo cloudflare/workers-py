@@ -13,7 +13,9 @@ dependencies = [
     "asyncpg; python_version >= '3.14'",
     "cryptography",
     "testlib",
+    "workers-runtime-sdk",
 ]
 
 [tool.uv.sources]
-testlib = { path = "../testlib/dist/testlib-0.0.0-py3-none-any.whl" }
+testlib = { path = "../packages/testlib" }
+workers-runtime-sdk = { path = "../packages/runtime-sdk" }

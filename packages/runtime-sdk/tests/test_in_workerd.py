@@ -8,12 +8,12 @@ from conftest import (
     COMPAT_CONFIGS,
     CompatConfig,
     configure_compatibility,
+    link_packages,
+    pywrangler_sync,
 )
 
 TEST_DIR = Path(__file__).parent
 WORKERD_TESTS = TEST_DIR / "workerd-test"
-WORKERS_PY = TEST_DIR.parent.parent / "cli"
-WORKERS_RUNTIME_SDK = TEST_DIR.parent / "src"
 DISK_SERVICE_NAME = "TEST_TMPDIR"
 
 
@@ -110,23 +110,14 @@ def test_in_workerd(  # noqa: PLR0913, PLR0917  (too-many-arguments)
     target = tmp_path / test_dir.name
     disk_service_dir = target / DISK_SERVICE_NAME
     shutil.copytree(test_dir, target, ignore=shutil.ignore_patterns(".venv"))
+    # Makes the project's `../packages/runtime-sdk` source resolve so `sync`
+    # vendors the working-tree SDK.
+    link_packages(tmp_path)
     disk_service_dir.mkdir(exist_ok=True)
 
     configure_compatibility(target / "wrangler.jsonc", compat_config)
 
-    pywrangler_cmd = ["uv", "run", "--no-project", "--with", WORKERS_PY, "pywrangler"]
-
-    subprocess.run(
-        [*pywrangler_cmd, "sync"],
-        cwd=target,
-        check=True,
-        env=os.environ | {"_PYODIDE_EXTRA_MOUNTS": str(tmp_path)},
-    )
-
-    # Copy runtime-sdk to the python modules as well
-    # FIXME: remove this and pass runtime-sdk as a dependency explicitly after
-    #        https://github.com/cloudflare/workers-py/pull/81 is merged
-    shutil.copytree(WORKERS_RUNTIME_SDK, target / "python_modules", dirs_exist_ok=True)
+    pywrangler_sync(target, os.environ | {"_PYODIDE_EXTRA_MOUNTS": str(tmp_path)})
 
     modules = embed(target / "python_modules", target, level=1) + embed(
         target / "tests", target, level=1

@@ -392,9 +392,9 @@ def create_dummy_build_dep(parent_dir: Path, name: str = "dummy-build-dep") -> P
     """Create a tiny pure-Python dependency that must be built from source.
 
     The package only exists as a local directory (no prebuilt wheel on any
-    index), so installing it requires ``uv`` to run its build backend. This is
-    exactly what ``--allow-build`` gates: with ``--no-build`` (the default) the
-    resolver refuses to build it, and with ``--allow-build`` it succeeds.
+    index), so installing it requires ``uv`` to run its build backend. Local
+    path sources are the one kind of source ``sync`` builds even without
+    ``--allow-build``.
 
     Returns the path to the created dependency directory.
     """
@@ -428,8 +428,8 @@ def create_worker_pyproject_with_local_dep(
 
     The dependency is expressed as a PEP 508 direct reference to the local
     directory (``name @ file://...``) so the resolver treats it as a
-    ``directory`` source that must be built from source. ``allow_build_config``
-    toggles the ``[tool.pywrangler] allow-build`` key.
+    ``directory`` source that must be built. ``allow_build_config`` toggles the
+    ``[tool.pywrangler] allow-build`` key.
     """
     pywrangler_table = (
         "[tool.pywrangler]\nallow-build = true\n" if allow_build_config else ""
@@ -455,13 +455,17 @@ def create_worker_pyproject_with_local_dep(
     sys.platform == "win32",
     reason="FIXME Pyodide WASM interpreter cannot run setuptools build backends on Windows",
 )
-def test_sync_allow_build_local_dependency(test_dir):
-    """End-to-end test for --allow-build with a local source dependency.
+@pytest.mark.parametrize(
+    "extra_args", [[], ["--no-allow-build"]], ids=["default", "explicit"]
+)
+def test_sync_builds_local_directory_dependency(test_dir, extra_args):
+    """End-to-end test: local directory sources are built without --allow-build.
 
     A tiny dummy package that only exists as a local directory (and therefore
-    must be built from source) is added to the worker's pyproject.toml. Syncing
-    without --allow-build must fail (default is --no-build), while syncing with
-    --allow-build must succeed and vendor the built package.
+    must be built from source) is added to the worker's pyproject.toml. Unlike
+    source distributions from an index, which stay blocked so uv can't pick a
+    newer sdist over an older Pyodide wheel, a local path source is something
+    the project explicitly asked for, so `sync` builds it.
     """
     dep_name = "dummy-build-dep"
     dep_dir = create_dummy_build_dep(test_dir, dep_name)
@@ -469,51 +473,21 @@ def test_sync_allow_build_local_dependency(test_dir):
     create_test_wrangler_jsonc(test_dir, "src/worker.py")
 
     vendor_path = test_dir / "python_modules"
-    sync_cmd = ["uv", "run", "pywrangler", "sync"]
-
-    # Without --allow-build: the default --no-build rejects the local source.
     result = subprocess.run(
-        [*sync_cmd, "--no-allow-build"],
+        ["uv", "run", "pywrangler", "sync", *extra_args],
         capture_output=True,
         text=True,
         cwd=test_dir,
         check=False,
     )
-    assert result.returncode != 0, (
-        "sync should fail without --allow-build because the local dependency "
-        "must be built from source"
-    )
-    assert not is_package_installed(vendor_path, dep_name), (
-        "dummy build dep should not be vendored when the build was rejected"
-    )
-
-    # With --allow-build: uv is allowed to build the local source.
-    result = subprocess.run(
-        [*sync_cmd, "--force", "--allow-build"],
-        capture_output=True,
-        text=True,
-        cwd=test_dir,
-        check=False,
-    )
-    assert result.returncode == 0, (
-        f"sync --allow-build failed: {result.stdout}\n{result.stderr}"
-    )
+    assert result.returncode == 0, f"sync failed: {result.stdout}\n{result.stderr}"
     assert is_package_installed(vendor_path, dep_name), (
-        f"{dep_name} should be built and vendored into python_modules "
-        "when --allow-build is passed"
+        f"{dep_name} should be built and vendored into python_modules"
     )
 
 
-@pytest.mark.skipif(
-    sys.platform == "win32",
-    reason="FIXME Pyodide WASM interpreter cannot run setuptools build backends on Windows",
-)
-def test_sync_allow_build_via_pyproject_config(test_dir):
-    """End-to-end test for the [tool.pywrangler] allow-build config fallback.
-
-    When no CLI flag is passed, sync should honor `allow-build = true` in the
-    [tool.pywrangler] table of pyproject.toml.
-    """
+def test_sync_reads_allow_build_from_pyproject_config(test_dir):
+    """`sync()` falls back to `[tool.pywrangler] allow-build` when no flag is passed."""
     dep_name = "dummy-build-dep"
     dep_dir = create_dummy_build_dep(test_dir, dep_name)
     create_worker_pyproject_with_local_dep(
@@ -521,21 +495,17 @@ def test_sync_allow_build_via_pyproject_config(test_dir):
     )
     create_test_wrangler_jsonc(test_dir, "src/worker.py")
 
-    vendor_path = test_dir / "python_modules"
-    result = subprocess.run(
-        ["uv", "run", "pywrangler", "sync"],
-        capture_output=True,
-        text=True,
-        cwd=test_dir,
-        check=False,
-    )
-    assert result.returncode == 0, (
-        f"sync failed with [tool.pywrangler] allow-build = true: "
-        f"{result.stdout}\n{result.stderr}"
-    )
-    assert is_package_installed(vendor_path, dep_name), (
-        f"{dep_name} should be vendored when allow-build is enabled via config"
-    )
+    with (
+        patch.object(pywrangler_sync, "check_requirements_txt"),
+        patch.object(pywrangler_sync, "create_workers_venv"),
+        patch.object(pywrangler_sync, "create_pyodide_venv"),
+        patch.object(pywrangler_sync, "resolve_requirements") as mock_resolve,
+        patch.object(pywrangler_sync, "install_requirements") as mock_install,
+    ):
+        pywrangler_sync.sync(force=True)
+
+    assert mock_resolve.call_args.kwargs["allow_build"] is True
+    assert mock_install.call_args.kwargs["allow_build"] is True
 
 
 def test_sync_command_handles_missing_pyproject():
