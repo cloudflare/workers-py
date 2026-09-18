@@ -1,8 +1,9 @@
+import asyncio
 import logging
 from asyncio import Event, Future, Queue, create_task, ensure_future
 from collections.abc import Awaitable
 from contextlib import contextmanager
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import unquote
 
 import js
@@ -91,6 +92,70 @@ def request_to_scope(req, env, ws=False, state=None):
         # ASGI requires a shallow copy of lifespan state for each request.
         scope["state"] = dict(state)
     return scope
+
+
+async def _no_shutdown() -> None:
+    return
+
+
+# How long a request waits on a startup another request began, before giving up
+# and letting the next request re-drive it. See _ensure_worker_lifespan.
+WORKER_LIFESPAN_STARTUP_TIMEOUT = 30.0
+
+# Keyed by id(app), holding the app itself alongside the value: an id is only
+# unique among live objects, so a collected app could hand its id, and another
+# app's lifespan state, to an unrelated object. Keeping it alive costs nothing
+# here, since worker mode means the app lives as long as the isolate.
+_worker_lifespans: dict[int, tuple[Any, Future]] = {}
+_worker_lifespan_states: dict[int, tuple[Any, dict[str, Any]]] = {}
+
+
+def _forget_worker_lifespan(app: Any, fut: Future) -> None:
+    cached = _worker_lifespans.get(id(app))
+    if cached is not None and cached[1] is fut:
+        del _worker_lifespans[id(app)]
+
+
+async def _ensure_worker_lifespan(app: Any) -> dict[str, Any]:
+    cached_state = _worker_lifespan_states.get(id(app))
+    if cached_state is not None:
+        # workerd drops promise continuations scheduled onto a dead IoContext
+        # (compat flag handle_cross_request_promise_resolution, enabled by date
+        # since 2024-10-14), so once startup is done the state is read directly
+        # rather than by awaiting a future an earlier request created.
+        # Concurrent cold starts below still take that risk.
+        return cached_state[1]
+
+    # Concurrent cold-start requests share one startup instead of each driving
+    # its own lifespan cycle.
+    cached = _worker_lifespans.get(id(app))
+    if cached is None:
+        fut = ensure_future(start_application(app))
+        _worker_lifespans[id(app)] = (app, fut)
+    else:
+        fut = cached[1]
+    try:
+        # Shielded so that one waiter timing out or being cancelled does not
+        # cancel the startup the other waiters are relying on. Bounded because
+        # a waiter here is on the dropped-continuation path described above, so
+        # without a deadline it could wait forever, and so would every request
+        # after it.
+        _shutdown, state = await asyncio.wait_for(
+            asyncio.shield(fut), WORKER_LIFESPAN_STARTUP_TIMEOUT
+        )
+    except TimeoutError as exc:
+        _forget_worker_lifespan(app, fut)
+        raise RuntimeError(
+            "ASGI lifespan startup did not complete within "
+            f"{WORKER_LIFESPAN_STARTUP_TIMEOUT}s; the next request will retry it"
+        ) from exc
+    except BaseException:
+        # Drop the failed startup so the next request retries, rather than
+        # turning one transient cold-start error into permanent failures.
+        _forget_worker_lifespan(app, fut)
+        raise
+    _worker_lifespan_states[id(app)] = (app, state)
+    return state
 
 
 async def start_application(app):
@@ -436,10 +501,20 @@ async def process_websocket(
 
 
 async def fetch(
-    app: Any, req: "Request | js.Request", env: Any, ctx: Context | None = None
+    app: Any,
+    req: "Request | js.Request",
+    env: Any,
+    ctx: Context | None = None,
+    *,
+    lifespan: Literal["request", "worker"] = "request",
 ) -> js.Response:
     logger.debug("ASGI request: %s %s", req.method, req.url)
-    shutdown, state = await start_application(app)
+    if lifespan == "worker":
+        shutdown, state = _no_shutdown, await _ensure_worker_lifespan(app)
+    elif lifespan == "request":
+        shutdown, state = await start_application(app)
+    else:
+        raise ValueError(f"Unsupported lifespan mode: {lifespan!r}")
     try:
         result, request_task = await process_request(app, req, env, ctx, state=state)
     except Exception:
