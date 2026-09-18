@@ -8,13 +8,15 @@ import signal
 import socket
 import subprocess
 import time
-from collections.abc import Callable, Generator
+from collections.abc import Callable, Generator, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Literal, TypedDict
+from typing import Any, Literal, NotRequired, TypedDict
 
 import pytest
 import requests
+
+from .tracebacks import WorkerException, load_exception
 
 SUITE_CONNECT_TIMEOUT = 10
 SUITE_READ_TIMEOUT = 300
@@ -67,6 +69,7 @@ class InWorkerTestResult(TypedDict):
     error: str
     traceback: str
     reason: str
+    exception: NotRequired[WorkerException]
 
 
 SuiteResults = dict[str, InWorkerTestResult]
@@ -187,8 +190,10 @@ def get_suite_results(server: str, suite: str) -> SuiteResults | str:
     return response.json()
 
 
-def _make_test(suite: str, test_name: str) -> Callable:
+def _make_test(suite: str, test_name: str, source_roots: tuple[Path, ...]) -> Callable:
     def test_fn(self: Any, dev_server: str) -> None:
+        # Hide this frame: the interesting traceback is the one from the worker.
+        __tracebackhide__ = True
         results = get_suite_results(dev_server, suite)
         if isinstance(results, str):
             pytest.fail(results)
@@ -199,10 +204,16 @@ def _make_test(suite: str, test_name: str) -> Callable:
         )
         if result["status"] == "skipped":
             pytest.skip(result.get("reason", ""))
-        if result["status"] == "failed":
-            pytest.fail(result["error"])
-        if result["status"] == "error":
-            pytest.fail(f"{result['error']}\n{result.get('traceback', '')}")
+        if result["status"] not in ("failed", "error"):
+            return
+        exception = result.get("exception")
+        if exception is None:
+            pytest.fail(f"{result['error']}\n{result.get('traceback', '')}".rstrip())
+        exc = load_exception(exception, source_roots)
+        when = exception.get("when", "call")
+        if when != "call":
+            exc.add_note(f"raised in the worker during test {when}")
+        raise exc
 
     test_fn.__name__ = f"test_{test_name}"
     return test_fn
@@ -235,8 +246,16 @@ def register_in_worker_suites(
     *,
     marks: dict[str, pytest.MarkDecorator] | None = None,
     class_name: Callable[[str], str] | None = None,
+    source_roots: Sequence[Path] = (),
 ) -> None:
-    """Expose each in-worker test as an individual host-side pytest test."""
+    """Expose each in-worker test as an individual host-side pytest test.
+
+    ``source_roots`` lists extra host directories (besides ``src_dir``) that
+    hold copies of code running inside the worker, e.g. a package's source
+    tree that gets vendored into ``python_modules``. Traceback frames from
+    the worker are remapped onto them so pytest can show source lines.
+    """
+    roots = (src_dir, *source_roots)
     for module_path in sorted(src_dir.glob("test_*.py")):
         suite = module_path.stem[len("test_") :]
         generated_class_name = (
@@ -248,7 +267,7 @@ def register_in_worker_suites(
             f"Test{generated_class_name}",
             (),
             {
-                f"test_{name}": _make_test(suite, name)
+                f"test_{name}": _make_test(suite, name, roots)
                 for name in discover_test_names(module_path)
             },
         )
