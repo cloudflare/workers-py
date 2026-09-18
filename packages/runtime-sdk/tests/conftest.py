@@ -2,7 +2,6 @@
 
 import os
 import shutil
-import subprocess
 from collections.abc import Generator
 from pathlib import Path
 from typing import Any
@@ -12,6 +11,8 @@ from testlib.host import (
     COMPAT_CONFIGS,
     CompatConfig,
     configure_compatibility,
+    link_packages,
+    pywrangler_sync,
 )
 from testlib.host import (
     dev_server as run_dev_server,
@@ -21,9 +22,6 @@ from testlib.host import (
 )
 
 TEST_DIR: Path = Path(__file__).parent
-WORKERS_PY: Path = TEST_DIR.parent.parent / "cli"
-WORKERS_RUNTIME_SDK: Path = TEST_DIR.parent / "src"
-TESTLIB: Path = TEST_DIR.parent.parent / "testlib"
 
 DEV_STARTUP_TIMEOUT: int = 120
 OPT_IN_MARKERS: tuple[str, ...] = ("hyperdrive",)
@@ -41,11 +39,6 @@ def pytest_collection_modifyitems(
         for item in items:
             if marker in item.keywords:
                 item.add_marker(skip)
-
-
-@pytest.fixture(scope="session", autouse=True)
-def build_testlib():
-    subprocess.run(["uv", "build"], cwd=TESTLIB, check=True)
 
 
 @pytest.fixture(
@@ -74,32 +67,27 @@ def dev_server(
     worker_project_dir: Path,
     compat_config: CompatConfig,
 ) -> Generator[str]:
-    """Start a pywrangler dev server on a free port and yield its base URL."""
+    """Start a pywrangler dev server on a free port and yield its base URL.
+
+    The project is copied next to a ``packages`` symlink so that its
+    ``../packages/...`` sources resolve and ``sync`` vendors the working-tree
+    testlib and runtime-sdk.
+    """
     tmp_path = tmp_path_factory.mktemp(f"{worker_project_dir.name}_dev")
     target = tmp_path / worker_project_dir.name
     shutil.copytree(worker_project_dir, target, ignore=shutil.ignore_patterns(".venv"))
-    shutil.copytree(TESTLIB, tmp_path / "testlib")
+    link_packages(tmp_path)
     env = os.environ | {"_PYODIDE_EXTRA_MOUNTS": str(tmp_path)}
 
     wrangler_jsonc = target / "wrangler.jsonc"
     configure_compatibility(wrangler_jsonc, compat_config)
 
-    pywrangler_cmd = ["uv", "run", "--no-project", "--with", WORKERS_PY, "pywrangler"]
-
-    subprocess.run(
-        [*pywrangler_cmd, "sync"],
-        cwd=target,
-        check=True,
-        env=env,
-    )
-
-    shutil.copytree(WORKERS_RUNTIME_SDK, target / "python_modules", dirs_exist_ok=True)
+    pywrangler_sync(target, env)
 
     with run_dev_server(
         target,
         tmp_path,
         env,
-        pywrangler_cmd,
         startup_timeout=DEV_STARTUP_TIMEOUT,
         readiness_path="/health",
         require_success=True,
@@ -118,5 +106,4 @@ def register_in_worker_suites(
         src_dir,
         marks=marks,
         class_name=str.upper,
-        source_roots=[WORKERS_RUNTIME_SDK],
     )

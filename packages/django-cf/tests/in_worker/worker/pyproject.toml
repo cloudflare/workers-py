@@ -4,11 +4,18 @@ version = "0.0.0"
 requires-python = ">=3.12"
 dependencies = [
     "django<6.1",
+    "django-cf",
     "pytest",
     "pytest-asyncio<1.2.0",
     "sqlparse",
     "testlib",
+    "workers-runtime-sdk",
 ]
 
+# `../packages` is a symlink to the monorepo's `packages/` directory that the
+# host-side `dev_server` fixture creates next to its copy of this project, so
+# the tests exercise the working-tree checkouts rather than PyPI releases.
 [tool.uv.sources]
-testlib = { path = "../testlib/dist/testlib-0.0.0-py3-none-any.whl" }
+django-cf = { path = "../packages/django-cf" }
+testlib = { path = "../packages/testlib" }
+workers-runtime-sdk = { path = "../packages/runtime-sdk" }

@@ -792,7 +792,7 @@ dev = [
 
 [[package]]
 name = "workers-runtime-sdk"
-version = "1.8.6"
+version = "1.9.0"
 source = { editable = "../runtime-sdk" }
 
 [package.metadata]
