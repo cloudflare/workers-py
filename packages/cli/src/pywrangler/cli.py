@@ -136,7 +136,7 @@ def types_command(outdir: str | None, config: str | None) -> Never:
     "--allow-build/--no-allow-build",
     default=None,
     help=(
-        "Allow building source distributions and local directory sources. "
+        "Allow building any source distribution. "
         "Defaults to the [tool.pywrangler] allow-build setting in pyproject.toml."
     ),
 )
