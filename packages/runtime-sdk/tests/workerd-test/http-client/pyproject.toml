@@ -2,4 +2,7 @@
 name = "http-client-compatibility-test"
 version = "0.0.0"
 requires-python = ">=3.14"
-dependencies = ["pytest"]
+dependencies = ["pytest", "workers-runtime-sdk"]
+
+[tool.uv.sources]
+workers-runtime-sdk = { path = "../packages/runtime-sdk" }

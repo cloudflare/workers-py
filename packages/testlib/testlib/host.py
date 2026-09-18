@@ -21,6 +21,49 @@ from .tracebacks import WorkerException, load_exception
 SUITE_CONNECT_TIMEOUT = 10
 SUITE_READ_TIMEOUT = 300
 
+# The monorepo's `packages/` directory.
+PACKAGES: Path = Path(__file__).parents[2]
+WORKERS_PY: Path = PACKAGES / "cli"
+WORKERS_RUNTIME_SDK: Path = PACKAGES / "runtime-sdk/src"
+PY_WRANGLER_CMD: list[str] = [
+    "uv",
+    "run",
+    "--no-project",
+    "--with",
+    str(WORKERS_PY),
+    "pywrangler",
+]
+
+
+def link_packages(tmp_path: Path) -> Path:
+    """Symlink the monorepo's ``packages/`` directory into *tmp_path*.
+
+    Worker test projects are copied to ``tmp_path/<name>`` before being synced,
+    so their ``[tool.uv.sources]`` entries refer to the working-tree checkouts
+    as ``../packages/<package>``. This makes those paths resolve, so
+    ``pywrangler sync`` builds and vendors the local testlib, runtime-sdk and
+    django-cf instead of the PyPI releases.
+    """
+    link = tmp_path / "packages"
+    link.symlink_to(PACKAGES, target_is_directory=True)
+    return link
+
+
+def pywrangler_sync(cwd: Path, env: dict[str, str]) -> None:
+    """Run ``pywrangler sync`` in *cwd*, failing the test with its output on error."""
+    result = subprocess.run(
+        [*PY_WRANGLER_CMD, "sync"],
+        cwd=cwd,
+        env=env,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        pytest.fail(
+            f"pywrangler sync failed in {cwd}\n{result.stdout}\n{result.stderr}"
+        )
+
 
 @dataclass(frozen=True)
 class CompatConfig:
@@ -133,7 +176,6 @@ def dev_server(
     target: Path,
     tmp_path: Path,
     env: dict[str, str],
-    pywrangler: list[str],
     *,
     startup_timeout: int,
     readiness_path: str = "",
@@ -149,7 +191,7 @@ def dev_server(
     with log_path.open("w") as log_file:
         process = subprocess.Popen(
             [
-                *pywrangler,
+                *PY_WRANGLER_CMD,
                 "dev",
                 "--port",
                 str(port),
@@ -190,7 +232,9 @@ def get_suite_results(server: str, suite: str) -> SuiteResults | str:
     return response.json()
 
 
-def _make_test(suite: str, test_name: str, source_roots: tuple[Path, ...]) -> Callable:
+def _make_test(
+    suite: str, test_name: str, source_roots: list[Path] | None = None
+) -> Callable:
     def test_fn(self: Any, dev_server: str) -> None:
         # Hide this frame: the interesting traceback is the one from the worker.
         __tracebackhide__ = True
@@ -209,6 +253,11 @@ def _make_test(suite: str, test_name: str, source_roots: tuple[Path, ...]) -> Ca
         exception = result.get("exception")
         if exception is None:
             pytest.fail(f"{result['error']}\n{result.get('traceback', '')}".rstrip())
+        if source_roots is None:
+            source_roots_ = []
+        else:
+            source_roots_ = source_roots
+        source_roots_.append(WORKERS_RUNTIME_SDK)
         exc = load_exception(exception, source_roots)
         when = exception.get("when", "call")
         if when != "call":

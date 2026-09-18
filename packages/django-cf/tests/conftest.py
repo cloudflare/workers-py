@@ -4,7 +4,6 @@
 
 import os
 import shutil
-import subprocess
 from collections.abc import Generator
 from dataclasses import dataclass
 from pathlib import Path
@@ -15,6 +14,8 @@ from testlib.host import (
     COMPAT_CONFIGS,
     CompatConfig,
     configure_compatibility,
+    link_packages,
+    pywrangler_sync,
 )
 from testlib.host import (
     dev_server as run_dev_server,
@@ -25,9 +26,6 @@ from testlib.host import (
 
 TEST_DIR: Path = Path(__file__).parent
 PACKAGE_DIR: Path = TEST_DIR.parent
-WORKERS_PY: Path = PACKAGE_DIR.parent / "cli"
-WORKERS_RUNTIME_SDK: Path = PACKAGE_DIR.parent / "runtime-sdk" / "src"
-TESTLIB: Path = PACKAGE_DIR.parent / "testlib"
 DJANGO_CF_SRC: Path = PACKAGE_DIR / "django_cf"
 
 D1_PROJECT: Path = PACKAGE_DIR / "templates" / "d1"
@@ -80,24 +78,11 @@ def _serve(project_dir: Path, tmp_path: Path) -> Generator[DevServer]:
     target = tmp_path / project_dir.name
     shutil.copytree(project_dir, target, ignore=GENERATED)
 
-    pywrangler = ["uv", "run", "--with", str(WORKERS_PY), "pywrangler"]
     env = os.environ | {"WORKERS_CI": "1"}
+    pywrangler_sync(target, env)
 
-    sync = subprocess.run(
-        [*pywrangler, "sync"],
-        cwd=target,
-        env=env,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    if sync.returncode != 0:
-        pytest.fail(
-            f"pywrangler sync failed for {project_dir.name}\n{sync.stdout}\n{sync.stderr}"
-        )
-
-    # `sync` vendors the released django-cf from PyPI; tests must exercise the
-    # working tree instead.
+    # These are deployable example apps, so their pyproject.toml depends on the
+    # released django-cf from PyPI. Tests must exercise the working tree instead.
     vendored = target / "python_modules" / "django_cf"
     shutil.rmtree(vendored, ignore_errors=True)
     shutil.copytree(
@@ -108,7 +93,6 @@ def _serve(project_dir: Path, tmp_path: Path) -> Generator[DevServer]:
         target,
         tmp_path,
         env,
-        pywrangler,
         startup_timeout=DEV_STARTUP_TIMEOUT,
     ) as (base_url, log_path):
         _seed(base_url, log_path)
@@ -134,11 +118,6 @@ def r2_web_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[DevServ
     yield from _serve(R2_PROJECT, tmp_path_factory.mktemp("r2"))
 
 
-@pytest.fixture(scope="session", autouse=True)
-def build_testlib():
-    subprocess.run(["uv", "build"], cwd=TESTLIB, check=True)
-
-
 @pytest.fixture(
     scope="module",
     params=COMPAT_CONFIGS,
@@ -152,52 +131,26 @@ def compat_config(request: pytest.FixtureRequest) -> CompatConfig:
 def dev_server(
     tmp_path_factory: pytest.TempPathFactory, compat_config: CompatConfig
 ) -> Generator[str]:
-    """Serve ``tests/in_worker/worker``, once per compat config.
-
-    Unlike the app fixtures above, this one runs ``uv run --no-project`` and
-    vendors the runtime SDK and django-cf working trees by hand: the worker has
-    no Django project to build, it only needs the two libraries importable.
-    """
+    """Serve ``tests/in_worker/worker``, once per compat config."""
     tmp_path = tmp_path_factory.mktemp("in_worker")
     target = tmp_path / IN_WORKER_PROJECT.name
     shutil.copytree(IN_WORKER_PROJECT, target, ignore=GENERATED)
-    shutil.copytree(TESTLIB, tmp_path / "testlib", ignore=GENERATED)
+    link_packages(tmp_path)
 
     wrangler_jsonc = target / "wrangler.jsonc"
     configure_compatibility(wrangler_jsonc, compat_config)
 
-    pywrangler = [
-        "uv",
-        "run",
-        "--frozen",
-        "--no-project",
-        "--with",
-        str(WORKERS_PY),
-        "pywrangler",
-    ]
     env = os.environ | {"_PYODIDE_EXTRA_MOUNTS": str(tmp_path)}
-
-    subprocess.run([*pywrangler, "sync"], cwd=target, check=True, env=env)
-
-    shutil.copytree(WORKERS_RUNTIME_SDK, target / "python_modules", dirs_exist_ok=True)
-    shutil.copytree(
-        DJANGO_CF_SRC,
-        target / "python_modules" / "django_cf",
-        dirs_exist_ok=True,
-        ignore=shutil.ignore_patterns("__pycache__"),
-    )
+    pywrangler_sync(target, env)
 
     with run_dev_server(
         target,
         tmp_path,
         env,
-        pywrangler,
         startup_timeout=DEV_STARTUP_TIMEOUT,
     ) as (base_url, _):
         yield base_url
 
 
 def register_in_worker_suites(namespace: dict, src_dir: Path) -> None:
-    register_testlib_suites(
-        namespace, src_dir, source_roots=[PACKAGE_DIR, WORKERS_RUNTIME_SDK]
-    )
+    register_testlib_suites(namespace, src_dir, source_roots=[PACKAGE_DIR])
