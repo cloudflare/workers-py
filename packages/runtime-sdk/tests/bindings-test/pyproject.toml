@@ -7,7 +7,10 @@ dependencies = [
     "pytest-asyncio<1.2.0",
     # These are for hyperdrive tests
     "pg8000",
-    "pymysql",
+    # There is a regression in upstream pymysql.
+    # Remove when the following PR is merged and released.
+    # https://github.com/PyMySQL/PyMySQL/pull/1275
+    "pymysql<=1.2.0",
     "aiomysql",
     "psycopg[binary]; python_version >= '3.14'",
     "asyncpg; python_version >= '3.14'",
