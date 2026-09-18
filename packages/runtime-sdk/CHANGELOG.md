@@ -2,6 +2,26 @@
 
 <!-- version list -->
 
+## v1.8.6 (2026-09-18)
+
+### Bug Fixes
+
+- **runtime-sdk**: Convert workflow step results with python_to_rpc
+  ([`4220da8`](https://github.com/cloudflare/workers-py/commit/4220da80451073afd7140e091811a8dd4b879aa5))
+
+- **runtime-sdk**: Don't crash in _from_js_error on messages without a traceback
+  ([`a9159df`](https://github.com/cloudflare/workers-py/commit/a9159df2ede8f1a2ff420b8bac1d0e0199506e86))
+
+- **runtime-sdk**: Key workflow step memoisation by closure instead of step name
+  ([`610d18f`](https://github.com/cloudflare/workers-py/commit/610d18f7ce350bbd40cd20312bb26334f67923f5))
+
+- **runtime-sdk**: Raise a TypeError for invalid legacy `depends` entries
+  ([`10a2bcc`](https://github.com/cloudflare/workers-py/commit/10a2bccbe91d06e8c0fb187a661bb78a4d236342))
+
+- **runtime-sdk**: Recover Python exception types under enhanced error serialization
+  ([`53be6db`](https://github.com/cloudflare/workers-py/commit/53be6db4a8ff62e03b2eb4e4896d45d6dd5d748b))
+
+
 ## v1.8.5 (2026-09-17)
 
 ### Bug Fixes
