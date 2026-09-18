@@ -2,6 +2,19 @@
 
 <!-- version list -->
 
+## v1.9.0 (2026-09-18)
+
+### Bug Fixes
+
+- **runtime-sdk**: Make NonRetryableError raised in a workflow step non-retryable
+  ([`1c1980a`](https://github.com/cloudflare/workers-py/commit/1c1980afabaa27d39bf18d3fe19c7385c2890fa6))
+
+### Features
+
+- **runtime-sdk**: Add helpers to import JavaScript modules shipped with the SDK
+  ([`caa9364`](https://github.com/cloudflare/workers-py/commit/caa9364f38a111d5496f81f6bc23ebb88d191928))
+
+
 ## v1.8.6 (2026-09-18)
 
 ### Bug Fixes
