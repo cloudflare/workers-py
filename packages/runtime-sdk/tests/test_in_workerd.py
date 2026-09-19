@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 from conftest import (
     COMPAT_CONFIGS,
+    TESTLIB,
     CompatConfig,
     configure_compatibility,
 )
@@ -123,6 +124,8 @@ def test_in_workerd(  # noqa: PLR0913, PLR0917  (too-many-arguments)
     target = tmp_path / test_dir.name
     disk_service_dir = target / DISK_SERVICE_NAME
     shutil.copytree(test_dir, target, ignore=shutil.ignore_patterns(".venv"))
+    # Worker projects depend on testlib via a relative wheel path (../testlib).
+    shutil.copytree(TESTLIB, tmp_path / "testlib")
     disk_service_dir.mkdir(exist_ok=True)
 
     configure_compatibility(target / "wrangler.jsonc", compat_config)

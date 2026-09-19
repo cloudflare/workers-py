@@ -132,6 +132,17 @@ def patch_asyncio():
         asyncio.runners._cancel_all_tasks = orig_cancel_all_tasks  # type: ignore[attr-defined]
 
 
+def run_pytest(pytest_args):
+    """Run pytest inside a worker with the asyncio patches applied.
+
+    Intended for workerd `test()` handlers that invoke pytest directly rather
+    than via `TestRunner`. Fails the calling test if pytest reports failures.
+    """
+    with restore_loop(), patch_asyncio():
+        exit_code = pytest.main(pytest_args)
+    assert exit_code == 0, f"pytest exit code {exit_code}"
+
+
 @dataclass
 class TestRunnerResult:
     payload: Any
