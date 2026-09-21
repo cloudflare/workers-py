@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.17.4 (2026-09-21)
+
+### Bug Fixes
+
+- Allow pywrangler sync to build path-based dependencies
+  ([`4736037`](https://github.com/cloudflare/workers-py/commit/47360379c5c61352792759ae9788c8a994846d4a))
+
+
 ## v1.17.3 (2026-09-15)
 
 ### Bug Fixes
