@@ -198,4 +198,6 @@ def dev_server(
 
 
 def register_in_worker_suites(namespace: dict, src_dir: Path) -> None:
-    register_testlib_suites(namespace, src_dir)
+    register_testlib_suites(
+        namespace, src_dir, source_roots=[PACKAGE_DIR, WORKERS_RUNTIME_SDK]
+    )

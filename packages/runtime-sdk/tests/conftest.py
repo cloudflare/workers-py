@@ -113,4 +113,10 @@ def register_in_worker_suites(
     src_dir: Path,
     marks: dict[str, pytest.MarkDecorator] | None = None,
 ) -> None:
-    register_testlib_suites(namespace, src_dir, marks=marks, class_name=str.upper)
+    register_testlib_suites(
+        namespace,
+        src_dir,
+        marks=marks,
+        class_name=str.upper,
+        source_roots=[WORKERS_RUNTIME_SDK],
+    )

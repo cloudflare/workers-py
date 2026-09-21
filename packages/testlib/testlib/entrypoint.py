@@ -12,6 +12,8 @@ import pytest
 from pyodide.webloop import WebLoop
 from workers import Response, WorkerEntrypoint
 
+from .tracebacks import dump_exception
+
 
 class EnvPlugin:
     def __init__(self, env):
@@ -20,6 +22,18 @@ class EnvPlugin:
     @pytest.fixture
     def env(self):
         return self._env
+
+
+def _describe_call_exception(item, call):
+    """Structured description of the exception recorded in ``call``.
+
+    Uses pytest's own traceback pruning so the host only sees the frames pytest
+    would have shown had the test run there directly.
+    """
+    excinfo = call.excinfo
+    traceback_filter = getattr(item, "_traceback_filter", excinfo.traceback.filter)
+    entries = [entry._rawentry for entry in traceback_filter(excinfo)]
+    return {"pickle": dump_exception(excinfo.value, entries), "when": call.when}
 
 
 class ResultCollector:
@@ -56,8 +70,10 @@ class ResultCollector:
         elif report.failed:
             result = {"status": "failed", "traceback": report.longreprtext}
             self.results[key] = result
+            excinfo = call.excinfo
+            if excinfo is not None:
+                result["exception"] = _describe_call_exception(item, call)
             if report.when == "call":
-                excinfo = call.excinfo
                 if excinfo is None:
                     # e.g. a strict xfail that unexpectedly passed.
                     result["error"] = report.longreprtext or "unknown error"

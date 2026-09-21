@@ -252,6 +252,15 @@ wheels = [
 ]
 
 [[package]]
+name = "pyodide-tblib"
+version = "3.2.3"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/4e/8a/e30340e31040c9349dfbe059123e7a0276595cacb854f0b613183b27aa4d/pyodide_tblib-3.2.3.tar.gz", hash = "sha256:e731c3a8e5fe800ebb990eaa16a48237e6894d46a2291fafdcb854a291e2f6d0", size = 47990, upload-time = "2026-09-18T16:38:15.207Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/65/12/d91be04a60cd7349cc86358e0915dcfe5edbfcf83875c458e220756872b5/pyodide_tblib-3.2.3-py3-none-any.whl", hash = "sha256:2960f305fe3ef1f5fed9ff098c959104af144627a53033a469183200e50d7ea0", size = 15861, upload-time = "2026-09-18T16:38:13.86Z" },
+]
+
+[[package]]
 name = "pytest"
 version = "9.0.2"
 source = { registry = "https://pypi.org/simple" }
@@ -349,6 +358,7 @@ name = "testlib"
 version = "0.0.0"
 source = { editable = "../testlib" }
 dependencies = [
+    { name = "pyodide-tblib" },
     { name = "pytest" },
 ]
 
@@ -359,6 +369,7 @@ host = [
 
 [package.metadata]
 requires-dist = [
+    { name = "pyodide-tblib", specifier = ">=3.2.3" },
     { name = "pytest" },
     { name = "requests", marker = "extra == 'host'" },
 ]
