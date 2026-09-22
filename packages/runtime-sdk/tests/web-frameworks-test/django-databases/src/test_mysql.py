@@ -2,7 +2,6 @@
 
 """Stock Django MySQL backend running through the HYPERDRIVE_MYSQL binding."""
 
-import MySQLdb
 import pytest
 from django.db import connections
 from django_db_config import HYPERDRIVE_MYSQL
@@ -12,7 +11,6 @@ from django_db_helpers import (
     assert_data_types,
     assert_transaction_rollback,
 )
-from MySQLdb import _mysql
 
 
 @pytest.fixture(autouse=True)

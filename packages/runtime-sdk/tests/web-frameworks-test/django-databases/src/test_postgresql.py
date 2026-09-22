@@ -2,7 +2,6 @@
 
 """Stock Django PostgreSQL backend running through the HYPERDRIVE_PG binding."""
 
-import psycopg
 import pytest
 from django.db import connections
 from django_db_config import HYPERDRIVE_POSTGRESQL
