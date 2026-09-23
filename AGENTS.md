@@ -16,6 +16,8 @@ This repository (`workers-py`) contains three Python packages that are used for 
 - `packages/runtime-sdk` contains the runtime SDK for Python Workers, which provides a base class for Python Workers and utilities for working with Cloudflare's runtime.
 - `packages/django-cf` is the Django integration package, providing database backends for D1 and Durable Objects, an R2 storage backend, and Cloudflare Access middleware.
 
+There is also an unpublished `packages/testlib`, shared by the `runtime-sdk` and `django-cf` test suites for running pytest inside workerd and reporting the results as host-side tests.
+
 ### `packages/cli`
 
 For cli conventions, see `packages/cli/AGENTS.md`.
@@ -27,6 +29,10 @@ For runtime-sdk conventions, see `packages/runtime-sdk/AGENTS.md`.
 ### `packages/django-cf`
 
 For django-cf conventions, see `packages/django-cf/AGENTS.md`.
+
+### `packages/testlib`
+
+For how in-worker test suites are exposed as host tests, see `packages/testlib/AGENTS.md`.
 
 ## Build System & Commands
 
