@@ -32,7 +32,7 @@ For django-cf conventions, see `packages/django-cf/AGENTS.md`.
 
 ### `packages/testlib`
 
-For how in-worker test suites are exposed as host tests, see `packages/testlib/AGENTS.md`.
+For how in-worker test suites are exposed as host tests and how pytest arguments are forwarded into the worker, see `packages/testlib/AGENTS.md`.
 
 ## Build System & Commands
 

@@ -218,11 +218,120 @@ def dev_server(
             _terminate(process, teardown_timeout)
 
 
+# Host pytest options that must not be forwarded to the in-worker pytest run.
+# Host markers (e.g. ``hyperdrive``) don't exist inside the worker. Extend this
+# as further host-only options turn up.
+HOST_ONLY_OPTIONS: frozenset[str] = frozenset({"-m", "--markexpr"})
+
+
+def _option_name(arg: str) -> str | None:
+    """Return the option part of *arg* (``--tb=short`` -> ``--tb``, ``-mfoo`` -> ``-m``)."""
+    if arg.startswith("--"):
+        return arg.split("=", 1)[0]
+    if arg.startswith("-") and len(arg) > 1:
+        return arg[:2]
+    return None
+
+
+def worker_pytest_args(config: pytest.Config) -> tuple[str, ...]:
+    """Arguments from the host pytest invocation to forward to the worker.
+
+    Everything the host was invoked with is forwarded except positional
+    targets (host node IDs don't exist inside the worker; the worker runs the
+    suite module instead) and the options in :data:`HOST_ONLY_OPTIONS`.
+    Options from ``addopts`` are not part of the invocation and are not
+    forwarded either.
+
+    Host node IDs mirror the in-worker ones (see ``register_in_worker_suites``)
+    so ``-k`` expressions on suite file, class and function names select the
+    same tests on both sides. Only the host module (e.g. ``test_bindings.py``)
+    and the compat-config parameter (e.g. ``3.12``) have no in-worker
+    counterpart.
+    """
+    args = [str(arg) for arg in config.invocation_params.args]
+    targets = (
+        set(config.args) if config.args_source is config.ArgsSource.ARGS else set()
+    )
+
+    forwarded: list[str] = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        i += 1
+        if arg == "--":
+            # Everything after ``--`` is a positional target.
+            break
+        name = _option_name(arg)
+        if name is None:
+            # Positional target, or the value of a forwarded option.
+            if arg not in targets:
+                forwarded.append(arg)
+            continue
+        if name in HOST_ONLY_OPTIONS:
+            # Drop the option and, if given separately, its value.
+            if (
+                arg == name
+                and i < len(args)
+                and not args[i].startswith("-")
+                and args[i] not in targets
+            ):
+                i += 1
+            continue
+        forwarded.append(arg)
+    return tuple(forwarded)
+
+
+def _suite_node(item: pytest.Item) -> pytest.Class:
+    """The ``test_<suite>.py`` class node that *item* belongs to."""
+    node: Any = item
+    while not isinstance(node.parent, pytest.Module):
+        node = node.parent
+    return node
+
+
+def host_only_keywords(item: pytest.Item) -> tuple[str, ...]:
+    """``-k`` keywords of *item* that have no counterpart inside the worker.
+
+    Host items mirror the in-worker node names below the suite class (see
+    ``register_in_worker_suites``), but additionally carry the names of their
+    ancestors (``tests``, ``test_bindings.py``), the compat-config parameter
+    (``3.12``) and any suite marks. The worker attaches these to its own items
+    so a ``-k`` expression selects the same tests on both sides.
+    """
+    suite = _suite_node(item)
+    keywords: list[str] = []
+    for node in suite.listchain()[:-1]:
+        if isinstance(node, pytest.Session):
+            continue
+        # Like pytest's KeywordMatcher, skip the rootdir directory node.
+        if isinstance(node, pytest.Directory) and isinstance(
+            node.parent, pytest.Session
+        ):
+            continue
+        keywords.append(node.name)
+    keywords.extend(mark.name for mark in suite.iter_markers())
+    callspec = getattr(item, "callspec", None)
+    if callspec is not None:
+        keywords.append(callspec.id)
+    return tuple(keywords)
+
+
 @functools.cache
-def get_suite_results(server: str, suite: str) -> SuiteResults | str:
+def get_suite_results(
+    server: str,
+    suite: str,
+    args: tuple[str, ...] = (),
+    keywords: tuple[str, ...] = (),
+) -> SuiteResults | str:
+    """Run *suite* in the worker and return its results.
+
+    *args* are extra pytest arguments and *keywords* extra ``-k`` keywords for
+    the in-worker items (see ``worker_pytest_args`` and ``host_only_keywords``).
+    """
     try:
         response = requests.get(
             f"{server}/run-tests/{suite}",
+            params={"arg": list(args), "kw": list(keywords)},
             timeout=(SUITE_CONNECT_TIMEOUT, SUITE_READ_TIMEOUT),
         )
     except requests.RequestException as error:
@@ -237,15 +346,21 @@ def _make_test(
 ) -> Callable:
     """Build a host test method that reports the in-worker result *result_key*."""
 
-    def test_fn(self: Any, dev_server: str) -> None:
+    def test_fn(self: Any, dev_server: str, request: pytest.FixtureRequest) -> None:
         # Hide this frame: the interesting traceback is the one from the worker.
         __tracebackhide__ = True
-        results = get_suite_results(dev_server, suite)
+        results = get_suite_results(
+            dev_server,
+            suite,
+            worker_pytest_args(request.config),
+            host_only_keywords(request.node),
+        )
         if isinstance(results, str):
             pytest.fail(results)
         result = results.get(result_key)
         assert result is not None, (
-            f"Test {suite}::{result_key} not found in results; "
+            f"Test {suite}::{result_key} not found in results "
+            f"(deselected, or the worker session stopped early, e.g. due to -x); "
             f"available keys: {sorted(results)}"
         )
         if result["status"] == "skipped":
