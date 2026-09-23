@@ -12,17 +12,17 @@ import pytest
 import requests
 from testlib.host import (
     COMPAT_CONFIGS,
+    GENERATED_FILE_PATTERN,
     CompatConfig,
-    configure_compatibility,
-    link_packages,
+    dev_server,
     pywrangler_sync,
-)
-from testlib.host import (
-    dev_server as run_dev_server,
+    run_dev_server,
 )
 from testlib.host import (
     register_in_worker_suites as register_testlib_suites,
 )
+
+__all__ = ["dev_server"]
 
 TEST_DIR: Path = Path(__file__).parent
 PACKAGE_DIR: Path = TEST_DIR.parent
@@ -31,19 +31,9 @@ DJANGO_CF_SRC: Path = PACKAGE_DIR / "django_cf"
 D1_PROJECT: Path = PACKAGE_DIR / "templates" / "d1"
 DURABLE_OBJECTS_PROJECT: Path = PACKAGE_DIR / "templates" / "durable-objects"
 R2_PROJECT: Path = TEST_DIR / "servers" / "r2"
-IN_WORKER_PROJECT: Path = TEST_DIR / "in_worker" / "worker"
 
 DEV_STARTUP_TIMEOUT: int = 240
 SEED_TIMEOUT: int = 180
-GENERATED = shutil.ignore_patterns(
-    ".venv",
-    ".venv-workers",
-    ".wrangler",
-    "__pycache__",
-    "node_modules",
-    "python_modules",
-    "staticfiles",
-)
 
 
 @dataclass(frozen=True)
@@ -76,7 +66,7 @@ def _seed(base_url: str, log_path: Path) -> None:
 
 def _serve(project_dir: Path, tmp_path: Path) -> Generator[DevServer]:
     target = tmp_path / project_dir.name
-    shutil.copytree(project_dir, target, ignore=GENERATED)
+    shutil.copytree(project_dir, target, ignore=GENERATED_FILE_PATTERN)
 
     env = os.environ | {"WORKERS_CI": "1"}
     pywrangler_sync(target, env)
@@ -128,28 +118,19 @@ def compat_config(request: pytest.FixtureRequest) -> CompatConfig:
 
 
 @pytest.fixture(scope="module")
-def dev_server(
-    tmp_path_factory: pytest.TempPathFactory, compat_config: CompatConfig
-) -> Generator[str]:
-    """Serve ``tests/in_worker/worker``, once per compat config."""
-    tmp_path = tmp_path_factory.mktemp("in_worker")
-    target = tmp_path / IN_WORKER_PROJECT.name
-    shutil.copytree(IN_WORKER_PROJECT, target, ignore=GENERATED)
-    link_packages(tmp_path)
+def worker_project_dir() -> Path:
+    """Worker project the `dev_server` fixture should serve.
 
-    wrangler_jsonc = target / "wrangler.jsonc"
-    configure_compatibility(wrangler_jsonc, compat_config)
+    Test modules using `dev_server` must override this fixture.
+    """
+    raise NotImplementedError(
+        "override the `worker_project_dir` fixture in your test module"
+    )
 
-    env = os.environ | {"_PYODIDE_EXTRA_MOUNTS": str(tmp_path)}
-    pywrangler_sync(target, env)
 
-    with run_dev_server(
-        target,
-        tmp_path,
-        env,
-        startup_timeout=DEV_STARTUP_TIMEOUT,
-    ) as (base_url, _):
-        yield base_url
+@pytest.fixture(scope="module")
+def dev_startup_timeout():
+    return DEV_STARTUP_TIMEOUT
 
 
 def register_in_worker_suites(namespace: dict, src_dir: Path) -> None:

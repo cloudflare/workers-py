@@ -15,7 +15,8 @@ import requests
 
 from tests.conftest import COMPAT_CONFIGS, CompatConfig, register_in_worker_suites
 
-IN_WORKER_SRC_DIR: Path = Path(__file__).parent / "worker" / "src"
+IN_WORKER_PROJECT: Path = Path(__file__).parent / "worker"
+IN_WORKER_SRC_DIR: Path = IN_WORKER_PROJECT / "src"
 
 MATRIX: list[CompatConfig] = [c for c in COMPAT_CONFIGS if c.python_version != "3.12"]
 
@@ -27,6 +28,11 @@ MATRIX: list[CompatConfig] = [c for c in COMPAT_CONFIGS if c.python_version != "
 )
 def compat_config(request: pytest.FixtureRequest) -> CompatConfig:
     return request.param
+
+
+@pytest.fixture(scope="module")
+def worker_project_dir() -> Path:
+    return IN_WORKER_PROJECT
 
 
 register_in_worker_suites(globals(), IN_WORKER_SRC_DIR)
