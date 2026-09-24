@@ -39,6 +39,10 @@ def is_superuser(user):
     return user.is_authenticated and user.is_superuser
 
 
+def health_view(request):
+    return JsonResponse({"ok": True})
+
+
 # @user_passes_test(is_superuser)
 def create_admin_view(request):
     User = get_user_model()
@@ -318,6 +322,7 @@ def test_decimal_transaction_view(request):
 
 urlpatterns = [
     path("admin/", admin.site.urls),
+    path("health", health_view, name="health"),
     # Management endpoints
     path("__run_migrations__/", run_migrations_view, name="run_migrations"),
     path("__create_admin__/", create_admin_view, name="create_admin"),

@@ -1,8 +1,5 @@
 """Shared fixtures and helpers for the host-side test suite."""
 
-import os
-import shutil
-from collections.abc import Generator
 from pathlib import Path
 from typing import Any
 
@@ -10,20 +7,17 @@ import pytest
 from testlib.host import (
     COMPAT_CONFIGS,
     CompatConfig,
-    configure_compatibility,
-    link_packages,
-    pywrangler_sync,
-)
-from testlib.host import (
-    dev_server as run_dev_server,
+    dev_server,
 )
 from testlib.host import (
     register_in_worker_suites as register_testlib_suites,
 )
 
+__all__ = ["dev_server"]
+
+
 TEST_DIR: Path = Path(__file__).parent
 
-DEV_STARTUP_TIMEOUT: int = 120
 OPT_IN_MARKERS: tuple[str, ...] = ("hyperdrive",)
 
 
@@ -62,38 +56,8 @@ def worker_project_dir() -> Path:
 
 
 @pytest.fixture(scope="module")
-def dev_server(
-    tmp_path_factory: pytest.TempPathFactory,
-    worker_project_dir: Path,
-    compat_config: CompatConfig,
-) -> Generator[str]:
-    """Start a pywrangler dev server on a free port and yield its base URL.
-
-    The project is copied next to a ``packages`` symlink so that its
-    ``../packages/...`` sources resolve and ``sync`` vendors the working-tree
-    testlib and runtime-sdk.
-    """
-    tmp_path = tmp_path_factory.mktemp(f"{worker_project_dir.name}_dev")
-    target = tmp_path / worker_project_dir.name
-    shutil.copytree(worker_project_dir, target, ignore=shutil.ignore_patterns(".venv"))
-    link_packages(tmp_path)
-    env = os.environ | {"_PYODIDE_EXTRA_MOUNTS": str(tmp_path)}
-
-    wrangler_jsonc = target / "wrangler.jsonc"
-    configure_compatibility(wrangler_jsonc, compat_config)
-
-    pywrangler_sync(target, env)
-
-    with run_dev_server(
-        target,
-        tmp_path,
-        env,
-        startup_timeout=DEV_STARTUP_TIMEOUT,
-        readiness_path="/health",
-        require_success=True,
-        log_name="dev.log",
-    ) as (base_url, _):
-        yield base_url
+def dev_startup_timeout():
+    return 120
 
 
 def register_in_worker_suites(

@@ -55,9 +55,14 @@ def run_migrations_view(request):
         return JsonResponse({"status": "error", "message": e.__str__()}, status=500)
 
 
+def health_view(request):
+    return JsonResponse({"ok": True})
+
+
 urlpatterns = [
     path("", include("blog.urls")),
     path("admin/", admin.site.urls),
+    path("health", health_view, name="health"),
     # Management endpoints - secure these appropriately for your application
     path("__create_admin__/", create_admin_view, name="create_admin"),
     path("__run_migrations__/", run_migrations_view, name="run_migrations"),

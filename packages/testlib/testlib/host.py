@@ -4,6 +4,7 @@ import ast
 import contextlib
 import functools
 import os
+import shutil
 import signal
 import socket
 import subprocess
@@ -19,6 +20,7 @@ import requests
 from .tracebacks import WorkerException, load_exception
 
 SUITE_CONNECT_TIMEOUT = 10
+TEARDOWN_TIMEOUT = 10
 SUITE_READ_TIMEOUT = 300
 
 # The monorepo's `packages/` directory.
@@ -33,6 +35,16 @@ PY_WRANGLER_CMD: list[str] = [
     str(WORKERS_PY),
     "pywrangler",
 ]
+
+GENERATED_FILE_PATTERN = shutil.ignore_patterns(
+    ".venv",
+    ".venv-workers",
+    ".wrangler",
+    "__pycache__",
+    "node_modules",
+    "python_modules",
+    "staticfiles",
+)
 
 
 def link_packages(tmp_path: Path) -> Path:
@@ -137,9 +149,6 @@ def wait_for_ready(  # noqa: PLR0913
     log_path: Path,
     *,
     timeout: int,
-    path: str = "",
-    require_success: bool = False,
-    poll_interval: float = 0.5,
 ) -> None:
     """Block until the worker responds according to the configured policy."""
     deadline = time.monotonic() + timeout
@@ -149,12 +158,12 @@ def wait_for_ready(  # noqa: PLR0913
                 log_path, f"pywrangler dev exited early with code {process.returncode}"
             )
         try:
-            response = requests.get(f"{base_url}{path}", timeout=5)
-            if not require_success or response.ok:
+            response = requests.get(f"{base_url}/health", timeout=5)
+            if response.ok:
                 return
         except requests.RequestException:
             pass
-        time.sleep(poll_interval)
+        time.sleep(0.5)
 
     _fail(log_path, f"pywrangler dev was not ready within {timeout}s")
 
@@ -172,21 +181,21 @@ def _terminate(process: subprocess.Popen[bytes], timeout: int) -> None:
 
 
 @contextlib.contextmanager
-def dev_server(
+def run_dev_server(
     target: Path,
     tmp_path: Path,
     env: dict[str, str],
     *,
     startup_timeout: int,
-    readiness_path: str = "",
-    require_success: bool = False,
-    teardown_timeout: int = 10,
-    log_name: str | None = None,
 ) -> Generator[tuple[str, Path]]:
-    """Run ``pywrangler dev`` and yield its base URL and log path."""
+    """Run ``pywrangler dev`` and yield its base URL and log path.
+
+    The server counts as ready once ``GET /health`` succeeds, so every worker
+    project served this way must expose that route.
+    """
     port = get_free_port()
     base_url = f"http://127.0.0.1:{port}"
-    log_path = tmp_path / (log_name or f"{target.name}-dev.log")
+    log_path = tmp_path / f"{target.name}-dev.log"
 
     with log_path.open("w") as log_file:
         process = subprocess.Popen(
@@ -210,12 +219,42 @@ def dev_server(
                 base_url,
                 log_path,
                 timeout=startup_timeout,
-                path=readiness_path,
-                require_success=require_success,
             )
             yield base_url, log_path
         finally:
-            _terminate(process, teardown_timeout)
+            _terminate(process, TEARDOWN_TIMEOUT)
+
+
+@pytest.fixture(scope="module")
+def dev_server(
+    tmp_path_factory: pytest.TempPathFactory,
+    worker_project_dir: Path,
+    compat_config: CompatConfig,
+    dev_startup_timeout: int,
+) -> Generator[str]:
+    """Start a pywrangler dev server on a free port and yield its base URL.
+
+    The project is copied next to a ``packages`` symlink so that its
+    ``../packages/...`` sources resolve.
+    """
+    tmp_path = tmp_path_factory.mktemp(f"{worker_project_dir.name}_dev")
+    target = tmp_path / worker_project_dir.name
+    shutil.copytree(worker_project_dir, target, ignore=GENERATED_FILE_PATTERN)
+    link_packages(tmp_path)
+    env = os.environ | {"_PYODIDE_EXTRA_MOUNTS": str(tmp_path)}
+
+    wrangler_jsonc = target / "wrangler.jsonc"
+    configure_compatibility(wrangler_jsonc, compat_config)
+
+    pywrangler_sync(target, env)
+
+    with run_dev_server(
+        target,
+        tmp_path,
+        env,
+        startup_timeout=dev_startup_timeout,
+    ) as (base_url, _):
+        yield base_url
 
 
 @functools.cache
