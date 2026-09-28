@@ -6,7 +6,7 @@ from contextlib import contextmanager, redirect_stderr, redirect_stdout
 from dataclasses import dataclass
 from io import StringIO
 from typing import Any
-from urllib.parse import urlparse
+from urllib.parse import parse_qs, urlparse
 
 import pytest
 from pyodide.webloop import WebLoop
@@ -159,6 +159,48 @@ def run_pytest(pytest_args):
     assert exit_code == 0, f"pytest exit code {exit_code}"
 
 
+class ExtraKeywordsPlugin:
+    """Attach host-only ``-k`` keywords to every collected item.
+
+    The host's mirrored items carry keywords (host module name, compat-config
+    parameter, marks) that don't exist in the worker; adding them here makes a
+    forwarded ``-k`` expression select the same tests on both sides.
+    """
+
+    def __init__(self, keywords):
+        self.keywords = set(keywords)
+
+    def pytest_itemcollected(self, item):
+        item.extra_keyword_matches.update(self.keywords)
+
+
+@dataclass
+class RunSuiteRequest:
+    """Parameters the host sends along with a ``/run-tests/<suite>`` request."""
+
+    pytest_args: list
+    keywords: list
+
+    @classmethod
+    def from_url(cls, url):
+        """Parse a ``/run-tests`` URL (string or ``urlparse`` result).
+
+        The host sends pytest arguments as repeated ``arg`` and extra ``-k``
+        keywords as repeated ``kw`` query parameters.
+        """
+        query = urlparse(url).query if isinstance(url, str) else url.query
+        params = parse_qs(query, keep_blank_values=True)
+        return cls(pytest_args=params.get("arg", []), keywords=params.get("kw", []))
+
+    @classmethod
+    def from_query_params(cls, query_params):
+        """Build from a Starlette-style multi-dict with ``getlist``."""
+        return cls(
+            pytest_args=query_params.getlist("arg"),
+            keywords=query_params.getlist("kw"),
+        )
+
+
 @dataclass
 class TestRunnerResult:
     payload: Any
@@ -171,14 +213,22 @@ class TestRunner:
         self.collector = ResultCollector()
         self.extra_plugins = list(extra_plugins)
 
-    def plugins(self):
+    def plugins(self, keywords=()):
         return [
             self.collector,
             EnvPlugin(self.env),
+            ExtraKeywordsPlugin(keywords),
             *self.extra_plugins,
         ]
 
-    def run_suite(self, suite_name):
+    def run_suite(self, suite_name, request=None):
+        """Run the ``test_<suite_name>`` module under pytest.
+
+        ``request`` carries the pytest arguments and extra ``-k`` keywords
+        forwarded from the host pytest invocation (see ``testlib.host``).
+        """
+        if request is None:
+            request = RunSuiteRequest([], [])
         module = f"test_{suite_name}"
         if importlib.util.find_spec(module) is None:
             return TestRunnerResult(
@@ -194,8 +244,8 @@ class TestRunner:
             redirect_stderr(output),
         ):
             exit_code = pytest.main(
-                ["--pyargs", module, "-p", "no:cacheprovider"],
-                plugins=self.plugins(),
+                ["--pyargs", module, "-p", "no:cacheprovider", *request.pytest_args],
+                plugins=self.plugins(request.keywords),
             )
         if exit_code != 0 and not self.collector.results:
             return TestRunnerResult(
@@ -221,11 +271,12 @@ class TestRunnerEntrypoint(WorkerEntrypoint):
         return []
 
     async def fetch(self, request):
-        path = urlparse(request.url).path
+        url = urlparse(request.url)
+        path = url.path
 
         if path.startswith("/run-tests/"):
             suite_name = path[len("/run-tests/") :]
-            result = self.runner.run_suite(suite_name)
+            result = self.runner.run_suite(suite_name, RunSuiteRequest.from_url(url))
             return Response.json(result.payload, result.status)
         if path == "/health":
             return Response.json({"ok": True})

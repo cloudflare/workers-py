@@ -32,7 +32,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 from starlette.background import BackgroundTask
 from starlette.middleware.gzip import GZipMiddleware
-from testlib.entrypoint import TestRunner
+from testlib.entrypoint import RunSuiteRequest, TestRunner
 
 import asgi
 
@@ -594,7 +594,9 @@ class FastAPIAppPlugin:
 @app.get("/run-tests/{suite_name:path}")
 async def run_suite(suite_name: str, request: Request):
     runner = TestRunner(request.scope["env"], extra_plugins=[FastAPIAppPlugin()])
-    result = runner.run_suite(suite_name)
+    result = runner.run_suite(
+        suite_name, RunSuiteRequest.from_query_params(request.query_params)
+    )
     return JSONResponse(result.payload, status_code=result.status)
 
 
