@@ -49,6 +49,7 @@ class STATE:
 @register_create_patch("tiktoken._tiktoken")
 @register_exec_patch("cryptography.exceptions")
 @register_exec_patch("jiter")
+@register_exec_patch("rpds")
 @register_exec_patch("uuid_utils._uuid_utils")
 @contextmanager
 def rust_package_context(module):
