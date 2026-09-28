@@ -1,0 +1,19 @@
+packages/cli/src/pywrangler/cli.py
+  s_c350fca3325076::t_9c816254cbbf11 11,72-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "53f425ba0991c5de3b29e0a4210c17f72701669b",
+  "prompts": {},
+  "sessions": {
+    "s_c350fca3325076": {
+      "agent_id": {
+        "tool": "opencode",
+        "id": "ses_f18e803f1ffeVaYQ8VSYbFQznW",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    }
+  }
+}
