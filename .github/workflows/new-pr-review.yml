@@ -35,7 +35,7 @@ jobs:
           } >> "$GITHUB_OUTPUT"
 
       - name: Run Bonk
-        uses: ask-bonk/ask-bonk/github@d00cbcf581a5463f7adc2d81e470234b1727f8dd
+        uses: Cloudflare-Studio/ask-bonk/github@45777ce774209af96f27cbb5718234cf7fc93474 # v0.5.0
         env:
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CF_AI_GATEWAY_ACCOUNT_ID }}
           CLOUDFLARE_GATEWAY_ID: ${{ secrets.CF_AI_GATEWAY_NAME }}
