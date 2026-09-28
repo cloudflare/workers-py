@@ -690,6 +690,38 @@ def test_proxy_auto_sync_commands(
     mock_proxy_to_wrangler.assert_called_once_with("dev", ["--local"])
 
 
+@pytest.mark.parametrize(
+    "remote_args",
+    [["--remote"], ["-r"], ["--port", "8787", "--remote"], ["--remote=true"]],
+)
+@patch("pywrangler.utils.check_wrangler_version")
+@patch("pywrangler.cli._proxy_to_wrangler")
+@patch("pywrangler.cli.sync")
+def test_dev_remote_is_rejected(
+    mock_sync_command,
+    mock_proxy_to_wrangler,
+    mock_check_wrangler_version,
+    remote_args,
+    caplog,
+):
+    with patch("sys.argv", ["pywrangler", "dev", *remote_args]):
+        result = CliRunner().invoke(app, ["dev", *remote_args])
+
+    assert result.exit_code == 1
+    assert "remote bindings" in caplog.text
+    mock_sync_command.assert_not_called()
+    mock_proxy_to_wrangler.assert_not_called()
+
+
+@patch("pywrangler.cli._proxy_to_wrangler")
+@patch("sys.argv", ["pywrangler", "d1", "execute", "db", "--remote"])
+def test_remote_flag_allowed_for_non_dev_commands(mock_proxy_to_wrangler):
+    result = CliRunner().invoke(app, ["d1", "execute", "db", "--remote"])
+
+    assert result.exit_code == 0
+    mock_proxy_to_wrangler.assert_called_once_with("d1", ["execute", "db", "--remote"])
+
+
 @patch("pywrangler.cli.subprocess.run")
 def test_proxy_to_wrangler_handles_subprocess_error(mock_subprocess_run):
     """Test that subprocess errors are handled gracefully."""

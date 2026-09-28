@@ -8,6 +8,7 @@ from typing import Never
 import click
 
 from .sync import sync
+from .unsupported_flags import find_unsupported_flag
 from .utils import (
     WRANGLER_COMMAND,
     WRANGLER_CREATE_COMMAND,
@@ -67,6 +68,11 @@ class ProxyToWranglerGroup(click.Group):
                 remaining_args = sys.argv[cmd_index + 1 :]
             except ValueError:
                 remaining_args = []
+
+            unsupported = find_unsupported_flag(cmd_name, remaining_args)
+            if unsupported is not None:
+                logger.error(unsupported.error_message())
+                sys.exit(1)
 
             if cmd_name in ["dev", "publish", "deploy", "versions"]:
                 sync(force=False)
