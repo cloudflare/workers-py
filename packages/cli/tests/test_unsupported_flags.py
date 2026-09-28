@@ -12,7 +12,15 @@ REGISTRY = (FLAG,)
 
 @pytest.mark.parametrize(
     "args",
-    [["--foo"], ["-f"], ["--port", "8787", "--foo"], ["--foo=true"], ["--foo=1"]],
+    [
+        ["--foo"],
+        ["-f"],
+        ["--port", "8787", "--foo"],
+        ["--foo=true"],
+        ["-f=true"],
+        ["--foo", "true"],
+        ["--foo", "--port", "8787"],
+    ],
 )
 def test_enabled_flag_is_found(args):
     assert find_unsupported_flag("dev", args, REGISTRY) is FLAG
@@ -26,6 +34,14 @@ def test_enabled_flag_is_found(args):
         ["--foo=false"],
         ["--foo=0"],
         ["--foo=No"],
+        ["--foo=1"],
+        ["--foo=yes"],
+        ["--foo=TRUE"],
+        ["--foo="],
+        ["-f=0"],
+        ["--foo", "false"],
+        ["-f", "false"],
+        ["--foo", "false", "--port", "8787"],
         ["--", "--foo"],
     ],
 )

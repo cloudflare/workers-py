@@ -1,8 +1,6 @@
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-_FALSY_VALUES = frozenset({"false", "0", "no"})
-
 
 @dataclass(frozen=True)
 class UnsupportedFlag:
@@ -15,15 +13,21 @@ class UnsupportedFlag:
     def matches(self, cmd_name: str, args: Sequence[str]) -> bool:
         if cmd_name != self.command:
             return False
-        return any(self._is_enabled(arg) for arg in _flag_args(args))
+        flag_args = _flag_args(args)
+        return any(
+            self._is_enabled(arg, flag_args[i + 1] if i + 1 < len(flag_args) else None)
+            for i, arg in enumerate(flag_args)
+        )
 
-    def _is_enabled(self, arg: str) -> bool:
-        # Enabled by `--flag/-f`
+    def _is_enabled(self, arg: str, next_arg: str | None) -> bool:
+        # Enabled by `--flag/-f`, unless followed by a separate `false` value
         if arg in self.names:
-            return True
-        # The flag can still be disabled by `--flag=false` so check that part
+            return next_arg != "false"
+        # With `--flag=value`, enables the flag only for a literal `true`
+        # instestingly, wrangler ignores all other values other than `true/false`,
+        # so things like --flag=1 is the same as --flag=False
         name, sep, value = arg.partition("=")
-        return bool(sep) and name in self.names and value.lower() not in _FALSY_VALUES
+        return bool(sep) and name in self.names and value == "true"
 
     def error_message(self) -> str:
         return (
