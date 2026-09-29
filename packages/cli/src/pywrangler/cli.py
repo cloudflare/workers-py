@@ -68,7 +68,7 @@ class ProxyToWranglerGroup(click.Group):
             except ValueError:
                 remaining_args = []
 
-            if cmd_name in ["dev", "publish", "deploy", "versions"]:
+            if cmd_name in {"dev", "publish", "deploy", "versions", "preview"}:
                 sync(force=False)
 
             if cmd_name == "dev":
