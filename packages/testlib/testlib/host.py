@@ -119,6 +119,50 @@ def configure_compatibility(file: Path, config: CompatConfig) -> None:
     file.write_text(content)
 
 
+def compat_config_fixture(configs: Sequence[CompatConfig]) -> Callable[..., Any]:
+    """Build a module-scoped ``compat_config`` fixture parametrised over *configs*.
+
+    Assign the result to ``compat_config`` in a test module to run its
+    ``dev_server`` against a subset of ``COMPAT_CONFIGS``::
+
+        compat_config = compat_config_fixture(
+            [c for c in COMPAT_CONFIGS if c.python_version != "3.12"]
+        )
+    """
+
+    @pytest.fixture(
+        scope="module",
+        params=list(configs),
+        ids=[c.python_version for c in configs],
+    )
+    def compat_config(request: pytest.FixtureRequest) -> CompatConfig:
+        return request.param
+
+    return compat_config
+
+
+# Default fixtures backing ``dev_server``. Conftests re-export them alongside
+# ``dev_server``; test modules override ``worker_project_dir`` (mandatory) and
+# ``compat_config`` / ``dev_startup_timeout`` as needed.
+compat_config = compat_config_fixture(COMPAT_CONFIGS)
+
+
+@pytest.fixture(scope="module")
+def worker_project_dir() -> Path:
+    """Worker project the `dev_server` fixture should serve.
+
+    Test modules using `dev_server` must override this fixture.
+    """
+    raise NotImplementedError(
+        "override the `worker_project_dir` fixture in your test module"
+    )
+
+
+@pytest.fixture(scope="module")
+def dev_startup_timeout() -> int:
+    return 120
+
+
 class InWorkerTestResult(TypedDict):
     status: Literal["passed", "failed", "error", "skipped"]
     error: str
@@ -136,7 +180,8 @@ def get_free_port() -> int:
         return sock.getsockname()[1]
 
 
-def _fail(log_path: Path, message: str) -> None:
+def fail_with_log(log_path: Path, message: str) -> None:
+    """Fail the current test with *message* followed by the ``pywrangler dev`` log."""
     pytest.fail(
         f"{message}\n\n--- pywrangler dev log ---\n"
         f"{log_path.read_text(errors='replace')}"
@@ -154,7 +199,7 @@ def wait_for_ready(  # noqa: PLR0913
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if process.poll() is not None:
-            _fail(
+            fail_with_log(
                 log_path, f"pywrangler dev exited early with code {process.returncode}"
             )
         try:
@@ -165,7 +210,7 @@ def wait_for_ready(  # noqa: PLR0913
             pass
         time.sleep(0.5)
 
-    _fail(log_path, f"pywrangler dev was not ready within {timeout}s")
+    fail_with_log(log_path, f"pywrangler dev was not ready within {timeout}s")
 
 
 def _terminate(process: subprocess.Popen[bytes], timeout: int) -> None:

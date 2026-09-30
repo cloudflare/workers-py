@@ -4,11 +4,9 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from conftest import (
+from testlib.host import (
     COMPAT_CONFIGS,
     CompatConfig,
-)
-from testlib.host import (
     configure_compatibility,
     link_packages,
     pywrangler_sync,
