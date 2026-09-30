@@ -6,6 +6,10 @@ from decimal import Decimal
 from unittest.mock import MagicMock, patch
 
 import pytest
+from django.db.backends.base.base import BaseDatabaseWrapper
+from django.utils.asyncio import async_unsafe
+
+from django_cf.db.base_engine import CFDatabaseWrapper, _unwrap_async_unsafe
 
 
 class TestCFResult:
@@ -547,7 +551,42 @@ class TestCFDatabaseFeatures:
         assert features.can_return_columns_from_insert is True
 
 
+class TestUnwrapAsyncUnsafe:
+    def test_removes_async_unsafe_guard(self):
+        def target():
+            return "called"
+
+        guarded = async_unsafe(target)
+
+        assert _unwrap_async_unsafe(guarded) is target
+
+    def test_returns_undecorated_method_unchanged(self):
+        def target():
+            return "called"
+
+        assert _unwrap_async_unsafe(target) is target
+
+
 class TestCFDatabaseWrapper:
+    def test_connection_lifecycle_is_not_guarded_by_async_unsafe(self):
+        method_names = (
+            "connect",
+            "ensure_connection",
+            "cursor",
+            "commit",
+            "rollback",
+            "savepoint",
+            "savepoint_rollback",
+            "savepoint_commit",
+            "clean_savepoints",
+        )
+
+        for method_name in method_names:
+            guarded_method = getattr(BaseDatabaseWrapper, method_name)
+            assert getattr(CFDatabaseWrapper, method_name) is _unwrap_async_unsafe(
+                guarded_method
+            )
+
     def test_get_database_version(self):
         from django_cf.db.base_engine import CFDatabaseWrapper
 

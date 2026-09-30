@@ -1,6 +1,5 @@
 # pyright: reportMissingImports=false
 
-import os
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -14,7 +13,6 @@ from testlib.entrypoint import TestRunnerEntrypoint
 from worker_durable_object import TestDurableObject  # noqa: F401
 
 BASE_DIR = Path(__file__).parent
-os.environ.setdefault("DJANGO_ALLOW_ASYNC_UNSAFE", "true")
 
 
 if not django.conf.settings.configured:
