@@ -229,6 +229,15 @@ def opentelemetry_baggage_context(module):
         yield
 
 
+@register_exec_patch("fastapi.telemetry")
+@contextmanager
+def fastapi_telemetry_context(module):
+    # fastapi 0.142.0 added opentelemetry support
+    # which creates a UUID-backed key.
+    with allow_bad_entropy_calls_for_version("fastapi", 1, (0, 142, 0)):
+        yield
+
+
 @register_exec_patch("litestar.openapi.controller")
 @register_exec_patch("litestar.constants")
 @contextmanager
