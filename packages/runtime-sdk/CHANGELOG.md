@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.9.2 (2026-09-30)
+
+### Bug Fixes
+
+- **runtime-sdk**: Fix top-level entropy calls in fastapi >= 0.142.0
+  ([#283](https://github.com/cloudflare/workers-py/pull/283),
+  [`f0b104e`](https://github.com/cloudflare/workers-py/commit/f0b104eb0b9204fc877f34f59d510f6ef75f1833))
+
+
 ## v1.9.1 (2026-09-29)
 
 ### Bug Fixes
