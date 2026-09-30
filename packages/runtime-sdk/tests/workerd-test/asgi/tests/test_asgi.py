@@ -5,7 +5,12 @@ import logging
 import js
 import pytest
 from pyodide.ffi import to_js
-from worker import STREAMING_CHUNK_SIZE, STREAMING_NUM_CHUNKS, example_hdr
+from worker import (
+    ENCODED_RESPONSE_PAYLOAD,
+    STREAMING_CHUNK_SIZE,
+    STREAMING_NUM_CHUNKS,
+    example_hdr,
+)
 
 import asgi
 from workers import Request, env
@@ -87,6 +92,37 @@ async def test_streaming():
         start = i * STREAMING_CHUNK_SIZE
         chunk = body_bytes[start : start + STREAMING_CHUNK_SIZE]
         assert all(b == i % 256 for b in chunk)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("encoding", ["gzip", "identity"])
+@pytest.mark.parametrize("mode", ["buffered", "streaming"])
+async def test_already_encoded_response_crosses_http_unchanged(encoding, mode):
+    path = f"/encoded/{encoding}/{mode}"
+    # SELF.fetch does not serialize the response over HTTP, so it cannot catch
+    # workerd compressing already-gzipped ASGI bytes a second time. ASGI_HTTP
+    # instead connects to the worker's loopback HTTP socket.
+    response = await env.ASGI_HTTP.fetch(
+        f"http://example.com{path}",
+        headers={"accept-encoding": "gzip, identity"},
+    )
+
+    assert response.status == 201
+    assert response.headers["content-type"] == "application/json; charset=utf-8"
+    assert response.headers["content-encoding"] == encoding
+    assert response.headers["vary"] == "Accept-Encoding"
+    assert response.headers["x-asgi-response"] == "already-encoded"
+
+    reader = response.body.getReader()
+    chunks = []
+    while True:
+        result = await reader.read()
+        if result.done:
+            break
+        chunks.append(result.value.to_bytes())
+    # Fetch decodes the HTTP content encoding once, just as a browser does.
+    # Double gzip therefore leaves a gzip member here instead of the JSON.
+    assert b"".join(chunks) == ENCODED_RESPONSE_PAYLOAD
 
 
 class _ListHandler(logging.Handler):

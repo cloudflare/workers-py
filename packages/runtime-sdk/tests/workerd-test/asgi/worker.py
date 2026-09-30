@@ -1,3 +1,4 @@
+import gzip
 import os
 
 from testlib.entrypoint import run_pytest
@@ -159,6 +160,63 @@ class StreamingApp:
             )
 
 
+ENCODED_RESPONSE_PAYLOAD = (
+    b'{"message":"ASGI middleware already encoded this response",'
+    b'"padding":"' + b"compression-regression-" * 128 + b'"}'
+)
+
+
+class EncodedResponseApp:
+    """Return middleware-produced bytes unchanged, buffered or streamed."""
+
+    def __init__(self, encoding, streaming):
+        self.encoding = encoding
+        self.streaming = streaming
+        self.body = (
+            gzip.compress(ENCODED_RESPONSE_PAYLOAD, mtime=0)
+            if encoding == "gzip"
+            else ENCODED_RESPONSE_PAYLOAD
+        )
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            message = await receive()
+            if message["type"] == "lifespan.startup":
+                await send({"type": "lifespan.startup.complete"})
+            return
+
+        await receive()
+        headers = [
+            (b"content-type", b"application/json; charset=utf-8"),
+            (b"content-encoding", self.encoding.encode()),
+            (b"vary", b"Accept-Encoding"),
+            (b"x-asgi-response", b"already-encoded"),
+        ]
+        if not self.streaming:
+            headers.append((b"content-length", str(len(self.body)).encode()))
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 201,
+                "headers": headers,
+            }
+        )
+        if self.streaming:
+            # Split inside the gzip header and before its footer, rather than
+            # emitting separate gzip members for the individual ASGI chunks.
+            chunks = (self.body[:7], self.body[7:-8], self.body[-8:], b"")
+            for index, chunk in enumerate(chunks):
+                await send(
+                    {
+                        "type": "http.response.body",
+                        "body": chunk,
+                        "more_body": index < len(chunks) - 1,
+                    }
+                )
+        else:
+            await send({"type": "http.response.body", "body": self.body})
+
+
 # ---------------------------------------------------------------------------
 # App instances and constants
 # ---------------------------------------------------------------------------
@@ -244,6 +302,13 @@ streaming_app = StreamingApp()
 scope_echo_app = ScopeEchoApp()
 late_failure_stream_app = LateFailureStreamApp()
 multi_cookie_app = MultiCookieApp()
+encoded_response_apps = {
+    f"/encoded/{encoding}/{mode}": EncodedResponseApp(
+        encoding, streaming=mode == "streaming"
+    )
+    for encoding in ("gzip", "identity")
+    for mode in ("buffered", "streaming")
+}
 
 example_hdr = {"Header1": "Value1", "Header2": "Value2"}
 
@@ -255,6 +320,10 @@ class Default(WorkerEntrypoint):
         url = URL.new(request.url)
         path = url.pathname
 
+        if path in encoded_response_apps:
+            return await asgi.fetch(
+                encoded_response_apps[path], request, self.env, self.ctx
+            )
         if path == "/sse":
             return await asgi.fetch(sse_app, request, self.env, self.ctx)
         elif path == "/stream":
