@@ -396,6 +396,70 @@ async def _scope(path):
     return json.loads(await response.text())
 
 
+class _StartupFailWithCauseApp:
+    """Starlette-style failure: send startup.failed, then re-raise the error."""
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            message = await receive()
+            if message["type"] == "lifespan.startup":
+                try:
+                    raise ValueError("real startup error")
+                except ValueError:
+                    await send(
+                        {
+                            "type": "lifespan.startup.failed",
+                            "message": "startup failed",
+                        }
+                    )
+                    raise
+
+
+@pytest.mark.asyncio
+async def test_lifespan_startup_failure_chains_the_apps_exception():
+    req = js.Request.new("http://example.com/startup-fail-cause")
+    with pytest.raises(RuntimeError, match="startup failed") as excinfo:
+        await asyncio.wait_for(
+            asgi.fetch(_StartupFailWithCauseApp(), req, env), timeout=5
+        )
+    assert isinstance(excinfo.value.__cause__, ValueError)
+    assert "real startup error" in str(excinfo.value.__cause__)
+
+
+class _ShutdownFailWithCauseApp:
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            while True:
+                message = await receive()
+                if message["type"] == "lifespan.startup":
+                    await send({"type": "lifespan.startup.complete"})
+                elif message["type"] == "lifespan.shutdown":
+                    try:
+                        raise ValueError("real shutdown error")
+                    except ValueError:
+                        await send(
+                            {
+                                "type": "lifespan.shutdown.failed",
+                                "message": "shutdown failed",
+                            }
+                        )
+                        raise
+        await receive()
+        await send({"type": "http.response.start", "status": 200, "headers": []})
+        await send({"type": "http.response.body", "body": b"ok"})
+
+
+@pytest.mark.asyncio
+async def test_lifespan_shutdown_failure_chains_the_apps_exception():
+    req = js.Request.new("http://example.com/shutdown-fail-cause")
+    with pytest.raises(RuntimeError, match="shutdown failed") as excinfo:
+        await asyncio.wait_for(
+            asgi.fetch(_ShutdownFailWithCauseApp(), req, env), timeout=5
+        )
+    assert isinstance(excinfo.value.__cause__, ValueError)
+    assert "real shutdown error" in str(excinfo.value.__cause__)
+
+
 @pytest.mark.asyncio
 async def test_scope_path_is_percent_decoded():
     scope = await _scope("/scope/hello%20world")
