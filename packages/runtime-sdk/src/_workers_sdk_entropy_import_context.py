@@ -49,6 +49,7 @@ class STATE:
 @register_create_patch("tiktoken._tiktoken")
 @register_exec_patch("cryptography.exceptions")
 @register_exec_patch("jiter")
+@register_exec_patch("rpds")
 @register_exec_patch("uuid_utils._uuid_utils")
 @contextmanager
 def rust_package_context(module):
@@ -225,6 +226,15 @@ def opentelemetry_trace_propagation_context(module):
 def opentelemetry_baggage_context(module):
     # OpenTelemetry creates a UUID-backed key.
     with allow_bad_entropy_calls(1):
+        yield
+
+
+@register_exec_patch("fastapi.telemetry")
+@contextmanager
+def fastapi_telemetry_context(module):
+    # fastapi 0.142.0 added opentelemetry support
+    # which creates a UUID-backed key.
+    with allow_bad_entropy_calls_for_version("fastapi", 1, (0, 142, 0)):
         yield
 
 

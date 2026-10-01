@@ -74,7 +74,7 @@ class ProxyToWranglerGroup(click.Group):
                 logger.error(unsupported.error_message())
                 sys.exit(1)
 
-            if cmd_name in ["dev", "publish", "deploy", "versions"]:
+            if cmd_name in {"dev", "publish", "deploy", "versions", "preview"}:
                 sync(force=False)
 
             if cmd_name == "dev":

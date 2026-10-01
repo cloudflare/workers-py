@@ -2,6 +2,24 @@
 
 <!-- version list -->
 
+## v1.9.2 (2026-09-30)
+
+### Bug Fixes
+
+- **runtime-sdk**: Fix top-level entropy calls in fastapi >= 0.142.0
+  ([#283](https://github.com/cloudflare/workers-py/pull/283),
+  [`f0b104e`](https://github.com/cloudflare/workers-py/commit/f0b104eb0b9204fc877f34f59d510f6ef75f1833))
+
+
+## v1.9.1 (2026-09-29)
+
+### Bug Fixes
+
+- **runtime-sdk**: Add rpds to rust package entropy context
+  ([#277](https://github.com/cloudflare/workers-py/pull/277),
+  [`a097b7c`](https://github.com/cloudflare/workers-py/commit/a097b7c5d2e5bba17f34d46abb6e39039d4673d4))
+
+
 ## v1.9.0 (2026-09-18)
 
 ### Bug Fixes

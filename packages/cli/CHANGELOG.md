@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.17.5 (2026-09-29)
+
+### Bug Fixes
+
+- Sync packages when running the new preview command
+  ([#273](https://github.com/cloudflare/workers-py/pull/273),
+  [`3aebc4a`](https://github.com/cloudflare/workers-py/commit/3aebc4ab25e916bb358067e3a0fa6da310b787bc))
+
+
 ## v1.17.4 (2026-09-21)
 
 ### Bug Fixes

@@ -106,7 +106,7 @@ jobs:
       with:
         python-version: '3.14'
 
-    - name: Run Hyperdrive binding tests
+    - name: Run Hyperdrive tests
       working-directory: packages/runtime-sdk
       run: |
         uv run --frozen pytest -v --color=yes -m hyperdrive tests

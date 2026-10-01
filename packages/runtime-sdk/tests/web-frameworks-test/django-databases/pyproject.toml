@@ -1,0 +1,16 @@
+[project]
+name = "django-databases-test"
+version = "0.1.0"
+requires-python = ">=3.14"
+dependencies = [
+    "django>=5.2.8",
+    "mysqlclient",
+    "psycopg[binary]",
+    "pytest",
+    "testlib",
+    "workers-runtime-sdk",
+]
+
+[tool.uv.sources]
+testlib = { path = "../packages/testlib" }
+workers-runtime-sdk = { path = "../packages/runtime-sdk" }

@@ -19,6 +19,7 @@ dependencies = [
     # "openai",
     "litestar",
     "opentelemetry-api",
+    "jsonschema",
     "mcp; python_version >= '3.14'",
     "workers-runtime-sdk",
 ]
