@@ -15,6 +15,7 @@ dependencies = [
 description = "django-cf is a package that integrates Django with Cloudflare products"
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.12"
 classifiers = [
     "Development Status :: 3 - Alpha",

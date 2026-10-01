@@ -53,4 +53,4 @@ Tags:
 
 ## License
 
-MIT
+All packages in this repository are licensed under the [MIT License](./LICENSE).

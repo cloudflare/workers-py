@@ -45,6 +45,7 @@ htmcov/
 nosetests.xml
 coverage.xml
 *.cover
+*.profraw
 .hypothesis/
 .pytest_cache/
 
