@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.17.6 (2026-10-01)
+
+### Bug Fixes
+
+- Reject dev --remote command ([#278](https://github.com/cloudflare/workers-py/pull/278),
+  [`a3d7508`](https://github.com/cloudflare/workers-py/commit/a3d7508a458b0ff1a18810d8325446cc27af64cc))
+
+
 ## v1.17.5 (2026-09-29)
 
 ### Bug Fixes
