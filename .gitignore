@@ -62,5 +62,6 @@ docs/_build/
 # OS specific
 .DS_Store
 Thumbs.db
+default.profraw
 
 tests/test_workspace
