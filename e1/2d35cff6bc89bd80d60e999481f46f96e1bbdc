@@ -1,0 +1,21 @@
+.github/workflows/bonk.yml
+  s_36dc54a6ba61db::t_1967e36876e8f6 32
+.github/workflows/new-pr-review.yml
+  s_36dc54a6ba61db::t_40b0452d27c23e 38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "e12d35cff6bc89bd80d60e999481f46f96e1bbdc",
+  "prompts": {},
+  "sessions": {
+    "s_36dc54a6ba61db": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_36dc54a6ba61db",
+        "model": "unknown"
+      },
+      "human_author": "Dan Lapid <dlapid@cloudflare.com>"
+    }
+  }
+}
