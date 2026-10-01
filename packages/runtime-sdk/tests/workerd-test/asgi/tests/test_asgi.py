@@ -474,3 +474,38 @@ async def test_lifespan_preack_crash_is_logged_and_treated_as_unsupported():
         )
     finally:
         _remove_handler(handler)
+
+
+async def _startup_count(path):
+    response = await asyncio.wait_for(
+        env.SELF.fetch(f"http://example.com{path}"), timeout=5
+    )
+    return await response.text()
+
+
+@pytest.mark.asyncio
+async def test_worker_lifespan_starts_the_app_once():
+    assert await _startup_count("/lifespan-worker") == "1"
+    assert await _startup_count("/lifespan-worker") == "1"
+
+
+@pytest.mark.asyncio
+async def test_request_lifespan_starts_the_app_every_time():
+    first = int(await _startup_count("/lifespan-request"))
+    assert int(await _startup_count("/lifespan-request")) == first + 1
+
+
+@pytest.mark.asyncio
+async def test_worker_lifespan_streams_the_whole_body():
+    # A streaming response returns before its app task finishes.
+    response = await asyncio.wait_for(
+        env.SELF.fetch("http://example.com/lifespan-worker-stream"), timeout=5
+    )
+    body = await asyncio.wait_for(response.bytes(), timeout=5)
+    assert len(body) == STREAMING_CHUNK_SIZE * STREAMING_NUM_CHUNKS
+
+
+@pytest.mark.asyncio
+async def test_worker_lifespan_accepts_an_unhashable_app():
+    assert await _startup_count("/lifespan-worker-unhashable") == "1"
+    assert await _startup_count("/lifespan-worker-unhashable") == "1"
