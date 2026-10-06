@@ -347,6 +347,75 @@ async def test_lifespan_full_cycle():
     assert lifespan_app.events == ["startup", "shutdown"]
 
 
+class _PersistentLifespanApp:
+    def __init__(self):
+        self.startups = 0
+        self.shutdowns = 0
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            while True:
+                message = await receive()
+                if message["type"] == "lifespan.startup":
+                    self.startups += 1
+                    scope["state"]["resource"] = {"requests": 0}
+                    # Let a concurrent first request reach entrypoint startup.
+                    await asyncio.sleep(0)
+                    await send({"type": "lifespan.startup.complete"})
+                elif message["type"] == "lifespan.shutdown":
+                    self.shutdowns += 1
+                    await send({"type": "lifespan.shutdown.complete"})
+                    return
+
+        resource = scope["state"]["resource"]
+        resource["requests"] += 1
+        await receive()
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [(b"content-type", b"application/json")],
+            }
+        )
+        await send(
+            {
+                "type": "http.response.body",
+                "body": json.dumps(resource).encode(),
+            }
+        )
+
+
+@pytest.mark.asyncio
+async def test_generated_entrypoint_reuses_lifespan_state():
+    lifespan_app = _PersistentLifespanApp()
+    Default = asgi.entrypoint(lifespan_app)
+
+    class Custom(asgi.AsgiWorkerEntrypoint):
+        app = lifespan_app
+
+        async def other_handler(self):
+            return "other response"
+
+    first_entrypoint = object.__new__(Custom)
+    first_entrypoint.env = {}
+    first_entrypoint.ctx = None
+    second_entrypoint = object.__new__(Custom)
+    second_entrypoint.env = {}
+    second_entrypoint.ctx = None
+
+    responses = await asyncio.gather(
+        first_entrypoint.fetch(js.Request.new("http://example.com/persistent/one")),
+        second_entrypoint.fetch(js.Request.new("http://example.com/persistent/two")),
+    )
+    data = [json.loads(await response.text()) for response in responses]
+
+    assert issubclass(Default, asgi.AsgiWorkerEntrypoint)
+    assert await first_entrypoint.other_handler() == "other response"
+    assert sorted(item["requests"] for item in data) == [1, 2]
+    assert lifespan_app.startups == 1
+    assert lifespan_app.shutdowns == 0
+
+
 class _StartupFailApp:
     async def __call__(self, scope, receive, send):
         if scope["type"] == "lifespan":

@@ -42,6 +42,7 @@ STATIC_DIR = Path(__file__).parent / "static"
 class PlatformResource:
     def __init__(self):
         self.closed = False
+        self.requests = 0
 
 
 _platform_events: list[str] = []
@@ -460,6 +461,13 @@ app.include_router(v1_router)
 async def platform_lifespan_state(request: Request):
     resource = request.state.platform_resource
     return {"available": True, "closed": resource.closed}
+
+
+@app.get("/platform/lifespan-mutation")
+async def platform_lifespan_mutation(request: Request):
+    resource = request.state.platform_resource
+    resource.requests += 1
+    return {"requests": resource.requests, "closed": resource.closed}
 
 
 # --------------------------------------------------------------------------- #
