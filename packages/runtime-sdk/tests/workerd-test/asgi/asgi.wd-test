@@ -10,10 +10,25 @@ const unitTests :Workerd.Config = (
         ],
         bindings = [
           ( name = "SELF", service = "python-asgi" ),
+          ( name = "ASGI_HTTP", service = "asgi-http" ),
         ],
         compatibilityDate = "%COMPAT_DATE",
         compatibilityFlags = ["python_workers"],
       )
+    ),
+    ( name = "asgi-http",
+      external = (
+        address = "loopback:asgi-http",
+        http = (),
+      )
     )
+  ],
+  sockets = [
+    (
+      name = "asgi-http",
+      address = "loopback:asgi-http",
+      http = (),
+      service = "python-asgi",
+    ),
   ],
 );

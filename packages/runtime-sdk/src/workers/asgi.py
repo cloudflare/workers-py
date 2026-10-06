@@ -261,8 +261,12 @@ async def process_request(  # noqa: PLR0913
                 transform_stream = TransformStream.new()
                 readable = transform_stream.readable
                 writer = transform_stream.writable.getWriter()
+                # ASGI bytes already match Content-Encoding; do not encode twice.
                 resp = Response.new(
-                    readable, headers=_to_js_headers(headers), status=status
+                    readable,
+                    headers=_to_js_headers(headers),
+                    status=status,
+                    encodeBody="manual",
                 )
                 result.set_result(resp)
                 with acquire_js_buffer(body) as jsbytes:
@@ -281,7 +285,10 @@ async def process_request(  # noqa: PLR0913
                 buf = px.getBuffer()
                 px.destroy()
                 resp = Response.new(
-                    buf.data, headers=_to_js_headers(headers), status=status
+                    buf.data,
+                    headers=_to_js_headers(headers),
+                    status=status,
+                    encodeBody="manual",
                 )
                 result.set_result(resp)
                 finished_response.set()
