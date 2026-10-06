@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v0.2.17 (2026-10-06)
+
+### Bug Fixes
+
+- Unify license to MIT and include license file in dists
+  ([#285](https://github.com/cloudflare/workers-py/pull/285),
+  [`253f3d5`](https://github.com/cloudflare/workers-py/commit/253f3d5bb9194023a9dfcc7da6051df2964b628b))
+
+
 ## v0.2.16 (2026-09-01)
 
 ### Bug Fixes
