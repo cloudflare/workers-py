@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.11"
 
 [[package]]
@@ -376,7 +376,7 @@ wheels = [
 
 [[package]]
 name = "workers-runtime-sdk"
-version = "1.9.2"
+version = "1.9.3"
 source = { editable = "." }
 
 [package.dev-dependencies]
