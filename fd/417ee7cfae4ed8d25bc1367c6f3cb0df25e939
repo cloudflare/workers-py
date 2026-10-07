@@ -1,0 +1,25 @@
+packages/runtime-sdk/tests/web-frameworks-test/flask-tests/src/test_stream_with_context.py
+  s_1c0fac29412d83::t_9e995575c6efe1 1-70
+packages/runtime-sdk/tests/workerd-test/wsgi/tests/test_wsgi.py
+  s_1c0fac29412d83::t_048b8fe91dcc9d 1,8,11,109-157
+packages/runtime-sdk/tests/workerd-test/wsgi/worker.py
+  s_1c0fac29412d83::t_0b255718327c5e 2,4,96-129,152
+packages/runtime-sdk/tests/web-frameworks-test/flask-tests/pyproject.toml
+  s_1c0fac29412d83::t_a460a66df2813a 5-11
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "fd417ee7cfae4ed8d25bc1367c6f3cb0df25e939",
+  "prompts": {},
+  "sessions": {
+    "s_1c0fac29412d83": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "97432d9c-b88e-4167-90d5-a72743e69e7f",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    }
+  }
+}
