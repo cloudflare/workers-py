@@ -2,7 +2,13 @@
 name = "flask-tests"
 version = "0.1.0"
 requires-python = ">=3.12"
-dependencies = ["flask", "pytest", "testlib", "workers-runtime-sdk"]
+dependencies = [
+    "flask",
+    "pytest",
+    "pytest-asyncio<1.2.0",
+    "testlib",
+    "workers-runtime-sdk",
+]
 
 [tool.uv.sources]
 testlib = { path = "../packages/testlib" }

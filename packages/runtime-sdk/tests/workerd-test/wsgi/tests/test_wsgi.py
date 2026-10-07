@@ -1,11 +1,14 @@
+import asyncio
 import json
 
 import js
 import pytest
 from pyodide.ffi import to_js
 from worker import (
+    CONTEXTVAR_CLOSE_RESULTS,
     STREAMING_CHUNK_SIZE,
     STREAMING_NUM_CHUNKS,
+    contextvar_streaming_app,
     crash_app,
     example_hdr,
     header_echo_app,
@@ -101,6 +104,55 @@ async def test_streaming(endpoint):
         end = start + STREAMING_CHUNK_SIZE
         expected_byte = i % 256
         assert all(b == expected_byte for b in body_bytes[start:end])
+
+
+async def read_all(response) -> bytes:
+    reader = response.body.getReader()
+    body = b""
+    while True:
+        result = await reader.read()
+        if result.done:
+            return body
+        body += result.value.to_bytes()
+
+
+@pytest.mark.asyncio
+async def test_streaming_preserves_contextvars():
+    response = await env.SELF.fetch(
+        "http://example.com/stream-contextvar?value=complete"
+    )
+    assert response.status == 200
+    assert await read_all(response) == b"value:" + b"complete" * STREAMING_NUM_CHUNKS
+    assert CONTEXTVAR_CLOSE_RESULTS.pop("complete") == ["ok"]
+
+
+@pytest.mark.asyncio
+async def test_concurrent_streams_keep_separate_contextvars():
+    responses = await asyncio.gather(
+        env.SELF.fetch("http://example.com/stream-contextvar?value=first"),
+        env.SELF.fetch("http://example.com/stream-contextvar?value=second"),
+    )
+    bodies = await asyncio.gather(*(read_all(response) for response in responses))
+
+    assert bodies == [
+        b"value:" + b"first" * STREAMING_NUM_CHUNKS,
+        b"value:" + b"second" * STREAMING_NUM_CHUNKS,
+    ]
+    assert CONTEXTVAR_CLOSE_RESULTS.pop("first") == ["ok"]
+    assert CONTEXTVAR_CLOSE_RESULTS.pop("second") == ["ok"]
+
+
+@pytest.mark.asyncio
+async def test_cancelled_stream_closes_in_app_context():
+    req = js.Request.new("http://example.com/stream-contextvar?value=cancel")
+    response = await wsgi.fetch(contextvar_streaming_app, req, env)
+
+    reader = response.body.getReader()
+    first = await reader.read()
+    assert first.value.to_bytes() == b"value:"
+    await reader.cancel()
+
+    assert CONTEXTVAR_CLOSE_RESULTS.pop("cancel") == ["ok"]
 
 
 @pytest.mark.asyncio
