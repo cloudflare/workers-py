@@ -16,6 +16,7 @@ This package provides utilities for:
 - `_pyodide_entrypoint_helper` and `_cloudflare_compat_flags` are internal values that are imported from `workerd`.
   - `workerd` (https://github.com/cloudflare/workerd) is the runtime that Cloudflare Workers use to run Python code.
 - When using a feature from `workerd`, always check if we can implement it in this package instead to avoid tight coupling with the runtime.
+- Code shared by the ASGI (`workers/asgi.py`) and WSGI (`workers/wsgi.py`) adapters lives in the `workers/gateway/` directory.
 
 ## Testing
 
