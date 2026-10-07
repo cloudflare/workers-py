@@ -1,9 +1,11 @@
+import gzip
 import os
 
 from testlib.entrypoint import run_pytest
 
 import asgi
 from workers import WorkerEntrypoint
+from workers.asgi import Options
 
 # ---------------------------------------------------------------------------
 # ASGI apps
@@ -238,6 +240,54 @@ class MultiCookieApp:
         await send({"type": "http.response.body", "body": b"ok"})
 
 
+ENCODED_RESPONSE_PAYLOAD = b'{"message":"already encoded by the app"}' * 64
+
+
+class EncodedResponseApp:
+    """Sends a body the app has already encoded to match Content-Encoding."""
+
+    def __init__(self, encoding, streaming):
+        self.encoding = encoding
+        self.streaming = streaming
+        self.body = (
+            gzip.compress(ENCODED_RESPONSE_PAYLOAD, mtime=0)
+            if encoding == "gzip"
+            else ENCODED_RESPONSE_PAYLOAD
+        )
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] == "lifespan":
+            message = await receive()
+            if message["type"] == "lifespan.startup":
+                await send({"type": "lifespan.startup.complete"})
+            return
+        await receive()
+        await send(
+            {
+                "type": "http.response.start",
+                "status": 200,
+                "headers": [
+                    (b"content-type", b"application/json"),
+                    (b"content-encoding", self.encoding.encode()),
+                ],
+            }
+        )
+        if not self.streaming:
+            await send({"type": "http.response.body", "body": self.body})
+            return
+        # Split one gzip member across chunks (inside its header and before
+        # its footer) and finish with an empty terminal chunk.
+        chunks = (self.body[:7], self.body[7:-8], self.body[-8:], b"")
+        for i, chunk in enumerate(chunks):
+            await send(
+                {
+                    "type": "http.response.body",
+                    "body": chunk,
+                    "more_body": i < len(chunks) - 1,
+                }
+            )
+
+
 app = HeaderEchoApp()
 sse_app = SSEApp()
 streaming_app = StreamingApp()
@@ -267,6 +317,16 @@ class Default(WorkerEntrypoint):
             )
         elif path == "/multi-cookie":
             return await asgi.fetch(multi_cookie_app, request, self.env, self.ctx)
+        elif path.startswith("/encoded/"):
+            # /encoded/<gzip|identity>/<buffered|streaming>/<automatic|manual>
+            _, _, encoding, mode, encode_body = path.split("/")
+            return await asgi.fetch(
+                EncodedResponseApp(encoding, streaming=mode == "streaming"),
+                request,
+                self.env,
+                self.ctx,
+                options=Options(encode_body=encode_body),
+            )
 
         return await asgi.fetch(app, request, self.env, self.ctx)
 
