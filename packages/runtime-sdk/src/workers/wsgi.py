@@ -1,3 +1,4 @@
+import contextvars
 import io
 import logging
 import sys
@@ -212,6 +213,14 @@ def _close_iterable(iterable: Any) -> None:
 _END = object()
 
 
+def _iter_in_context(
+    context: contextvars.Context, iterator: "Iterator[Any]"
+) -> "Iterator[Any]":
+    """Make sure every chunk is produced in the given context."""
+    while (chunk := context.run(next, iterator, _END)) is not _END:
+        yield chunk
+
+
 def _make_streaming_response(
     status: str,
     headers: "list[tuple[str, str]]",
@@ -321,15 +330,21 @@ def process_request(
         response_state["headers"] = response_headers
         return write
 
-    result = app(environ, start_response)
-    result_iter = iter(result)
+    # Make sure a single context is used per response.
+    # Otherwise, stack switching could cause context variables set by the app
+    # to be lost when the iterable is consumed.
+    context = contextvars.copy_context()
+    result = context.run(app, environ, start_response)
+    result_iter = _iter_in_context(context, context.run(iter, result))
 
     def close_all() -> None:
-        _close_iterable(result)
         try:
-            environ["wsgi.input"].close()
-        except Exception:  # noqa: BLE001 - best-effort cleanup
-            logger.exception("Failed to close wsgi.input")
+            context.run(_close_iterable, result)
+        finally:
+            try:
+                environ["wsgi.input"].close()
+            except Exception:  # noqa: BLE001 - best-effort cleanup
+                logger.exception("Failed to close wsgi.input")
 
     # WSGI apps must call start_response before yielding the first body chunk,
     # but some defer it until the first non-empty chunk is produced. Pull that

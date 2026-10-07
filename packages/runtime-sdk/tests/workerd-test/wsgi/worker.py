@@ -1,5 +1,7 @@
 import asyncio
+import contextvars
 import os
+from urllib.parse import parse_qs
 
 from pyodide.ffi import run_sync
 from testlib.entrypoint import run_pytest
@@ -91,6 +93,40 @@ def streaming_app_stack_switch(environ, start_response):
     return generate()
 
 
+REQUEST_VALUE: contextvars.ContextVar[str] = contextvars.ContextVar("request_value")
+# Outcome of resetting REQUEST_VALUE when each response generator closes, keyed
+# by request value: "ok", or the repr of the exception raised by reset().
+CONTEXTVAR_CLOSE_RESULTS: dict[str, list[str]] = {}
+
+
+def contextvar_streaming_app(environ, start_response):
+    """WSGI app whose body generator depends on a ContextVar set by the app.
+
+    Mirrors what Flask's ``stream_with_context`` does: state set in a ContextVar
+    while the app runs must stay visible while the body is iterated, and the
+    token must be reset in the same context when the iterable is closed.
+    """
+    value = parse_qs(environ["QUERY_STRING"])["value"][0]
+    token = REQUEST_VALUE.set(value)
+    start_response("200 OK", [("Content-Type", "text/plain")])
+
+    def generate():
+        try:
+            yield b"value:"
+            for _ in range(STREAMING_NUM_CHUNKS):
+                run_sync(asyncio.sleep(0))
+                yield REQUEST_VALUE.get().encode()
+        finally:
+            try:
+                REQUEST_VALUE.reset(token)
+                result = "ok"
+            except Exception as exc:  # noqa: BLE001 - recorded for the test
+                result = repr(exc)
+            CONTEXTVAR_CLOSE_RESULTS.setdefault(value, []).append(result)
+
+    return generate()
+
+
 def crash_app(environ, start_response):
     raise RuntimeError("app crash before response for testing")
 
@@ -113,6 +149,7 @@ class Default(WorkerEntrypoint):
             "/cookies": cookies_app,
             "/stream": streaming_app,
             "/stream-stack-switch": streaming_app_stack_switch,
+            "/stream-contextvar": contextvar_streaming_app,
         }.get(path, header_echo_app)
 
         return await wsgi.fetch(app, request, self.env)
