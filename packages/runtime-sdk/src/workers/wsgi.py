@@ -8,6 +8,7 @@ from urllib.parse import unquote, urlsplit
 import js
 
 from workers import Context, Request, WorkerEntrypoint
+from workers._serialize import RequestLock
 
 logger = logging.getLogger("wsgi")
 NULL_BODY_STATUSES = frozenset({101, 103, 204, 205, 304})
@@ -291,6 +292,7 @@ def process_request(
     req: "Request | js.Request",
     env: Any,
     body: "bytes | io.IOBase",
+    on_close: "Callable[[], None] | None" = None,
 ) -> js.Response:
     environ = build_environ(req, env, body)
 
@@ -325,11 +327,16 @@ def process_request(
     result_iter = iter(result)
 
     def close_all() -> None:
-        _close_iterable(result)
         try:
-            environ["wsgi.input"].close()
-        except Exception:  # noqa: BLE001 - best-effort cleanup
-            logger.exception("Failed to close wsgi.input")
+            _close_iterable(result)
+        finally:
+            try:
+                environ["wsgi.input"].close()
+            except Exception:  # noqa: BLE001 - best-effort cleanup
+                logger.exception("Failed to close wsgi.input")
+            finally:
+                if on_close is not None:
+                    on_close()
 
     # WSGI apps must call start_response before yielding the first body chunk,
     # but some defer it until the first non-empty chunk is produced. Pull that
@@ -367,25 +374,36 @@ async def fetch(
     env: Any,
     # Accepted for parity with asgi.fetch; WSGI has no use for it.
     ctx: Context | None = None,
+    *,
+    serialize: bool = False,
 ) -> js.Response:
     logger.debug("WSGI request: %s %s", req.method, req.url)
-    # Prefer lazily streaming the body through `wsgi.input` (no full buffering);
-    # fall back to pre-buffering when `run_sync`/JSPI isn't available.
-    body: bytes | io.IOBase | None = _make_wsgi_input(req)
-    if body is None:
-        body = await _read_body(req)
-    try:
-        return process_request(app, req, env, body)
-    except Exception:
-        logger.exception("WSGI request failed")
-        raise
+    async with RequestLock(serialize) as request_lock:
+        try:
+            # Prefer lazily streaming the body through `wsgi.input` (no full buffering);
+            # fall back to pre-buffering when `run_sync`/JSPI isn't available.
+            body: bytes | io.IOBase | None = _make_wsgi_input(req)
+            if body is None:
+                body = await _read_body(req)
+            response = process_request(
+                app,
+                req,
+                env,
+                body,
+                on_close=request_lock.release,
+            )
+            request_lock.defer_release()
+            return response
+        except Exception:
+            logger.exception("WSGI request failed")
+            raise
 
 
-def entrypoint(app: Any) -> type[WorkerEntrypoint]:
+def entrypoint(app: Any, *, serialize: bool = False) -> type[WorkerEntrypoint]:
     """Create the default Worker entrypoint for a WSGI application."""
 
     class Default(WorkerEntrypoint):
         async def fetch(self, request):
-            return await fetch(app, request, self.env)
+            return await fetch(app, request, self.env, serialize=serialize)
 
     return Default
