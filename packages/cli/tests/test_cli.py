@@ -885,8 +885,36 @@ def test_check_wrangler_version_sufficient(mock_run_command):
 
     # Verify the command was called correctly
     mock_run_command.assert_called_once_with(
-        ["npx", "--yes", "wrangler", "--version"], capture_output=True, check=False
+        ["npx", "--yes", "--silent", "wrangler", "--version"],
+        capture_output=True,
+        check=False,
     )
+
+
+@pytest.mark.parametrize(
+    "stdout",
+    [
+        "4.148.0",
+        "\n ⛅️ wrangler 4.148.0\n────────────────────\n",
+        # npm might print notices before the version
+        # https://github.com/cloudflare/workers-py/issues/290
+        "npm notice run my-project@0.0.0 npx\nnpm notice run 'wrangler' --version\n"
+        "\n ⛅️ wrangler 4.148.0\n────────────────────\n",
+        "npm notice run my-project@0.0.0 npx\nnpm notice run 'wrangler' --version\n"
+        "4.148.0\n",
+    ],
+)
+@patch("pywrangler.utils.run_command")
+def test_check_wrangler_version_ignores_npm_notices(mock_run_command, stdout):
+    """Regression test for cloudflare/workers-py#290."""
+    from pywrangler.utils import check_wrangler_version
+
+    mock_result = Mock()
+    mock_result.returncode = 0
+    mock_result.stdout = stdout
+    mock_run_command.return_value = mock_result
+
+    check_wrangler_version()
 
 
 @patch("pywrangler.utils.run_command")
