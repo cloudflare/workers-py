@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.9.4 (2026-10-16)
+
+### Bug Fixes
+
+- **runtime-sdk**: Lazily bound ssl module to make boto3 work
+  ([#292](https://github.com/cloudflare/workers-py/pull/292),
+  [`f3e7851`](https://github.com/cloudflare/workers-py/commit/f3e785144b9e581fc2b1b4cebd0ad5bc86e4550b))
+
+
 ## v1.9.3 (2026-10-06)
 
 ### Bug Fixes
