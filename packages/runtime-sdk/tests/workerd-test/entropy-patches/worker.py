@@ -2,6 +2,7 @@
 # a snapshot.
 from tests import (  # noqa: F401
     test_aiohttp_websocket,
+    test_boto3,
     test_jsonschema,
     test_langsmith,
     test_litestar,

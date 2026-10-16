@@ -9,6 +9,7 @@ dependencies = [
     "pydantic",
     "requests",
     "urllib3",
+    "boto3",
     "tiktoken",
     "cryptography",
     "jiter",
