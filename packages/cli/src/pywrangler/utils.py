@@ -262,17 +262,21 @@ def check_wrangler_version() -> None:
         click.exceptions.Exit: If wrangler is not installed or version is too old.
     """
     result = run_command(
-        ["npx", "--yes", "wrangler", "--version"], capture_output=True, check=False
+        ["npx", "--yes", "--silent", "wrangler", "--version"],
+        capture_output=True,
+        check=False,
     )
     if result.returncode != 0:
         logger.error("Failed to get wrangler version. Is wrangler installed?")
         logger.error("Install wrangler with: npm install wrangler@latest")
         raise click.exceptions.Exit(code=1)
 
-    # Parse version from output like "wrangler 4.42.1" or " ⛅️ wrangler 4.42.1"
+    # Parse version from output like "wrangler 4.42.1" or " ⛅️ wrangler 4.42.1" or "4.42.1"
     version_line = result.stdout.strip()
     # Extract version number using regex
-    version_match = re.search(r"(\d+)\.(\d+)\.(\d+)", version_line)
+    version_match = re.search(
+        r"wrangler\s+v?(\d+)\.(\d+)\.(\d+)", version_line
+    ) or re.search(r"^\s*v?(\d+)\.(\d+)\.(\d+)\s*$", version_line, re.MULTILINE)
 
     if not version_match:
         logger.error(f"Could not parse wrangler version from: {version_line}")
