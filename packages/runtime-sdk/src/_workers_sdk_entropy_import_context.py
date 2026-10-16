@@ -157,7 +157,7 @@ def add_lazy_ssl_attribute(module):
 
     This is a rare situation, and actually something that needs to be fixed in the package.
     However, boto3 is a very commonly downloaded package in Python, so we handle this case specifically.
-    We can drop this when https://github.com/boto/botocore/pull/3640 is merged.
+    TODO: We can drop this when https://github.com/boto/botocore/pull/3640 is merged.
     """
     if "ssl" in module.__dict__:
         return
