@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.17.8 (2026-10-16)
+
+### Bug Fixes
+
+- Make wrangler version check more robust
+  ([#291](https://github.com/cloudflare/workers-py/pull/291),
+  [`b4730bc`](https://github.com/cloudflare/workers-py/commit/b4730bc526601a28931996ce8f7fe10415a54752))
+
+
 ## v1.17.7 (2026-10-06)
 
 ### Bug Fixes
