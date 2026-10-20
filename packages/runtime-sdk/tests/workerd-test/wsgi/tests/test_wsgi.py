@@ -1,9 +1,11 @@
+import gzip
 import json
 
 import js
 import pytest
 from pyodide.ffi import to_js
 from worker import (
+    ENCODED_RESPONSE_PAYLOAD,
     STREAMING_CHUNK_SIZE,
     STREAMING_NUM_CHUNKS,
     crash_app,
@@ -119,3 +121,35 @@ def test_build_environ_handles_js_and_python_requests():
     py_env = wsgi.build_environ(py_request, env, b"")
     assert js_env["HTTP_HEADER1"] == py_env["HTTP_HEADER1"] == "Value1"
     assert js_env["HTTP_HEADER2"] == py_env["HTTP_HEADER2"] == "Value2"
+
+
+def test_options_validate_encode_body():
+    assert wsgi.Options().response_init() == {}
+    assert wsgi.Options(encode_body="manual").response_init() == {
+        "encodeBody": "manual"
+    }
+    with pytest.raises(ValueError, match="encode_body"):
+        wsgi.Options(encode_body="gzip")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("mode", ["buffered", "streaming"])
+@pytest.mark.parametrize("encoding", ["gzip", "identity"])
+@pytest.mark.parametrize("encode_body", ["automatic", "manual"])
+async def test_encode_body_option(encode_body, encoding, mode):
+    # SELF.fetch does not serialize the response over HTTP, so it cannot
+    # observe the runtime encoding the body; WSGI_HTTP goes over a socket.
+    response = await env.WSGI_HTTP.fetch(
+        f"http://example.com/encoded/{encoding}/{mode}/{encode_body}",
+        headers={"accept-encoding": "gzip"},
+    )
+    assert response.status == 200
+    assert response.headers["content-encoding"] == encoding
+
+    # fetch() decodes the declared Content-Encoding once, like a browser.
+    body = await response.bytes()
+    if encoding == "gzip" and encode_body == "automatic":
+        # The runtime gzips the app's already-gzipped bytes a second time.
+        assert gzip.decompress(body) == ENCODED_RESPONSE_PAYLOAD
+    else:
+        assert body == ENCODED_RESPONSE_PAYLOAD
