@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.9.5 (2026-10-20)
+
+### Bug Fixes
+
+- **runtime-sdk**: Add options argument to asgi and wsgi
+  ([#289](https://github.com/cloudflare/workers-py/pull/289),
+  [`eec1e54`](https://github.com/cloudflare/workers-py/commit/eec1e54fa0348e6c90161d7f1f022344e4e6e867))
+
+
 ## v1.9.4 (2026-10-16)
 
 ### Bug Fixes
