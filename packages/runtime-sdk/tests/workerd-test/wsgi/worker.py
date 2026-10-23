@@ -1,5 +1,6 @@
 import asyncio
 import contextvars
+import gzip
 import os
 from urllib.parse import parse_qs
 
@@ -127,6 +128,31 @@ def contextvar_streaming_app(environ, start_response):
     return generate()
 
 
+ENCODED_RESPONSE_PAYLOAD = b'{"message":"already encoded by the app"}' * 64
+
+
+def make_encoded_response_app(encoding, streaming):
+    """WSGI app sending a body already encoded to match Content-Encoding."""
+    body = (
+        gzip.compress(ENCODED_RESPONSE_PAYLOAD, mtime=0)
+        if encoding == "gzip"
+        else ENCODED_RESPONSE_PAYLOAD
+    )
+
+    def app(environ, start_response):
+        start_response(
+            "200 OK",
+            [("Content-Type", "application/json"), ("Content-Encoding", encoding)],
+        )
+        if not streaming:
+            return [body]
+        # Split one gzip member across chunks (inside its header and before
+        # its footer).
+        return iter((body[:7], body[7:-8], body[-8:]))
+
+    return app
+
+
 def crash_app(environ, start_response):
     raise RuntimeError("app crash before response for testing")
 
@@ -151,6 +177,14 @@ class Default(WorkerEntrypoint):
             "/stream-stack-switch": streaming_app_stack_switch,
             "/stream-contextvar": contextvar_streaming_app,
         }.get(path, header_echo_app)
+
+        if path.startswith("/encoded/"):
+            # /encoded/<gzip|identity>/<buffered|streaming>/<automatic|manual>
+            _, _, encoding, mode, encode_body = path.split("/")
+            app = make_encoded_response_app(encoding, streaming=mode == "streaming")
+            return await wsgi.fetch(
+                app, request, self.env, options=wsgi.Options(encode_body=encode_body)
+            )
 
         return await wsgi.fetch(app, request, self.env)
 

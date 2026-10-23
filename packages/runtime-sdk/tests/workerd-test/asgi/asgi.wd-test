@@ -10,10 +10,27 @@ const unitTests :Workerd.Config = (
         ],
         bindings = [
           ( name = "SELF", service = "python-asgi" ),
+          # SELF.fetch does not serialize the response over HTTP, so it cannot
+          # observe the runtime encoding the body. ASGI_HTTP goes through the
+          # loopback HTTP socket below instead.
+          ( name = "ASGI_HTTP", service = "asgi-http" ),
         ],
         compatibilityDate = "%COMPAT_DATE",
         compatibilityFlags = ["python_workers"],
       )
-    )
+    ),
+    ( name = "asgi-http",
+      external = (
+        address = "loopback:asgi-http",
+        http = (),
+      )
+    ),
+  ],
+  sockets = [
+    ( name = "asgi-http",
+      address = "loopback:asgi-http",
+      http = (),
+      service = "python-asgi",
+    ),
   ],
 );

@@ -738,7 +738,7 @@ wheels = [
 
 [[package]]
 name = "workers-py"
-version = "1.17.7"
+version = "1.17.9"
 source = { editable = "." }
 dependencies = [
     { name = "click" },
@@ -790,7 +790,7 @@ dev = [
 
 [[package]]
 name = "workers-runtime-sdk"
-version = "1.9.3"
+version = "1.9.5"
 source = { editable = "../runtime-sdk" }
 
 [package.metadata]

@@ -2,18 +2,28 @@ import logging
 from asyncio import Event, Future, Queue, create_task, ensure_future
 from collections.abc import Awaitable
 from contextlib import contextmanager
+from dataclasses import dataclass
 from typing import Any
 from urllib.parse import unquote
 
 import js
 
 from workers import Context, Request, WorkerEntrypoint
+from workers.gateway import BaseOptions
 from workers.utils import _to_js_headers
 
 ASGI = {"spec_version": "2.0", "version": "3.0"}
 NULL_BODY_STATUSES = frozenset({101, 103, 204, 205, 304})
 logger = logging.getLogger("asgi")
 background_tasks = set()
+
+
+@dataclass(frozen=True, kw_only=True)
+class Options(BaseOptions):
+    """Options for the ASGI adapter"""
+
+
+DEFAULT_OPTIONS = Options()
 
 
 def run_in_background(coro: Awaitable[Any]) -> Future:
@@ -195,10 +205,12 @@ async def process_request(  # noqa: PLR0913
     # TODO(later): remove this parameter after unvendoring Python SDK from workerd
     ctx: Context | None,
     state: dict[str, Any] | None = None,
+    options: Options = DEFAULT_OPTIONS,
 ) -> tuple[js.Response, Future[None]]:
     from js import Response, TransformStream
     from pyodide.ffi import create_proxy
 
+    response_init = options.response_init()
     status = None
     headers = None
     result = Future()
@@ -262,7 +274,10 @@ async def process_request(  # noqa: PLR0913
                 readable = transform_stream.readable
                 writer = transform_stream.writable.getWriter()
                 resp = Response.new(
-                    readable, headers=_to_js_headers(headers), status=status
+                    readable,
+                    headers=_to_js_headers(headers),
+                    status=status,
+                    **response_init,
                 )
                 result.set_result(resp)
                 with acquire_js_buffer(body) as jsbytes:
@@ -271,7 +286,10 @@ async def process_request(  # noqa: PLR0913
                 # 101/103/204/205/304 must not carry a body per the Fetch spec.
                 # https://fetch.spec.whatwg.org/#null-body-status
                 resp = Response.new(
-                    None, headers=_to_js_headers(headers), status=status
+                    None,
+                    headers=_to_js_headers(headers),
+                    status=status,
+                    **response_init,
                 )
                 result.set_result(resp)
                 finished_response.set()
@@ -281,7 +299,10 @@ async def process_request(  # noqa: PLR0913
                 buf = px.getBuffer()
                 px.destroy()
                 resp = Response.new(
-                    buf.data, headers=_to_js_headers(headers), status=status
+                    buf.data,
+                    headers=_to_js_headers(headers),
+                    status=status,
+                    **response_init,
                 )
                 result.set_result(resp)
                 finished_response.set()
@@ -436,12 +457,19 @@ async def process_websocket(
 
 
 async def fetch(
-    app: Any, req: "Request | js.Request", env: Any, ctx: Context | None = None
+    app: Any,
+    req: "Request | js.Request",
+    env: Any,
+    ctx: Context | None = None,
+    *,
+    options: Options | None = None,
 ) -> js.Response:
     logger.debug("ASGI request: %s %s", req.method, req.url)
     shutdown, state = await start_application(app)
     try:
-        result, request_task = await process_request(app, req, env, ctx, state=state)
+        result, request_task = await process_request(
+            app, req, env, ctx, state=state, options=options or DEFAULT_OPTIONS
+        )
     except Exception:
         logger.exception("ASGI request failed")
         await shutdown()
@@ -469,14 +497,14 @@ async def websocket(
     return await process_websocket(app, req, env)
 
 
-def entrypoint(app: Any) -> type[WorkerEntrypoint]:
+def entrypoint(app: Any, *, options: Options | None = None) -> type[WorkerEntrypoint]:
     """Create the default Worker entrypoint for an ASGI application."""
 
     class Default(WorkerEntrypoint):
         async def fetch(self, request):
             if (request.headers.get("upgrade") or "").lower() == "websocket":
                 return await websocket(app, request, self.env)
-            return await fetch(app, request, self.env, self.ctx)
+            return await fetch(app, request, self.env, self.ctx, options=options)
 
     return Default
 

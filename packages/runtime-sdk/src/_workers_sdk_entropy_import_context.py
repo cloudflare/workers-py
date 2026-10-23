@@ -149,13 +149,41 @@ class NoSslFinder:
             ) from None
 
 
+def add_lazy_ssl_attribute(module):
+    """
+    When `import ssl` fails inside a module, the fallback code would leave the name `ssl`
+    unbound. Other packages may still re-export it from there, e.g. botocore does
+    `from urllib3.util.ssl_ import ssl`.
+
+    This is a rare situation, and actually something that needs to be fixed in the package.
+    However, boto3 is a very commonly downloaded package in Python, so we handle this case specifically.
+    TODO: We can drop this when https://github.com/boto/botocore/pull/3640 is merged.
+    """
+    if "ssl" in module.__dict__:
+        return
+
+    orig_getattr = module.__dict__.get("__getattr__")
+
+    def __getattr__(name):
+        if name == "ssl":
+            import ssl
+
+            module.ssl = ssl
+            return ssl
+        if orig_getattr is not None:
+            return orig_getattr(name)
+        raise AttributeError(f"module {module.__name__!r} has no attribute {name!r}")
+
+    module.__getattr__ = __getattr__
+
+
 @contextmanager
-def no_ssl():
+def no_ssl(module):
     """
     Various packages will call ssl.create_default_context() at top level which uses entropy if they
     can import ssl. By temporarily making importing ssl raise an import error, we exercise the
     workaround code and so avoid the entropy calls. After, we put the ssl module back to the normal
-    value.
+    value and make `module.ssl` available again in case the workaround code left it unbound.
     """
     try:
         f = NoSslFinder()
@@ -166,26 +194,27 @@ def no_ssl():
         sys.meta_path.remove(f)
         if ssl:
             sys.modules["ssl"] = ssl
+    add_lazy_ssl_attribute(module)
 
 
 @register_exec_patch("aiohttp.connector")
 @contextmanager
 def aiohttp_connector_context(module):
-    with no_ssl():
+    with no_ssl(module):
         yield
 
 
 @register_exec_patch("requests.adapters")
 @contextmanager
 def requests_adapters_context(module):
-    with no_ssl():
+    with no_ssl(module):
         yield
 
 
 @register_exec_patch("urllib3.util.ssl_")
 @contextmanager
 def urllib3_util_ssl__context(module):
-    with no_ssl():
+    with no_ssl(module):
         yield
 
 
