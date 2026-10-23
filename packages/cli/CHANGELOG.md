@@ -2,6 +2,14 @@
 
 <!-- version list -->
 
+## v1.17.9 (2026-10-23)
+
+### Bug Fixes
+
+- Force uv>=0.13.4 with eMudhra vuln fix ([#293](https://github.com/cloudflare/workers-py/pull/293),
+  [`5feb38e`](https://github.com/cloudflare/workers-py/commit/5feb38effd4f9078dc7a00d3c65ae9d6a258bc3e))
+
+
 ## v1.17.8 (2026-10-16)
 
 ### Bug Fixes
