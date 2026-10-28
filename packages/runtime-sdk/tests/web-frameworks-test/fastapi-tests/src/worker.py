@@ -576,15 +576,6 @@ async def native_file():
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 
-class EnvPlugin:
-    def __init__(self, env):
-        self._env = env
-
-    @pytest.fixture
-    def env(self):
-        return self._env
-
-
 class FastAPIAppPlugin:
     @pytest.fixture
     def fastapi_app(self):

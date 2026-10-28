@@ -12,7 +12,11 @@ passes.
 from pathlib import Path
 
 import pytest
-from conftest import COMPAT_CONFIGS, CompatConfig, register_in_worker_suites
+from testlib.host import (
+    COMPAT_CONFIGS,
+    compat_config_fixture,
+    register_in_worker_suites,
+)
 
 WEB_FRAMEWORKS_DIR: Path = (
     Path(__file__).parent / "web-frameworks-test" / "django-async"
@@ -26,16 +30,9 @@ def worker_project_dir() -> Path:
 
 
 # Exclude Python 3.12 (Pyodide 0.26.0a2) for async tests
-ASYNC_COMPAT_CONFIGS = [c for c in COMPAT_CONFIGS if c.python_version != "3.12"]
-
-
-@pytest.fixture(
-    scope="module",
-    params=ASYNC_COMPAT_CONFIGS,
-    ids=[c.python_version for c in ASYNC_COMPAT_CONFIGS],
+compat_config = compat_config_fixture(
+    [c for c in COMPAT_CONFIGS if c.python_version != "3.12"]
 )
-def compat_config(request: pytest.FixtureRequest) -> CompatConfig:
-    return request.param
 
 
 register_in_worker_suites(globals(), WEB_FRAMEWORKS_SRC_DIR)

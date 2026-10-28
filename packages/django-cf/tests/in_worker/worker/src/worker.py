@@ -6,7 +6,6 @@ from urllib.parse import urlparse
 
 import django
 import django.conf
-import pytest
 from _django_app import R2_LOCATION, django_wsgi_app
 from django.http import HttpResponse, JsonResponse, StreamingHttpResponse
 from django.urls import path
@@ -134,15 +133,6 @@ urlpatterns = [
     path("django/headers/", _django_headers_view),
     *do_orm_urlpatterns,
 ]
-
-
-class EnvPlugin:
-    def __init__(self, env):
-        self._env = env
-
-    @pytest.fixture
-    def env(self):
-        return self._env
 
 
 class Default(DjangoCF, TestRunnerEntrypoint):

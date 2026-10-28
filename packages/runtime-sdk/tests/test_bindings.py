@@ -13,7 +13,7 @@ and add any required binding to wrangler.jsonc.
 from pathlib import Path
 
 import pytest
-from conftest import register_in_worker_suites
+from testlib.host import register_in_worker_suites
 
 BINDINGS_TEST_DIR: Path = Path(__file__).parent / "bindings-test"
 BINDINGS_SRC_DIR: Path = BINDINGS_TEST_DIR / "src"
