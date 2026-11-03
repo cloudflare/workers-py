@@ -1,0 +1,19 @@
+packages/runtime-sdk/tests/workerd-test/sdk/tests/test_sdk.py
+  s_c60d0d2ccee87b::t_c1dc316159d966 501
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.10",
+  "base_commit_sha": "2aa83f7308a4996f89725d162d8481c7ac9162f4",
+  "prompts": {},
+  "sessions": {
+    "s_c60d0d2ccee87b": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "725ecd5d-f4da-4c4c-ace3-8fa191a80da6",
+        "model": "claude-opus-5-5"
+      },
+      "human_author": "Gyeongjae Choi <gyeongjae@cloudflare.com>"
+    }
+  }
+}
