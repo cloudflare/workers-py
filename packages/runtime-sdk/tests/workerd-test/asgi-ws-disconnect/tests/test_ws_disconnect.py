@@ -99,10 +99,16 @@ async def _ws_session(path):
     # Without this the payload arrives as a Blob, which cannot be read
     # synchronously in the message callback.
     ws.binaryType = "arraybuffer"
+    # The app runs on this test's event loop, which pytest-asyncio closes when
+    # the test ends, cancelling an app still awaiting the disconnect. Its
+    # server socket then never closes, and workerd keeps the request open
+    # waiting for it, so wait for the server's close before returning.
+    closed = _listen(ws, "close")
     try:
         yield ws
     finally:
         ws.close()
+        await asyncio.wait_for(closed, TIMEOUT_S)
 
 
 @pytest.mark.asyncio
