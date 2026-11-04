@@ -50,5 +50,11 @@ via `../packages/testlib` in `[tool.uv.sources]`.
   suite then fail as "not found in results".
 - Python 3.12 (Pyodide 0.26.0a2) reports false passes for async in-worker
   tests; verify failure behaviour on 3.13+.
+- The in-worker pytest runs with `--capture=sys`: fd capture breaks on 3.12
+  with pytest>=9.2 (`os.fstat` on an unlinked temp file raises ENOENT).
+- In-worker tests share the event loop pytest-asyncio creates for each test,
+  so ASGI app tasks started by the test's own requests are cancelled when the
+  test ends. Let WebSocket sessions finish their close handshake before
+  returning, or workerd keeps the server request open.
 - `pywrangler sync` in tests may need `UV_NATIVE_TLS=1` on hosts with custom
   CA certificates.
