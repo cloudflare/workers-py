@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.9.6 (2026-11-04)
+
+### Bug Fixes
+
+- **runtime-sdk**: Fix contextvars not being properly shared in WSGI streaming response
+  ([#288](https://github.com/cloudflare/workers-py/pull/288),
+  [`7cc6cbd`](https://github.com/cloudflare/workers-py/commit/7cc6cbd9253cc581dbb53e9254aa063b643f1183))
+
+
 ## v1.9.5 (2026-10-20)
 
 ### Bug Fixes
