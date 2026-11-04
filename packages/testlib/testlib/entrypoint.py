@@ -14,6 +14,12 @@ from workers import Response, WorkerEntrypoint
 
 from .tracebacks import dump_exception
 
+# Workers have no subprocesses whose output needs fd-level capture, and
+# pytest>=9.2's fd capture calls os.fstat() on an unlinked temporary file,
+# which fails with ENOENT on Python 3.12 (Pyodide 0.26). Forwarded host
+# arguments come later, so a host `-s` still takes precedence.
+CAPTURE_ARGS = ["--capture=sys"]
+
 
 class EnvPlugin:
     def __init__(self, env):
@@ -155,7 +161,7 @@ def run_pytest(pytest_args):
     than via `TestRunner`. Fails the calling test if pytest reports failures.
     """
     with restore_loop(), patch_asyncio():
-        exit_code = pytest.main(pytest_args)
+        exit_code = pytest.main([*CAPTURE_ARGS, *pytest_args])
     assert exit_code == 0, f"pytest exit code {exit_code}"
 
 
@@ -244,7 +250,14 @@ class TestRunner:
             redirect_stderr(output),
         ):
             exit_code = pytest.main(
-                ["--pyargs", module, "-p", "no:cacheprovider", *request.pytest_args],
+                [
+                    "--pyargs",
+                    module,
+                    "-p",
+                    "no:cacheprovider",
+                    *CAPTURE_ARGS,
+                    *request.pytest_args,
+                ],
                 plugins=self.plugins(request.keywords),
             )
         if exit_code != 0 and not self.collector.results:
