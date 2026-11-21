@@ -87,7 +87,7 @@ class FormData(MutableMapping[str, FormDataValue]):
         self.delete(key)
 
     def __len__(self):
-        return len(self.keys())
+        return sum(1 for _ in self.keys())
 
     def get_all(self, key: str) -> list[FormDataValue]:
         return [_js_value_to_py(x) for x in self._js_form_data.getAll(key)]
