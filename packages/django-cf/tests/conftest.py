@@ -11,18 +11,17 @@ from pathlib import Path
 import pytest
 import requests
 from testlib.host import (
-    COMPAT_CONFIGS,
     GENERATED_FILE_PATTERN,
-    CompatConfig,
+    compat_config,
     dev_server,
+    fail_with_log,
     pywrangler_sync,
     run_dev_server,
-)
-from testlib.host import (
-    register_in_worker_suites as register_testlib_suites,
+    worker_project_dir,
 )
 
-__all__ = ["dev_server"]
+# Re-export fixtures so pytest discovers them
+__all__ = ["compat_config", "dev_server", "worker_project_dir"]
 
 TEST_DIR: Path = Path(__file__).parent
 PACKAGE_DIR: Path = TEST_DIR.parent
@@ -41,27 +40,23 @@ class DevServer:
     base_url: str
 
 
-def _fail(log_path: Path, message: str) -> None:
-    pytest.fail(
-        f"{message}\n\n--- pywrangler dev log ---\n{log_path.read_text(errors='replace')}"
-    )
-
-
 def _seed(base_url: str, log_path: Path) -> None:
     for endpoint in ("__run_migrations__", "__create_admin__"):
         try:
             response = requests.get(f"{base_url}/{endpoint}/", timeout=SEED_TIMEOUT)
         except requests.RequestException as error:
-            _fail(log_path, f"GET /{endpoint}/ failed: {error}")
+            fail_with_log(log_path, f"GET /{endpoint}/ failed: {error}")
         else:
             if response.status_code != 200:
-                _fail(
+                fail_with_log(
                     log_path,
                     f"GET /{endpoint}/ returned {response.status_code}: {response.text[:2000]}",
                 )
             payload = response.json()
             if payload.get("status") == "error":
-                _fail(log_path, f"GET /{endpoint}/ reported: {payload.get('message')}")
+                fail_with_log(
+                    log_path, f"GET /{endpoint}/ reported: {payload.get('message')}"
+                )
 
 
 def _serve(project_dir: Path, tmp_path: Path) -> Generator[DevServer]:
@@ -108,30 +103,6 @@ def r2_web_server(tmp_path_factory: pytest.TempPathFactory) -> Generator[DevServ
     yield from _serve(R2_PROJECT, tmp_path_factory.mktemp("r2"))
 
 
-@pytest.fixture(
-    scope="module",
-    params=COMPAT_CONFIGS,
-    ids=[c.python_version for c in COMPAT_CONFIGS],
-)
-def compat_config(request: pytest.FixtureRequest) -> CompatConfig:
-    return request.param
-
-
 @pytest.fixture(scope="module")
-def worker_project_dir() -> Path:
-    """Worker project the `dev_server` fixture should serve.
-
-    Test modules using `dev_server` must override this fixture.
-    """
-    raise NotImplementedError(
-        "override the `worker_project_dir` fixture in your test module"
-    )
-
-
-@pytest.fixture(scope="module")
-def dev_startup_timeout():
+def dev_startup_timeout() -> int:
     return DEV_STARTUP_TIMEOUT
-
-
-def register_in_worker_suites(namespace: dict, src_dir: Path) -> None:
-    register_testlib_suites(namespace, src_dir, source_roots=[PACKAGE_DIR])

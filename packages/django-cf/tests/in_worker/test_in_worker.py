@@ -12,22 +12,20 @@ from pathlib import Path
 
 import pytest
 import requests
+from testlib.host import (
+    COMPAT_CONFIGS,
+    compat_config_fixture,
+    register_in_worker_suites,
+)
 
-from tests.conftest import COMPAT_CONFIGS, CompatConfig, register_in_worker_suites
+from tests.conftest import PACKAGE_DIR
 
 IN_WORKER_PROJECT: Path = Path(__file__).parent / "worker"
 IN_WORKER_SRC_DIR: Path = IN_WORKER_PROJECT / "src"
 
-MATRIX: list[CompatConfig] = [c for c in COMPAT_CONFIGS if c.python_version != "3.12"]
-
-
-@pytest.fixture(
-    scope="module",
-    params=MATRIX,
-    ids=[c.python_version for c in MATRIX],
+compat_config = compat_config_fixture(
+    [c for c in COMPAT_CONFIGS if c.python_version != "3.12"]
 )
-def compat_config(request: pytest.FixtureRequest) -> CompatConfig:
-    return request.param
 
 
 @pytest.fixture(scope="module")
@@ -35,7 +33,7 @@ def worker_project_dir() -> Path:
     return IN_WORKER_PROJECT
 
 
-register_in_worker_suites(globals(), IN_WORKER_SRC_DIR)
+register_in_worker_suites(globals(), IN_WORKER_SRC_DIR, source_roots=[PACKAGE_DIR])
 
 
 def test_django_wsgi_header_transformation(dev_server: str) -> None:

@@ -10,9 +10,26 @@ via `../packages/testlib` in `[tool.uv.sources]`.
 
 | Module | Runs on | Purpose |
 |---|---|---|
-| `testlib/host.py` | host | `dev_server`, `pywrangler_sync`, `register_in_worker_suites`, arg/keyword forwarding |
+| `testlib/host.py` | host | `dev_server` and its backing fixtures, `pywrangler_sync`, `register_in_worker_suites`, arg/keyword forwarding |
 | `testlib/entrypoint.py` | worker | `TestRunner`, `TestRunnerEntrypoint` (`/run-tests/<suite>`, `/health`), `ResultCollector` |
 | `testlib/tracebacks.py` | both | Pickle worker exceptions and remap their frames onto host source roots |
+
+## Fixtures shared with the package conftests
+
+- `host.py` defines `dev_server` plus the fixtures it depends on:
+  `compat_config` (parametrised over `COMPAT_CONFIGS`), `worker_project_dir`
+  (raises; every test module using `dev_server` must override it) and
+  `dev_startup_timeout` (120s). Each package's `tests/conftest.py` imports them
+  by name and lists them in `__all__` so pytest discovers them; it should not
+  redefine them. Override per package (django-cf bumps `dev_startup_timeout`)
+  or per module as needed.
+- To run a module against a subset of runtimes, assign
+  `compat_config = compat_config_fixture([...])` at module level instead of
+  hand-writing a parametrised fixture.
+- `fail_with_log(log_path, message)` fails the test with the `pywrangler dev`
+  log appended; use it rather than reimplementing it.
+- `TestRunner` always registers `EnvPlugin`, so every in-worker suite already
+  has an `env` fixture. Do not add one to a worker's `src/conftest.py`.
 
 ## How in-worker suites are exposed on the host
 

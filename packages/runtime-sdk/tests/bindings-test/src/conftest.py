@@ -1,15 +1,6 @@
 # pyright: reportMissingImports=false
 import uuid
 
-import pytest
-
-from workers import env as _env
-
-
-@pytest.fixture
-def env():
-    return _env
-
 
 def unique_table_name() -> str:
     """Unique per call"""
