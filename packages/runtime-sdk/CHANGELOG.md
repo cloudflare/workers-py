@@ -2,6 +2,15 @@
 
 <!-- version list -->
 
+## v1.9.7 (2026-11-23)
+
+### Bug Fixes
+
+- **runtime-sdk**: Count entries in FormData.__len__
+  ([#296](https://github.com/cloudflare/workers-py/pull/296),
+  [`6ff48b7`](https://github.com/cloudflare/workers-py/commit/6ff48b79c3d2f896a3c7edc698e1ce20118512ea))
+
+
 ## v1.9.6 (2026-11-04)
 
 ### Bug Fixes
