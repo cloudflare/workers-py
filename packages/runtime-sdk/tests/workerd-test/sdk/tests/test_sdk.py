@@ -239,6 +239,13 @@ async def test_form_data_unit_tests():
     data = FormData({"key": "foobar"})
     assert data["key"] == "foobar"
     assert "key" in data
+    assert len(data) == 1
+    assert data
+
+    # An empty FormData has length 0 and is falsy.
+    empty = FormData()
+    assert len(empty) == 0
+    assert not empty
 
     # Test iterators
     data.append("key", "another")
@@ -249,6 +256,7 @@ async def test_form_data_unit_tests():
     assert ("key2", "foobar2") in data_items
     data_keys = set(data.keys())
     assert len(list(data.keys())) == 3
+    assert len(data) == 3
     assert "key" in data_keys
     assert "key2" in data_keys
     data_values = set(data.values())
